@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import type { ActivityView } from "@/lib/api";
 import { isFinal, STATUS_LABEL } from "@/lib/format";
+import { pageOf } from "@/lib/paging";
 import { cn } from "@/lib/utils";
+
+/** A page fits a phone screen, so the list never turns into an endless scroll. */
+const PAGE_SIZE = 5;
 
 type Row =
   | { kind: "sent"; at: string; item: ActivityView["sent"][number] }
@@ -28,6 +33,8 @@ export function ActivityList({
   splitNames: Record<string, string>;
   onRetry: () => void;
 }) {
+  // Kept across the home page's background refreshes; pageOf clamps it if the list shrinks.
+  const [page, setPage] = React.useState(0);
   if (!activity) {
     return (
       <div aria-busy="true" aria-label="Loading activity" className="space-y-3">
@@ -42,6 +49,7 @@ export function ActivityList({
     ...activity.sent.map((item) => ({ kind: "sent" as const, at: item.createdAt, item })),
     ...activity.received.map((item) => ({ kind: "received" as const, at: item.at, item })),
   ].sort((a, b) => b.at.localeCompare(a.at));
+  const shown = pageOf(rows, page, PAGE_SIZE);
 
   return (
     <div className="space-y-3">
@@ -57,7 +65,7 @@ export function ActivityList({
         <p className="text-muted-foreground">Money you send and receive shows here, each with its receipt.</p>
       ) : (
         <ul className="space-y-3">
-          {rows.slice(0, 12).map((row) => {
+          {shown.items.map((row) => {
             if (row.kind === "sent") {
               const t = row.item;
               const failed = t.status === "failed";
@@ -117,6 +125,24 @@ export function ActivityList({
             );
           })}
         </ul>
+      )}
+      {shown.pages > 1 && (
+        <nav aria-label="Activity pages" className="flex items-center gap-3 pt-1">
+          <Button variant="ghost" className="min-h-[44px] px-4" disabled={shown.page === 0} onClick={() => setPage(shown.page - 1)}>
+            Newer
+          </Button>
+          <span className="flex-1 text-center text-sm text-muted-foreground tabular-nums" aria-live="polite">
+            Page {shown.page + 1} of {shown.pages}
+          </span>
+          <Button
+            variant="ghost"
+            className="min-h-[44px] px-4"
+            disabled={shown.page === shown.pages - 1}
+            onClick={() => setPage(shown.page + 1)}
+          >
+            Older
+          </Button>
+        </nav>
       )}
     </div>
   );
