@@ -103,6 +103,6 @@ if (!env.CIRCLE_TREASURY_WALLET_ID) {
 
 console.log(
   label === "testnet"
-    ? "\nNext: in console.circle.com/faucet, send Arc Testnet USDC to the treasury wallet ID above."
+    ? "\nNext: at https://faucet.circle.com, pick Arc Testnet and send USDC to the treasury address above."
     : "\nNext: fund the treasury wallet address above with USDC on Arc mainnet.",
 );

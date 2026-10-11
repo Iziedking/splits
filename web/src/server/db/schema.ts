@@ -256,3 +256,18 @@ export const notices = pgTable(
   },
   (t) => [uniqueIndex("notices_one_per_transfer_email").on(t.transferId, t.email), index("notices_status").on(t.status)],
 );
+
+/**
+ * One private link per recipient of a settled payment. The page behind it shows that recipient's
+ * part only, so a sender can share each person's receipt without showing anyone else's.
+ */
+export const receiptLinks = pgTable(
+  "receipt_links",
+  {
+    token: text("token").primaryKey(),
+    transferId: uuid("transfer_id").notNull().references(() => transfers.id),
+    legIndex: integer("leg_index").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("receipt_links_one_per_leg").on(t.transferId, t.legIndex)],
+);

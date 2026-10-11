@@ -42,6 +42,35 @@ layout. The Figma file is read only; nothing in it was changed.
 Motion: unchanged rules (one entry settle, a dialog that rises, reduced motion turns it all off). The
 blobs do not move.
 
+## Receipts (2026-10-11): one receipt per recipient
+
+**Intent.** After a payment lands, the sender can share each person's receipt with that person.
+A receipt shows that recipient's part only: their amount, what it was for, their address, the
+sender's first name and wallet, when it was paid, the network and the Arc transaction. It never
+shows the total or anyone else in the payment. The reference was a pasted 21st.dev
+"OrderConfirmationCard"; its structure (success mark, title, label and value rows, one action) is
+kept, its look is replaced by v4 glass and teal, and framer-motion is not added.
+
+- **Link, not login.** `/r/<token>` opens for anyone holding the link (24 random base64url
+  characters, one per recipient, stored in `receipt_links`, made the first time the sender opens a
+  settled payment). Unknown or malformed links get a 404 with a plain recovery line. Pages carry
+  `noindex` and `no-referrer`.
+- **Focal object.** The receipt card's top stripe is the colour that part had on the sender's
+  screen, so a receipt reads as one slice of a payment.
+- **Sender side (S8).** Every card on "Landed, divided." has "View receipt". "Share receipt"
+  shares straight away for one recipient; for more it opens "Share a receipt", a sheet with one
+  row per person (View and Share), and a search box once there are more than 8.
+- **Share fallback.** Phone share sheet first, clipboard second. Where both are blocked the link is
+  shown selected, so it can still be copied by hand.
+- **Trust.** "Settled and checked" only for live payments, which settle after the Arc receipt is
+  matched against what was approved. Preview receipts say "Simulated in preview" and show no
+  explorer link.
+- **Motion.** One CSS reveal (check pop, then lines settle in reading order). It runs on first
+  paint and is turned off for print and reduced motion, so the receipt is readable without script.
+- **Print.** "Print or save as PDF" prints the card only.
+- **Rejected:** a single shared receipt for the whole payment (shows every recipient's amount to
+  each of them); signed stateless tokens (needs a new production secret days before mainnet).
+
 ## v3: pay anyone, giveaways, add money (2026-10-11)
 
 The user asked for Splits to work for anyone who needs to split money, with diaspora family support

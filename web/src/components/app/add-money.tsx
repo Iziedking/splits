@@ -104,7 +104,7 @@ export function AddMoney({
           </Notice>
           {network === "arc-testnet" && (
             <a
-              href="https://console.circle.com/faucet"
+              href="https://faucet.circle.com"
               target="_blank"
               rel="noreferrer"
               className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4"

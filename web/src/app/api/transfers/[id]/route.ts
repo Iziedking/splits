@@ -1,5 +1,6 @@
 import { api, json, requireUser } from "@/server/http";
 import { notFound } from "@/server/errors";
+import { receiptLinks } from "@/server/services/receipts";
 import { advanceWithRules } from "@/server/services/rules";
 import { getTransfer, refreshPendingSteps, transferSteps } from "@/server/services/transfers";
 import { transferView } from "@/server/views";
@@ -16,5 +17,5 @@ export const GET = api(async ({ ctx, params }) => {
   if (t.payerUserId !== user.id) throw notFound("Payment not found");
   t = await advanceWithRules(ctx, t.id, POLL_BUDGET_MS);
   await refreshPendingSteps(ctx, t.id);
-  return json({ transfer: transferView(ctx, t, await transferSteps(ctx, t.id)) });
+  return json({ transfer: transferView(ctx, t, await transferSteps(ctx, t.id), await receiptLinks(ctx, t)) });
 });

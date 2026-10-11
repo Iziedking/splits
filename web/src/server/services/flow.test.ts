@@ -4,10 +4,12 @@ import { describe, expect, it } from "vitest";
 import type { Ctx } from "../context";
 import { providerTxs, transfers, users } from "../db/schema";
 import { AppError } from "../errors";
+import { formatUsdc } from "../domain/money";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
 import { activityFor } from "./activity";
 import { checkPayout } from "./payouts";
+import { receiptByToken, receiptLinks } from "./receipts";
 import { advanceWithRules } from "./rules";
 import { advanceSplit, confirmSplit, draftSplit, splitsFor, type SplitInput } from "./splits";
 import { sweep } from "./sweeper";
@@ -578,5 +580,67 @@ describe("activity", () => {
     const down = await activityFor(ctx, host);
     expect(down.receivedError).toBe("Couldn't load received payments. Try again.");
     expect(down.sent).toHaveLength(1);
+  });
+});
+
+describe("polling a payment", () => {
+  it("answers within its time budget instead of waiting for the payment to settle", async () => {
+    const { ctx } = await testCtx({}, { pendingPolls: 0 });
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
+    const { transfer, action } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" });
+    await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+
+    const polled = await advanceWithRules(ctx, transfer.id, 1);
+    expect(polled.status).not.toBe("settled");
+    expect((await drive(ctx, transfer.id)).status).toBe("settled");
+  });
+});
+
+describe("receipts", () => {
+  it("gives each recipient a link to a receipt that shows only their part", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada.obi@example.com");
+    const split = await activeSplit(ctx, user);
+    const t = await pay(ctx, user, split.id, 1_000);
+    expect(t.status).toBe("settled");
+
+    const links = await receiptLinks(ctx, t);
+    expect(links).toHaveLength(3);
+    expect(new Set(links).size).toBe(3);
+    expect(await receiptLinks(ctx, t)).toEqual(links);
+
+    const school = await receiptByToken(ctx, links![1]!);
+    const schoolLeg = t.expected[1]!;
+    expect(school).toMatchObject({
+      name: "School",
+      purpose: "school fees",
+      amount: formatUsdc(BigInt(schoolLeg.amount)),
+      to: schoolLeg.address,
+      from: "Ada",
+      txHash: t.txHash,
+      simulated: true,
+    });
+    const shown = JSON.stringify(school);
+    for (const other of [t.expected[0]!, t.expected[2]!]) {
+      expect(shown).not.toContain(other.name);
+      expect(shown).not.toContain(other.address);
+    }
+    expect(shown).not.toContain(formatUsdc(BigInt(t.amount)));
+    expect(shown).not.toContain("ada.obi@example.com");
+  });
+
+  it("has no links before the payment settles", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const { transfer } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1_000 });
+    expect(await receiptLinks(ctx, transfer)).toBeNull();
+  });
+
+  it("finds nothing for an unknown or malformed link", async () => {
+    const { ctx } = await testCtx();
+    expect(await code(receiptByToken(ctx, "A".repeat(24)))).toBe("NOT_FOUND");
+    expect(await code(receiptByToken(ctx, "'; drop table transfers;--"))).toBe("NOT_FOUND");
   });
 });

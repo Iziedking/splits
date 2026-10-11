@@ -1,11 +1,12 @@
 "use client";
 
-import { CircleAlert, ExternalLink, Share2 } from "lucide-react";
+import { CircleAlert, ExternalLink, ReceiptText, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useFrameTone, useMe } from "@/components/app/app-frame";
 import { CountUp } from "@/components/app/count-up";
+import { ManualLink, receiptText, shareLink, ShareReceipts } from "@/components/app/receipt-share";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, errorMessage, type TransferView } from "@/lib/api";
@@ -152,16 +153,16 @@ function Landed({ t, preview }: { t: TransferView; preview: boolean }) {
   const router = useRouter();
   const compact = t.legs.length > 6;
   const again = t.splitId ? `/send/${t.splitId}` : `/pay${t.recipients > 1 ? "?mode=many" : ""}`;
+  const [picking, setPicking] = React.useState(false);
+  const [shared, setShared] = React.useState<"copied" | "failed" | null>(null);
+  const hasReceipts = t.legs.some((l) => l.receipt);
 
+  /** One recipient: share theirs straight away. More: choose whose to share. */
   async function share() {
-    if (!t.explorerUrl) return;
-    const text = `$${t.amount} split to ${who(t)} on Arc`;
-    try {
-      if (navigator.share) await navigator.share({ title: "Splits receipt", text, url: t.explorerUrl });
-      else await navigator.clipboard.writeText(t.explorerUrl);
-    } catch {
-      // Cancelled by the person; nothing to do.
-    }
+    const only = t.legs.length === 1 ? t.legs[0] : undefined;
+    if (!only?.receipt) return setPicking(true);
+    const result = await shareLink(only.receipt, receiptText(only));
+    if (result === "copied" || result === "failed") setShared(result);
   }
 
   return (
@@ -182,7 +183,18 @@ function Landed({ t, preview }: { t: TransferView; preview: boolean }) {
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
                   <span className="truncate font-medium">{leg.name}</span>
                 </span>
-                <span className="font-bold tabular-nums">${leg.amount}</span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <span className="font-bold tabular-nums">${leg.amount}</span>
+                  {leg.receipt && (
+                    <Link
+                      href={leg.receipt}
+                      aria-label={`View ${leg.name}'s receipt`}
+                      className="-my-2 -mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-primary hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                    </Link>
+                  )}
+                </span>
               </>
             ) : (
               <>
@@ -190,28 +202,50 @@ function Landed({ t, preview }: { t: TransferView; preview: boolean }) {
                   {leg.name} · {leg.purpose}
                 </span>
                 <span className="figure mt-1 block text-[1.75rem] leading-none">${leg.amount}</span>
-                <span aria-hidden="true" className="mt-3 block h-1.5 w-14 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                <span className="mt-3 flex items-center justify-between gap-3">
+                  <span aria-hidden="true" className="block h-1.5 w-14 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                  {leg.receipt && (
+                    <Link
+                      href={leg.receipt}
+                      className="-my-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    >
+                      <ReceiptText className="h-4 w-4" aria-hidden="true" />
+                      View receipt
+                      <span className="sr-only"> for {leg.name}</span>
+                    </Link>
+                  )}
+                </span>
               </>
             )}
           </li>
         ))}
       </ul>
 
-      {t.explorerUrl ? (
-        <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary">
+      <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary">
+        {t.explorerUrl && (
           <a href={t.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
             View on Arc explorer
             <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </a>
-          <span aria-hidden="true">·</span>
+        )}
+        {t.explorerUrl && hasReceipts && <span aria-hidden="true">·</span>}
+        {hasReceipts && (
           <button type="button" onClick={() => void share()} className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
-            Share receipt
+            {shared === "copied" ? "Receipt link copied" : t.legs.length === 1 ? "Share receipt" : "Share a receipt"}
             <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
-        </p>
-      ) : (
-        preview && <p className="text-sm text-muted-foreground">Preview mode: this receipt is simulated, so there is no explorer link.</p>
+        )}
+      </p>
+      {shared === "failed" && t.legs[0]?.receipt && (
+        <div role="status" className="-mt-3 text-sm">
+          <span className="font-semibold">Copy this link to share it:</span>
+          <ManualLink path={t.legs[0].receipt} />
+        </div>
       )}
+      {!t.explorerUrl && preview && (
+        <p className="text-sm text-muted-foreground">Preview mode: these receipts are simulated, so there is no explorer link.</p>
+      )}
+      <ShareReceipts legs={t.legs} open={picking} onClose={() => setPicking(false)} />
 
       <div className="space-y-3">
         <Button className="w-full" onClick={() => router.push("/home")}>

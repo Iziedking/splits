@@ -4,6 +4,7 @@ import type { ProviderTxRow } from "./services/providerTx";
 import type { Split } from "./services/splits";
 import type { Transfer } from "./services/transfers";
 import type { User, Wallet } from "./services/users";
+import { greetingName } from "../lib/format";
 import { formatUsdc } from "./domain/money";
 
 /** JSON shapes for the API. Amounts go out as USDC decimal strings, never as raw bigints. */
@@ -58,7 +59,7 @@ const STEP_LABELS: Record<string, string> = {
   send: "Pay everyone on Arc",
 };
 
-export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = []) {
+export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [], receipts: string[] | null = null) {
   const quote = t.quote as { currency?: string; fiatMinor?: number; rate?: string } | null;
   return {
     id: t.id,
@@ -75,7 +76,11 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [])
         }
       : null,
     recipients: t.expected.length,
-    legs: t.expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
+    legs: t.expected.map((l, i) => ({
+      ...l,
+      amount: formatUsdc(BigInt(l.amount)),
+      receipt: receipts?.[i] ? `/r/${receipts[i]}` : null,
+    })),
     txHash: t.txHash,
     explorerUrl: txUrl(ctx, t.txHash),
     error: t.status === "failed" ? t.lastError : null,
@@ -91,5 +96,27 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [])
         txHash: s.txHash,
         explorerUrl: txUrl(ctx, s.txHash),
       })),
+  };
+}
+
+/**
+ * One recipient's receipt, for a link anyone holding it can open. It names the sender by first
+ * name only and leaves out the total and every other recipient.
+ */
+export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { email: string; address: string }) {
+  const leg = t.expected[legIndex]!;
+  return {
+    index: legIndex,
+    name: leg.name,
+    purpose: leg.purpose,
+    amount: formatUsdc(BigInt(leg.amount)),
+    to: leg.address,
+    from: greetingName(payer.email),
+    fromAddress: payer.address,
+    paidAt: (t.settledAt ?? t.updatedAt).toISOString(),
+    txHash: t.txHash,
+    explorerUrl: txUrl(ctx, t.txHash),
+    network: ctx.network,
+    simulated: ctx.mode === "preview",
   };
 }

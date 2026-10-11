@@ -109,6 +109,8 @@ mutate "draft-paid-twice" "$T" \
 mutate "notice-to-payer" src/server/services/notices.ts \
   '.filter((l) => l.email && l.email !== payer?.email && BigInt(l.amount) > 0n)' '.filter((l) => l.email && BigInt(l.amount) > 0n)' \
   "never sends a notice to the payer"
+mutate "receipt-shows-total" src/server/views.ts   '    network: ctx.network,' '    network: ctx.network, total: formatUsdc(BigInt(t.amount)),'   "shows only their part"
+mutate "receipt-before-settled" src/server/services/receipts.ts   '  if (t.status !== "settled") return null;' ''   "has no links before the payment settles"
 
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"
