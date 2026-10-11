@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView, type WalletView } from "@/lib/api";
+import { purposeFill } from "@/lib/palette";
 
 export default function NewRulePage() {
   return (
@@ -64,17 +66,38 @@ function NewRule() {
   }
 
   return (
-    <div className="enter mx-auto max-w-md pt-4">
+    <div className="enter mx-auto max-w-lg pt-2">
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <form onSubmit={review} className="mt-2 space-y-5 rounded-2xl bg-card p-6 shadow-lg">
-        <h1 className="text-lg font-medium text-muted-foreground">Split money you receive</h1>
-        <p className="text-4xl font-bold tracking-tight tabular-nums">{percent}%</p>
-        <p className="text-sm text-muted-foreground">
-          of every payment that reaches your wallet goes straight to your {pocketName.trim() || "pocket"}. The rest stays
-          for spending.
-        </p>
+      <h1 className="mt-1 text-4xl font-bold">Split money you receive</h1>
+      <form onSubmit={review} className="surface mt-6 space-y-6 p-6">
+        <div>
+          <p className="figure text-7xl">{percent}%</p>
+          <p className="mt-2 text-muted-foreground">
+            of every payment that reaches your wallet goes straight to {pocketName.trim() || "your pocket"}. The rest
+            stays for spending.
+          </p>
+        </div>
+        <div>
+          <Ribbon
+            height={18}
+            parts={[
+              { label: pocketName.trim() || "Pocket", weight: percent },
+              { label: "Spending", weight: 100 - percent },
+            ]}
+          />
+          <div className="mt-2 flex justify-between text-sm font-semibold" aria-hidden="true">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(0) }} />
+              {pocketName.trim() || "Pocket"}
+            </span>
+            <span className="flex items-center gap-1.5">
+              Spending
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(1) }} />
+            </span>
+          </div>
+        </div>
         <div>
           <label htmlFor="save-percent" className="mb-1.5 block text-sm font-medium">
             How much to put aside
@@ -88,7 +111,7 @@ function NewRule() {
             value={percent}
             onChange={(e) => setPercent(Number(e.target.value))}
             aria-valuetext={`${percent} percent`}
-            className="w-full accent-primary"
+            className="h-11 w-full accent-primary"
           />
         </div>
         <Field label="Pocket name" value={pocketName} onChange={(e) => setPocketName(e.target.value)} maxLength={40} />

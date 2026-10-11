@@ -1,15 +1,18 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView } from "@/lib/api";
-import { percentToBps } from "@/lib/format";
+import { initials, percentToBps } from "@/lib/format";
+import { purposeFill, textOnPurpose } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function NewSplitPage() {
@@ -31,8 +34,15 @@ const EXAMPLES = [
 let nextKey = 1;
 const blankLeg = (): LegDraft => ({ key: nextKey++, name: "", email: "", purpose: "", kind: "percent", value: "" });
 
+/** How wide a recipient's block is in the live ribbon. Fixed amounts count as their dollar value. */
+function legWeight(leg: LegDraft): number {
+  const n = Number(leg.value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function NewSplit() {
   const router = useRouter();
+  const reduce = useReducedMotion();
   const { me } = useMe();
   const [name, setName] = React.useState("");
   const [legs, setLegs] = React.useState<LegDraft[]>(() => [blankLeg(), blankLeg()]);
@@ -88,25 +98,56 @@ function NewSplit() {
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">New split</h1>
-      <p className="mt-2 text-muted-foreground">
+      <h1 className="mt-1 text-4xl font-bold">New split</h1>
+      <p className="mt-2 text-lg text-muted-foreground">
         Who gets paid, and what for. Recipients don't need an app: their email becomes their wallet.
       </p>
 
       <form onSubmit={review} className="mt-8 space-y-6">
         <Field label="Split name" placeholder="Family in Lagos" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required />
 
+        <div className="surface sticky top-3 z-10 p-4">
+          <Ribbon height={16} parts={legs.map((l) => ({ label: l.name || `Recipient ${legs.indexOf(l) + 1}`, weight: legWeight(l) }))} />
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-hidden="true">
+            {legs.map((l, i) => (
+              <li key={l.key} className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                {l.purpose || l.name || `Recipient ${i + 1}`}
+                <span className="font-semibold tabular-nums">
+                  {l.value ? (l.kind === "percent" ? `${l.value}%` : `$${l.value}`) : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
         <fieldset className="space-y-4">
-          <legend className="mb-2 text-sm font-medium">Recipients</legend>
+          <legend className="mb-2 text-lg font-bold">Recipients</legend>
           {legs.map((leg, i) => (
-            <fieldset key={leg.key} className="rounded-2xl bg-muted/50 p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <legend className="float-left text-sm font-semibold">Recipient {i + 1}</legend>
+            <motion.fieldset
+              key={leg.key}
+              layout={!reduce}
+              initial={reduce ? false : { opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 320, damping: 30 }}
+              className="surface p-5"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <legend className="float-left flex items-center gap-2.5 text-[15px] font-semibold">
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                    style={{ backgroundColor: purposeFill(i), color: textOnPurpose(i) }}
+                  >
+                    {leg.name ? initials(leg.name) : i + 1}
+                  </span>
+                  Recipient {i + 1}
+                </legend>
                 {legs.length > 1 && (
                   <button
                     type="button"
                     onClick={() => setLegs((current) => current.filter((l) => l.key !== leg.key))}
-                    className="-m-2 rounded-full p-2 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     aria-label={`Remove recipient ${i + 1}`}
                   >
                     <Trash2 className="h-4 w-4" aria-hidden="true" />
@@ -122,7 +163,7 @@ function NewSplit() {
                     Amount
                   </span>
                   <div className="flex gap-2">
-                    <div role="radiogroup" aria-labelledby={`amount-${leg.key}`} className="flex rounded-xl bg-background p-1 ring-1 ring-input">
+                    <div role="radiogroup" aria-labelledby={`amount-${leg.key}`} className="flex shrink-0 rounded-[14px] bg-secondary p-1">
                       {(["percent", "fixed"] as const).map((kind) => (
                         <button
                           key={kind}
@@ -131,8 +172,8 @@ function NewSplit() {
                           aria-checked={leg.kind === kind}
                           onClick={() => update(leg.key, { kind, value: "" })}
                           className={cn(
-                            "min-h-9 rounded-lg px-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            leg.kind === kind ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+                            "min-h-10 min-w-10 rounded-[10px] px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                            leg.kind === kind ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                           )}
                         >
                           {kind === "percent" ? "%" : "$"}
@@ -150,7 +191,7 @@ function NewSplit() {
                   </div>
                 </div>
               </div>
-            </fieldset>
+            </motion.fieldset>
           ))}
           {legs.length < 10 && (
             <Button type="button" variant="secondary" onClick={() => setLegs((current) => [...current, blankLeg()])}>
@@ -161,7 +202,7 @@ function NewSplit() {
         </fieldset>
 
         {percentLegs.length > 0 && (
-          <p role="status" className={cn("text-sm font-medium", sharesOk ? "text-emerald-700" : "text-muted-foreground")}>
+          <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-success" : "text-muted-foreground")}>
             {sharesOk ? "Percentages make 100%." : `Percentages make ${totalBps / 100}% of 100%.`}
             {legs.some((l) => l.kind === "fixed") && " Fixed amounts are paid first; percentages share the rest."}
           </p>
@@ -182,11 +223,13 @@ function NewSplit() {
       >
         {pending && (
           <div className="space-y-3">
-            <p className="font-semibold">{pending.split.name}</p>
-            <ul className="space-y-1 text-sm">
+            <p className="display-face text-xl font-bold">{pending.split.name}</p>
+            <Ribbon parts={pending.split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))} />
+            <ul className="space-y-1.5 pt-1 text-sm">
               {pending.split.legs.map((l, i) => (
                 <li key={i} className="flex justify-between gap-4">
-                  <span>
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
                     {l.name} <span className="text-muted-foreground">for {l.purpose}</span>
                   </span>
                   <span className="font-medium tabular-nums">{l.percent !== null ? `${l.percent}%` : `$${l.fixed}`}</span>

@@ -2,27 +2,36 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* shadcn neutral tokens. Light is the default; .dark is ready for later. See UI_BRIEF.md. */
+/* "Adire and colour blocks" (UI_BRIEF.md v2). shadcn token names, Splits values. */
 :root {
-  --radius: 0.75rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.48 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --radius: 0.875rem;
+  --background: #eff1f7;
+  --foreground: #17163a;
+  --card: #ffffff;
+  --card-foreground: #17163a;
+  --popover: #ffffff;
+  --popover-foreground: #17163a;
+  --primary: #1f1b4d;
+  --primary-foreground: #ffffff;
+  --secondary: #e6e8f3;
+  --secondary-foreground: #1f1b4d;
+  --muted: #e9ebf4;
+  --muted-foreground: #565a78;
+  --accent: #dcd9ff;
+  --accent-foreground: #1f1b4d;
+  --destructive: #c8233c;
+  --border: #dcdfeb;
+  --input: #cfd3e3;
+  --ring: #6d63f2;
+  --success: #0e8a5a;
+
+  /* One flat fill per purpose, in split order. */
+  --purpose-1: #f4b400;
+  --purpose-2: #12a26b;
+  --purpose-3: #e2367f;
+  --purpose-4: #2f7cf6;
+  --purpose-5: #9a7cf6;
+  --purpose-6: #a9c934;
 }
 
 .dark {
@@ -47,7 +56,15 @@
 }
 
 @theme inline {
-  --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, sans-serif;
+  --color-success: var(--success);
+  --color-purpose-1: var(--purpose-1);
+  --color-purpose-2: var(--purpose-2);
+  --color-purpose-3: var(--purpose-3);
+  --color-purpose-4: var(--purpose-4);
+  --color-purpose-5: var(--purpose-5);
+  --color-purpose-6: var(--purpose-6);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -84,6 +101,18 @@
   }
 }
 
+/* Dialogs spring up from just below where they settle. */
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 @utility enter {
   animation: settle 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   @media (prefers-reduced-motion: reduce) {
@@ -98,4 +127,32 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@utility display-face {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* A figure set in the display face: big amounts, the balance. */
+@utility figure {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  font-weight: 700;
+}
+
+/* Surfaces: a tinted ring instead of a grey drop shadow; lift only where it's actionable. */
+@utility surface {
+  background: var(--card);
+  border-radius: 20px;
+  box-shadow:
+    0 0 0 1px rgb(31 27 77 / 0.07),
+    0 1px 2px rgb(31 27 77 / 0.04);
 }

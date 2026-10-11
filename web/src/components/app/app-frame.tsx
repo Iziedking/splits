@@ -49,13 +49,19 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
-        <Link href="/home" className="inline-flex min-h-11 items-center rounded-lg text-lg font-bold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
+        <Link
+          href="/home"
+          className="inline-flex min-h-11 items-center rounded-lg display-face text-xl font-bold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
           Splits
         </Link>
         <div className="flex items-center gap-2">
           {me?.mode === "preview" && (
-            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900" title="Money on this server is simulated">
+            <span
+              className="rounded-full bg-purpose-1 px-3 py-1 text-xs font-bold text-primary"
+              title="Money on this server is simulated"
+            >
               Preview
             </span>
           )}
@@ -72,7 +78,7 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 pb-16 sm:px-6">
+      <main className="mx-auto max-w-5xl px-5 pb-20 sm:px-6">
         {error && !me && (
           <div className="mx-auto mt-16 max-w-sm space-y-4">
             <Notice tone="error">{error}</Notice>
@@ -90,10 +96,13 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
 
 function FrameSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading" className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {[0, 1].map((i) => (
-        <div key={i} className="h-64 rounded-2xl bg-muted/60 motion-safe:animate-pulse" />
-      ))}
+    <div aria-busy="true" aria-label="Loading" className="mt-4 space-y-6">
+      <div className="h-44 rounded-[28px] bg-primary/15 motion-safe:animate-pulse" />
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {[0, 1].map((i) => (
+          <div key={i} className="h-72 rounded-[20px] bg-muted motion-safe:animate-pulse" />
+        ))}
+      </div>
     </div>
   );
 }

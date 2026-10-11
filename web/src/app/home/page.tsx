@@ -1,15 +1,18 @@
 "use client";
 
-import { ArrowRight, Plus, Repeat } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
-import { PaymentSummaryCard } from "@/components/ui/card-3";
+import { CountUp } from "@/components/app/count-up";
+import { Ribbon } from "@/components/app/ribbon";
+import { SplitCard } from "@/components/app/split-card";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, errorMessage, type SplitView, type TransferView } from "@/lib/api";
-import { initials, isFinal, sentThisMonth, STATUS_LABEL } from "@/lib/format";
+import { isFinal, sentThisMonth, STATUS_LABEL } from "@/lib/format";
+import { PURPOSE_FILLS, purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function HomePage() {
@@ -18,11 +21,6 @@ export default function HomePage() {
       <Home />
     </AppFrame>
   );
-}
-
-function purposes(split: SplitView): string {
-  const list = [...new Set(split.legs.map((l) => l.purpose))].join(", ");
-  return list.charAt(0).toUpperCase() + list.slice(1);
 }
 
 function Home() {
@@ -70,23 +68,38 @@ function Home() {
   const pockets = me.wallets.filter((w) => w.kind === "pocket");
   const sendSplits = (splits ?? []).filter((s) => !s.automatic);
   const rule = (splits ?? []).find((s) => s.automatic && s.status !== "failed");
+  const recent = transfers.filter((t) => t.status !== "awaiting_confirmation").slice(0, 8);
 
   return (
-    <div className="space-y-10">
-      <section className="enter flex flex-wrap items-end justify-between gap-4 pt-4">
-        <div>
-          <p className="text-sm text-muted-foreground">In your wallet</p>
-          <p className="text-3xl font-bold tracking-tight tabular-nums">${main?.balance ?? "0.00"}</p>
-          {pockets.length > 0 && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              {pockets.map((p) => `${p.label} $${p.balance}`).join(" · ")}
+    <div className="space-y-8 pt-2">
+      <section className="relative overflow-hidden rounded-[28px] bg-primary px-6 pt-6 pb-9 text-primary-foreground sm:px-8 sm:pt-8">
+        <div className="flex flex-wrap items-end justify-between gap-6">
+          <div>
+            <p className="text-[15px] text-white/70">In your wallet</p>
+            <p className="figure mt-1 text-6xl sm:text-7xl">
+              <CountUp value={main?.balance ?? "0.00"} />
             </p>
-          )}
+            {pockets.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-2">
+                {pockets.map((p) => (
+                  <li key={p.id} className="rounded-full bg-white/10 px-3 py-1 text-sm">
+                    {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <Button variant="light" onClick={() => router.push("/splits/new")}>
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            New split
+          </Button>
         </div>
-        <Button onClick={() => router.push("/splits/new")}>
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          New split
-        </Button>
+        {/* The brand's colour blocks, as a band along the bottom edge. */}
+        <div aria-hidden="true" className="absolute inset-x-0 bottom-0 flex h-2">
+          {PURPOSE_FILLS.map((fill) => (
+            <span key={fill} className="flex-1" style={{ backgroundColor: fill }} />
+          ))}
+        </div>
       </section>
 
       {error && (
@@ -99,19 +112,21 @@ function Home() {
       )}
 
       <section aria-labelledby="splits-heading">
-        <h2 id="splits-heading" className="sr-only">
+        <h2 id="splits-heading" className="mb-4 text-2xl font-bold">
           Your splits
         </h2>
         {splits === null && !error ? (
           <div aria-busy="true" aria-label="Loading splits" className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="h-64 rounded-2xl bg-muted/60 motion-safe:animate-pulse" />
+            <div className="h-72 rounded-[20px] bg-muted motion-safe:animate-pulse" />
           </div>
         ) : sendSplits.length === 0 ? (
-          <div className="enter max-w-sm rounded-2xl bg-card p-6 shadow-lg">
-            <h3 className="text-lg font-medium text-muted-foreground">No splits yet</h3>
-            <p className="mt-2 text-2xl font-bold tracking-tight">Tell your money where to go.</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Name who gets paid and what each part is for. You set it up once and use it every month.
+          <div className="surface max-w-md p-6">
+            <Ribbon parts={[{ label: "Rent", weight: 40 }, { label: "School fees", weight: 35 }, { label: "Upkeep", weight: 25 }]} />
+            <p className="display-face mt-5 text-2xl font-bold">
+              Tell your money where to go.
+            </p>
+            <p className="mt-2 text-muted-foreground">
+              Name who gets paid and what each part is for. Set it up once and use it every month.
             </p>
             <Button className="mt-6 w-full" onClick={() => router.push("/splits/new")}>
               Create your first split
@@ -119,51 +134,34 @@ function Home() {
           </div>
         ) : (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {sendSplits.map((split, i) => (
-              <div key={split.id} className="enter" style={{ animationDelay: `${i * 50}ms` }}>
-                <PaymentSummaryCard
-                  className="max-w-none"
-                  title="Sent this month"
-                  amount={sentThisMonth(transfers, split.id)}
-                  subCardTitle={split.name}
-                  subCardSubtitle={
-                    split.status === "pending"
-                      ? "Setting up on Arc..."
-                      : split.status === "failed"
-                        ? "Couldn't be set up"
-                        : purposes(split)
-                  }
-                  avatars={split.legs.slice(0, 3).map((l) => ({ initials: initials(l.name), alt: l.name }))}
-                  moreCount={Math.max(0, split.legs.length - 3)}
-                  onSubCardClick={split.status === "active" ? () => router.push(`/send/${split.id}`) : undefined}
-                />
-                {split.status === "failed" && split.error && (
-                  <p className="mt-2 text-sm text-destructive">{split.error}</p>
-                )}
-              </div>
+            {sendSplits.map((split) => (
+              <SplitCard
+                key={split.id}
+                split={split}
+                sentThisMonth={sentThisMonth(transfers, split.id)}
+                onOpen={() => router.push(`/send/${split.id}`)}
+              />
             ))}
           </div>
         )}
       </section>
 
-      <section aria-labelledby="auto-heading" className="enter rounded-2xl bg-muted/50 p-5">
+      <section aria-labelledby="auto-heading" className="surface p-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Repeat className="mt-0.5 h-5 w-5 text-muted-foreground" aria-hidden="true" />
-            <div>
-              <h2 id="auto-heading" className="font-semibold">
-                {rule ? rule.name : "Split money you receive"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                {rule
-                  ? rule.status === "pending"
-                    ? "Setting up on Arc..."
-                    : `Runs on every payment that reaches your wallet: ${rule.legs
-                        .map((l) => `${l.percent ?? l.fixed}${l.percent ? "%" : " USDC"} ${l.name.toLowerCase()}`)
-                        .join(", ")}`
-                  : "Put part of every payment you receive into savings, automatically."}
-              </p>
-            </div>
+          <div className="min-w-0 flex-1">
+            <h2 id="auto-heading" className="text-xl font-bold">
+              {rule ? rule.name : "Split money you receive"}
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              {rule
+                ? rule.status === "pending"
+                  ? "Setting up on Arc."
+                  : "Runs by itself on every payment that reaches your wallet."
+                : "Put part of every payment you receive into savings, automatically."}
+            </p>
+            {rule && (
+              <Ribbon className="mt-4 max-w-md" parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />
+            )}
           </div>
           {!rule && (
             <Button variant="secondary" onClick={() => router.push("/rules/new")}>
@@ -174,44 +172,45 @@ function Home() {
       </section>
 
       <section aria-labelledby="recent-heading">
-        <h2 id="recent-heading" className="mb-3 text-lg font-medium text-muted-foreground">
+        <h2 id="recent-heading" className="mb-4 text-2xl font-bold">
           Recent payments
         </h2>
-        {transfers.filter((t) => t.status !== "awaiting_confirmation").length === 0 ? (
-          <p className="text-sm text-muted-foreground">Payments you send will show here, each with its receipt.</p>
+        {recent.length === 0 ? (
+          <p className="text-muted-foreground">Payments you send will show here, each with its receipt.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-2xl bg-card shadow-sm ring-1 ring-border">
-            {transfers
-              .filter((t) => t.status !== "awaiting_confirmation")
-              .slice(0, 8)
-              .map((t) => {
-                const split = splits?.find((s) => s.id === t.splitId);
-                return (
-                  <li key={t.id}>
-                    <Link
-                      href={`/payments/${t.id}`}
-                      className="flex min-h-14 items-center justify-between gap-4 px-4 py-3 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
-                    >
-                      <span>
-                        <span className="block font-medium">
-                          {t.kind === "auto" ? "Automatic split" : (split?.name ?? "Payment")}
-                        </span>
-                        <span className="block text-sm text-muted-foreground">
-                          {new Date(t.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })} ·{" "}
-                          <span className={cn(t.status === "failed" && "text-destructive")}>{STATUS_LABEL[t.status]}</span>
+          <ul className="surface divide-y divide-border overflow-hidden">
+            {recent.map((t) => {
+              const split = splits?.find((s) => s.id === t.splitId);
+              return (
+                <li key={t.id}>
+                  <Link
+                    href={`/payments/${t.id}`}
+                    className="flex min-h-16 items-center gap-4 px-5 py-3 transition-colors hover:bg-secondary/60 focus-visible:bg-secondary/60 focus-visible:outline-none"
+                  >
+                    <span aria-hidden="true" className="flex shrink-0 -space-x-1.5">
+                      {t.legs.slice(0, 3).map((_, i) => (
+                        <span key={i} className="h-4 w-4 rounded-full border-2 border-card" style={{ backgroundColor: purposeFill(i) }} />
+                      ))}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-semibold">
+                        {t.kind === "auto" ? "Automatic split" : (split?.name ?? "Payment")}
+                      </span>
+                      <span className="block text-sm text-muted-foreground">
+                        {new Date(t.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short" })},{" "}
+                        <span className={cn(t.status === "failed" && "text-destructive", t.status === "settled" && "text-success")}>
+                          {STATUS_LABEL[t.status]?.toLowerCase()}
                         </span>
                       </span>
-                      <span className="flex items-center gap-2 font-semibold tabular-nums">
-                        ${t.amount}
-                        {!isFinal(t.status) && (
-                          <span className="h-2 w-2 rounded-full bg-amber-500 motion-safe:animate-pulse" aria-label="In progress" />
-                        )}
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
+                    </span>
+                    <span className="figure text-lg">${t.amount}</span>
+                    {!isFinal(t.status) && (
+                      <span className="h-2.5 w-2.5 rounded-full bg-purpose-1 motion-safe:animate-pulse" aria-label="In progress" />
+                    )}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

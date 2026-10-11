@@ -1,13 +1,17 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { CountUp } from "@/components/app/count-up";
+import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView, type TransferView } from "@/lib/api";
+import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function SendPage() {
@@ -34,6 +38,7 @@ function Send() {
   const { splitId } = useParams<{ splitId: string }>();
   const router = useRouter();
   const { me } = useMe();
+  const reduce = useReducedMotion();
   const [split, setSplit] = React.useState<SplitView | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [fundWith, setFundWith] = React.useState<"card" | "balance">("card");
@@ -98,15 +103,16 @@ function Send() {
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
   const symbol = fundWith === "card" ? CURRENCIES[currency] : "$";
 
+
   return (
-    <div className="enter mx-auto max-w-md pt-4">
+    <div className="enter mx-auto max-w-lg pt-2">
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <div className="mt-2 rounded-2xl bg-card p-6 shadow-lg">
-        <h1 className="text-lg font-medium text-muted-foreground">Send through {split.name}</h1>
+      <h1 className="mt-1 text-4xl font-bold">Send through {split.name}</h1>
 
-        <div role="radiogroup" aria-label="Pay with" className="mt-4 grid grid-cols-2 gap-2 rounded-xl bg-muted/50 p-1">
+      <div className="surface mt-6 p-6">
+        <div role="radiogroup" aria-label="Pay with" className="relative grid grid-cols-2 rounded-[14px] bg-secondary p-1">
           {(["card", "balance"] as const).map((option) => (
             <button
               key={option}
@@ -118,25 +124,32 @@ function Send() {
                 setValue("");
               }}
               className={cn(
-                "min-h-11 rounded-lg text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                fundWith === option ? "bg-background shadow-sm" : "text-muted-foreground",
+                "relative z-10 min-h-11 rounded-[10px] text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                fundWith === option ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
-              {option === "card" ? "Card" : `Wallet ($${balance})`}
+              {fundWith === option && (
+                <motion.span
+                  layoutId="fund-with"
+                  className="absolute inset-0 -z-10 rounded-[10px] bg-primary"
+                  transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
+                />
+              )}
+              {option === "card" ? "Card" : `Wallet, $${balance}`}
             </button>
           ))}
         </div>
 
-        <label htmlFor="send-amount" className="mt-6 block text-sm font-medium">
+        <label htmlFor="send-amount" className="mt-6 block text-sm font-semibold">
           {fundWith === "card" ? "You send" : "Amount in USDC"}
         </label>
-        <div className="mt-1.5 flex gap-2">
+        <div className="mt-2 flex items-stretch gap-2">
           {fundWith === "card" && (
             <select
               aria-label="Currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value as Currency)}
-              className={cn(inputClass, "w-24")}
+              className={cn(inputClass, "w-24 font-semibold")}
             >
               {Object.keys(CURRENCIES).map((c) => (
                 <option key={c}>{c}</option>
@@ -144,12 +157,12 @@ function Send() {
             </select>
           )}
           <div className="relative flex-1">
-            <span aria-hidden="true" className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-2xl font-bold text-muted-foreground">
+            <span aria-hidden="true" className="figure pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-3xl text-muted-foreground">
               {symbol}
             </span>
             <input
               id="send-amount"
-              className={cn(inputClass, "min-h-14 pl-9 text-3xl font-bold tabular-nums")}
+              className={cn(inputClass, "figure min-h-16 pl-11 text-4xl")}
               inputMode="decimal"
               placeholder="0.00"
               autoFocus
@@ -159,26 +172,31 @@ function Send() {
           </div>
         </div>
         {fundWith === "card" && (
-          <p className="mt-2 text-xs text-muted-foreground">
+          <p className="mt-2 text-sm text-muted-foreground">
             Simulated card: no card is charged. The USDC that arrives is {me.mode === "live" ? "real" : "simulated in preview"}.
           </p>
         )}
 
-        <div className="mt-6 rounded-xl bg-muted/50 p-4" aria-live="polite">
+        <div className="mt-6 rounded-2xl bg-secondary/70 p-5" aria-live="polite">
           {preview ? (
             <>
-              <p className="flex justify-between text-sm">
-                <span className="text-muted-foreground">They receive in total</span>
-                <span className="font-semibold tabular-nums">${preview.amount} USDC</span>
-              </p>
-              {preview.rate && <p className="mt-1 text-xs text-muted-foreground">Rate 1 {currency} = {preview.rate} USDC</p>}
-              <ul className="mt-4 space-y-2">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm text-muted-foreground">They receive</span>
+                <span className="figure text-3xl">
+                  <CountUp value={preview.amount} />
+                </span>
+              </div>
+              {preview.rate && <p className="text-right text-xs text-muted-foreground">1 {currency} = {preview.rate} USDC</p>}
+              <Ribbon className="mt-4" height={14} parts={preview.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
+              <ul className="mt-4 space-y-2.5">
                 {preview.legs.map((leg, i) => (
-                  <li key={i} className="flex justify-between gap-4 text-sm">
-                    <span>
-                      {leg.name} <span className="text-muted-foreground">for {leg.purpose}</span>
+                  <li key={i} className="flex items-center justify-between gap-4">
+                    <span className="flex items-center gap-2.5">
+                      <span aria-hidden="true" className="h-3 w-3 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                      <span className="font-medium">{leg.name}</span>
+                      <span className="text-sm text-muted-foreground">{leg.purpose}</span>
                     </span>
-                    <span className="font-medium tabular-nums">${leg.amount}</span>
+                    <span className="font-semibold tabular-nums">${leg.amount}</span>
                   </li>
                 ))}
               </ul>
@@ -186,7 +204,10 @@ function Send() {
           ) : previewError ? (
             <p className="text-sm text-destructive">{previewError}</p>
           ) : (
-            <p className="text-sm text-muted-foreground">Enter an amount to see exactly what each person gets.</p>
+            <>
+              <Ribbon height={14} parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))} />
+              <p className="mt-3 text-sm text-muted-foreground">Enter an amount to see exactly what each person gets.</p>
+            </>
           )}
         </div>
 
@@ -203,14 +224,18 @@ function Send() {
         onClose={() => setPending(null)}
       >
         {pending && (
-          <div className="space-y-2 text-sm">
-            <p className="text-3xl font-bold tracking-tight tabular-nums">${pending.transfer.amount}</p>
+          <div className="space-y-3 text-sm">
+            <p className="figure text-4xl">${pending.transfer.amount}</p>
             <p className="text-muted-foreground">USDC through {split.name}</p>
-            <ul className="space-y-1 pt-2">
+            <Ribbon parts={pending.transfer.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
+            <ul className="space-y-1.5">
               {pending.transfer.legs.map((leg, i) => (
                 <li key={i} className="flex justify-between gap-4">
-                  <span>{leg.name}</span>
-                  <span className="tabular-nums">${leg.amount}</span>
+                  <span className="flex items-center gap-2">
+                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                    {leg.name}
+                  </span>
+                  <span className="font-semibold tabular-nums">${leg.amount}</span>
                 </li>
               ))}
             </ul>

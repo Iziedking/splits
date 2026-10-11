@@ -89,11 +89,11 @@ export function ConfirmDialog({ actionId, title, hasPasskey, children, onConfirm
       ref={ref}
       onClose={onClose}
       aria-labelledby="confirm-title"
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-card p-0 text-card-foreground shadow-2xl backdrop:bg-black/40 open:motion-safe:animate-[settle_200ms_ease-out]"
+      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(31_27_77/0.45)] backdrop:bg-primary/45 backdrop:backdrop-blur-[3px] open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
     >
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">
-          <h2 id="confirm-title" className="text-lg font-semibold">
+          <h2 id="confirm-title" className="text-2xl font-bold">
             {title}
           </h2>
           <button

@@ -68,11 +68,11 @@ function Setup() {
   const digits = (v: string) => v.replace(/\D/g, "").slice(0, 6);
 
   return (
-    <div className="enter mx-auto mt-6 max-w-sm rounded-2xl bg-card p-6 shadow-lg">
+    <div className="enter surface mx-auto mt-6 max-w-md p-7">
       {!me.user.hasPin ? (
         <form onSubmit={savePin} className="space-y-4">
           <ShieldCheck className="h-8 w-8" aria-hidden="true" />
-          <h1 className="text-2xl font-bold tracking-tight">Choose a payment PIN</h1>
+          <h1 className="text-3xl font-bold">Choose a payment PIN</h1>
           <p className="text-sm text-muted-foreground">
             You'll enter it to approve every payment. Five wrong tries locks payments for 15 minutes.
           </p>
@@ -103,7 +103,7 @@ function Setup() {
       ) : (
         <div className="space-y-4">
           <Fingerprint className="h-8 w-8" aria-hidden="true" />
-          <h1 className="text-2xl font-bold tracking-tight">Approve with Face ID or fingerprint</h1>
+          <h1 className="text-3xl font-bold">Approve with Face ID or fingerprint</h1>
           <p className="text-sm text-muted-foreground">
             Faster than typing your PIN. Your PIN keeps working as a backup.
           </p>

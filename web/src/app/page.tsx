@@ -2,9 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { api, errorMessage, type Me, type UserView } from "@/lib/api";
+import { SplitStream } from "@/components/app/split-stream";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
+import { api, errorMessage, type Me, type UserView } from "@/lib/api";
+
+const HERO = [
+  { label: "Rent", weight: 40 },
+  { label: "School fees", weight: 35 },
+  { label: "Upkeep", weight: 25 },
+];
 
 /** Sign in with an email code. The email is the account and the wallet; there is nothing else to set up. */
 export default function SignIn() {
@@ -16,7 +23,6 @@ export default function SignIn() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Already signed in: go straight to the app.
   React.useEffect(() => {
     api<Me>("/api/me")
       .then((me) => router.replace(me.user.hasPin ? "/home" : "/setup"))
@@ -52,20 +58,21 @@ export default function SignIn() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-10 px-4 py-12">
-      <div className="enter max-w-md text-center">
-        <p className="text-lg font-bold tracking-tight">Splits</p>
-        <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-5xl">Send money home with its purpose built in.</h1>
-        <p className="mt-4 text-muted-foreground">
-          One payment, already divided: rent to the landlord, fees to the school, the rest to family. Each part
-          arrives with a receipt saying what it was for.
+    <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:px-8">
+      <section>
+        <p className="display-face text-2xl font-bold tracking-tight">Splits</p>
+        <h1 className="mt-8 max-w-xl text-[2.6rem] leading-[1.02] font-bold sm:text-6xl">Send money home with its purpose built in.</h1>
+        <p className="mt-5 max-w-md text-lg leading-relaxed text-muted-foreground">
+          One payment leaves you and arrives already divided. Rent reaches the landlord, fees reach the school, and the
+          rest reaches family, each with a receipt that says what it was for.
         </p>
-      </div>
+        <SplitStream branches={HERO} stage="done" intro className="mt-8 w-full max-w-lg text-foreground" />
+      </section>
 
-      <div className="enter w-full max-w-sm rounded-2xl bg-card p-6 shadow-lg [animation-delay:60ms]">
+      <section className="surface w-full max-w-md justify-self-center p-7 lg:justify-self-end">
         {step === "email" ? (
-          <form onSubmit={sendCode} className="space-y-4">
-            <h2 className="text-lg font-medium text-muted-foreground">Sign in or create an account</h2>
+          <form onSubmit={sendCode} className="space-y-5">
+            <h2 className="text-2xl font-bold">Sign in or create an account</h2>
             <Field
               label="Email"
               type="email"
@@ -73,7 +80,7 @@ export default function SignIn() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              hint="We'll email you a 6-digit code. No password, no seed phrase."
+              hint="We'll email you a 6-digit code. Your email is your account and your wallet."
             />
             {error && <Notice tone="error">{error}</Notice>}
             <Button type="submit" className="w-full" busy={busy}>
@@ -81,10 +88,10 @@ export default function SignIn() {
             </Button>
           </form>
         ) : (
-          <form onSubmit={verify} className="space-y-4">
-            <h2 className="text-lg font-medium text-muted-foreground">Check your email</h2>
-            <p className="text-sm text-muted-foreground">
-              We sent a code to <span className="font-medium text-foreground">{email}</span>.
+          <form onSubmit={verify} className="space-y-5">
+            <h2 className="text-2xl font-bold">Check your email</h2>
+            <p className="text-muted-foreground">
+              We sent a code to <span className="font-semibold text-foreground">{email}</span>.
             </p>
             {previewCode && (
               <Notice>
@@ -101,6 +108,7 @@ export default function SignIn() {
               autoFocus
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              className="[&_input]:text-center [&_input]:text-2xl [&_input]:tracking-[0.4em]"
             />
             {error && <Notice tone="error">{error}</Notice>}
             <Button type="submit" className="w-full" busy={busy} disabled={code.length !== 6}>
@@ -120,7 +128,7 @@ export default function SignIn() {
             </Button>
           </form>
         )}
-      </div>
+      </section>
     </main>
   );
 }

@@ -1,12 +1,14 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "ghost";
+type Variant = "primary" | "secondary" | "ghost" | "light";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-  secondary: "bg-muted text-foreground hover:bg-muted/70",
-  ghost: "text-muted-foreground hover:bg-muted hover:text-foreground",
+  primary: "bg-primary text-primary-foreground hover:bg-[#2b2668] shadow-[0_6px_16px_-6px_rgb(31_27_77/0.55)]",
+  secondary: "bg-card text-foreground ring-1 ring-border hover:ring-ring/50",
+  ghost: "text-muted-foreground hover:bg-secondary hover:text-foreground",
+  /** On an indigo fill. */
+  light: "bg-white text-primary hover:bg-white/90",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -22,7 +24,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+        "inline-flex min-h-12 items-center justify-center gap-2 rounded-[14px] px-5 text-[15px] font-semibold transition-[transform,background-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
         variants[variant],
         className,
       )}
