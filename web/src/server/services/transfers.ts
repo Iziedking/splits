@@ -1,24 +1,46 @@
 import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
-import { encodeFunctionData, erc20Abi, type Address, type Hex } from "viem";
+import { encodeFunctionData, erc20Abi, getAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 import { splitsRouterAbi } from "../chain/abi";
+import type { OnchainLeg, RouterReceipt } from "../chain/types";
 import type { Ctx } from "../context";
 import { providerTxs, transfers, wallets, type ExpectedLeg, type TransferStatus } from "../db/schema";
+import { FEE_PURPOSE, feeFor } from "../domain/fees";
 import { FIAT_CURRENCIES, quote as fxQuote, QuoteError } from "../domain/fx";
 import { transferRef } from "../domain/ids";
 import { formatUsdc, MoneyError, parseUsdc, purposeToBytes32 } from "../domain/money";
-import { badRequest, conflict, forbidden, notFound } from "../errors";
+import { AppError, badRequest, conflict, forbidden, notFound } from "../errors";
 import { confirmAction, createAction, type Action, type Confirmation } from "./actions";
 import { claimDraft, consumeDraft } from "./payouts";
 import { findProviderTx, refreshProviderTx, submitOnce } from "./providerTx";
+import { checkSendLimit, withSendLimitLock } from "./sendLimits";
 import { expectedAmounts, getSplit } from "./splits";
 import { mainWallet, type User } from "./users";
 
 export type Transfer = typeof transfers.$inferSelect;
 
 const LEASE_MS = 30_000;
-const ACTIVE: TransferStatus[] = ["confirmed", "funding", "approving", "sending", "verifying"];
+
+/** What leaves the sender: the recipients' total plus the Splits fee. */
+export const chargeOf = (t: Pick<Transfer, "amount" | "feeAmount">) => BigInt(t.amount) + BigInt(t.feeAmount);
+
+const paying = (legs: ExpectedLeg[]) => legs.filter((l) => BigInt(l.amount) > 0n);
+
+/** The legs the router pays: every recipient with an amount, then the Splits fee. */
+export function routerLegs(t: Pick<Transfer, "expected" | "feeAmount" | "feeAddress">): OnchainLeg[] {
+  const legs: OnchainLeg[] = paying(t.expected).map((l) => ({
+    recipient: getAddress(l.address),
+    fixedAmount: BigInt(l.amount),
+    shareBps: 0,
+    purpose: purposeToBytes32(l.purpose),
+  }));
+  if (BigInt(t.feeAmount) > 0n) {
+    legs.push({ recipient: getAddress(t.feeAddress!), fixedAmount: BigInt(t.feeAmount), shareBps: 0, purpose: purposeToBytes32(FEE_PURPOSE) });
+  }
+  return legs;
+}
+const ACTIVE: TransferStatus[] = ["awaiting_wallet", "confirmed", "funding", "approving", "sending", "verifying"];
 
 const splitTransferInput = z.discriminatedUnion("fundWith", [
   z.object({
@@ -50,7 +72,9 @@ export async function quoteTransfer(
   user: User,
   input: TransferInput,
 ): Promise<{ transfer: Transfer; action: Action }> {
-  const { kind, split, draft, wallet, amount, quoteData, topUp, expected } = await priceTransfer(ctx, user, input);
+  const { kind, split, draft, wallet, amount, fee, charge, quoteData, topUp, expected } = await priceTransfer(ctx, user, input);
+  // A friendly early refusal. The enforcing check is at confirm, under the lock. The fee counts.
+  await checkSendLimit(ctx.db, ctx, { userId: user.id, email: user.email }, "account", charge);
   const id = randomUUID();
   const [transfer] = await ctx.db
     .insert(transfers)
@@ -58,10 +82,15 @@ export async function quoteTransfer(
       id,
       payerUserId: user.id,
       payerWalletId: wallet.id,
+      payerAddress: wallet.address,
+      funding: topUp > 0n ? "card" : "balance",
       kind,
       splitId: split?.id ?? null,
       splitVersion: split?.version ?? null,
       amount: amount.toString(),
+      feeAmount: fee.amount.toString(),
+      feeBps: fee.bps,
+      feeAddress: fee.amount > 0n ? ctx.fees.address : null,
       quote: quoteData,
       topUp: topUp.toString(),
       expected,
@@ -88,9 +117,12 @@ export async function quoteTransfer(
 
 /** The exact breakdown a payment would have, without creating anything. */
 export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput) {
-  const { amount, quoteData, expected } = await priceTransfer(ctx, user, input);
+  const { amount, fee, charge, quoteData, expected } = await priceTransfer(ctx, user, input);
   return {
     amount: formatUsdc(amount),
+    fee: formatUsdc(fee.amount),
+    feePercent: fee.bps / 100,
+    total: formatUsdc(charge),
     rate: quoteData ? formatUsdc(BigInt(quoteData.rate as string)) : null,
     simulatedCard: quoteData !== null,
     legs: expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
@@ -109,9 +141,6 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
   if ("draftId" in input) {
     const draft = await claimDraft(ctx, user, input.draftId, input.draftHash);
     const amount = BigInt(draft.total);
-    const topUp = input.fundWith === "card" ? amount : 0n;
-    if (topUp > 0n) assertFundingShape(ctx, topUp);
-    if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, amount);
     const expected: ExpectedLeg[] = draft.legs.map((l) => ({
       name: l.name,
       address: l.address,
@@ -119,12 +148,17 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
       purpose: l.purpose,
       email: l.email,
     }));
-    // The demo card is charged in dollars at 1:1, so the quote is the list total.
+    const fee = feeFor(amount, paying(expected).length, ctx.fees.rule);
+    const charge = amount + fee.amount;
+    const topUp = input.fundWith === "card" ? charge : 0n;
+    if (topUp > 0n) assertFundingShape(ctx, topUp);
+    if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, charge);
+    // The demo card is charged in dollars at 1:1, so the quote is the list total plus the fee.
     const quoteData =
       input.fundWith === "card"
-        ? { currency: "USD", fiatMinor: Number(amount / 10_000n), rate: "1000000", usdc: draft.total, simulated: true }
+        ? { currency: "USD", fiatMinor: Number(charge / 10_000n), rate: "1000000", usdc: charge.toString(), simulated: true }
         : null;
-    return { kind: "pay" as const, split: null, draft, wallet, amount, quoteData, topUp, expected };
+    return { kind: "pay" as const, split: null, draft, wallet, amount, fee, charge, quoteData, topUp, expected };
   }
 
   const split = await getSplit(ctx, input.splitId);
@@ -150,27 +184,44 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
   }
   if (amount === 0n) throw badRequest("INVALID_AMOUNT", "Amount must be more than zero");
 
-  const topUp = input.fundWith === "card" ? amount : 0n;
-  if (topUp > 0n) assertFundingShape(ctx, topUp);
-  if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, amount);
-
   const expected: ExpectedLeg[] = expectedAmounts(split, amount).map((l, i) => ({
     ...l,
     amount: l.amount.toString(),
     email: split.legs[i]!.email,
   }));
-  return { kind: "send" as const, split, draft: null, wallet, amount, quoteData, topUp, expected };
+  const fee = feeFor(amount, paying(expected).length, ctx.fees.rule);
+  const charge = amount + fee.amount;
+  const topUp = input.fundWith === "card" ? charge : 0n;
+  if (topUp > 0n) assertFundingShape(ctx, topUp);
+  if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, charge);
+  return { kind: "send" as const, split, draft: null, wallet, amount, fee, charge, quoteData, topUp, expected };
 }
 
 /** PIN or passkey moves the payment to confirmed. The caller then drives it with advanceWithRules. */
 export async function confirmTransfer(ctx: Ctx, user: User, actionId: string, proof: Confirmation): Promise<Transfer> {
   const action = await confirmAction(ctx, user.id, actionId, proof);
   if (action.type !== "transfer") throw badRequest("WRONG_ACTION", "That confirmation is not for a payment");
-  const [moved] = await ctx.db
-    .update(transfers)
-    .set({ status: "confirmed", updatedAt: ctx.now() })
-    .where(and(eq(transfers.id, action.subjectId), eq(transfers.status, "awaiting_confirmation")))
-    .returning();
+  const t = await getTransfer(ctx, action.subjectId);
+  let moved: Transfer | undefined;
+  try {
+    moved = await withSendLimitLock(ctx, async (tx) => {
+      await checkSendLimit(tx, ctx, { userId: user.id, email: user.email }, "account", chargeOf(t));
+      const [row] = await tx
+        .update(transfers)
+        .set({ status: "confirmed", updatedAt: ctx.now() })
+        .where(and(eq(transfers.id, t.id), eq(transfers.status, "awaiting_confirmation")))
+        .returning();
+      return row;
+    });
+  } catch (err) {
+    if (err instanceof AppError && err.code === "SEND_LIMIT") {
+      await ctx.db
+        .update(transfers)
+        .set({ status: "cancelled", lastError: err.message, updatedAt: ctx.now() })
+        .where(and(eq(transfers.id, t.id), eq(transfers.status, "awaiting_confirmation")));
+    }
+    throw err;
+  }
   if (!moved) throw conflict("ALREADY_CONFIRMED", "This payment is already under way");
   return moved;
 }
@@ -281,7 +332,7 @@ async function setStatus(ctx: Ctx, t: Transfer, status: TransferStatus, patch: P
     .where(and(eq(transfers.id, t.id), eq(transfers.status, t.status)))
     .returning();
   if (!row) throw new Error(`Transfer ${t.id} changed under its lease`);
-  if (status === "settled" || status === "failed") {
+  if (status === "settled" || status === "failed" || status === "cancelled") {
     await ctx.db.update(wallets).set({ busyTransferId: null }).where(eq(wallets.busyTransferId, t.id));
   }
   return row;
@@ -289,6 +340,7 @@ async function setStatus(ctx: Ctx, t: Transfer, status: TransferStatus, patch: P
 
 /** Claims the payer wallet for this payment, or reports that another payment holds it. */
 async function claimWalletSlot(ctx: Ctx, t: Transfer): Promise<boolean> {
+  if (!t.payerWalletId) return true;
   const finished = ctx.db
     .select({ id: transfers.id })
     .from(transfers)
@@ -306,7 +358,8 @@ async function claimWalletSlot(ctx: Ctx, t: Transfer): Promise<boolean> {
   return claimed.length === 1;
 }
 
-async function payerAddress(ctx: Ctx, t: Transfer): Promise<{ address: Address; providerWalletId: string }> {
+async function payerWallet(ctx: Ctx, t: Transfer): Promise<{ address: Address; providerWalletId: string }> {
+  if (!t.payerWalletId) throw new Error(`Transfer ${t.id} has no Splits wallet`);
   const [w] = await ctx.db.select().from(wallets).where(eq(wallets.id, t.payerWalletId)).limit(1);
   if (!w) throw new Error(`Payer wallet ${t.payerWalletId} missing`);
   return { address: w.address as Address, providerWalletId: w.providerWalletId };
@@ -315,8 +368,24 @@ async function payerAddress(ctx: Ctx, t: Transfer): Promise<{ address: Address; 
 const fail = (lastError: string): StepResult => ({ status: "failed", patch: { lastError } });
 
 async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
-  const amount = BigInt(t.amount);
-  const payer = await payerAddress(ctx, t);
+  if (t.funding === "own_wallet") {
+    if (t.status === "awaiting_wallet") {
+      if (t.txHash) return { status: "verifying" };
+      const found = await ctx.chain.findSplitSent(t.payerAddress as Address, t.ref as Hex, t.fromBlock ?? 0n);
+      if (found) return { status: "verifying", patch: { txHash: found } };
+      if (t.expiresAt && t.expiresAt <= ctx.now()) {
+        return { status: "cancelled", patch: { lastError: "No payment arrived within 30 minutes" } };
+      }
+      // Checked and still waiting: move to the back of the reservation queue.
+      await ctx.db.update(transfers).set({ updatedAt: ctx.now() }).where(eq(transfers.id, t.id));
+      return "wait";
+    }
+    if (t.status === "verifying") return verify(ctx, t);
+    return "wait";
+  }
+
+  const amount = chargeOf(t);
+  const payer = await payerWallet(ctx, t);
 
   switch (t.status) {
     case "confirmed": {
@@ -367,23 +436,8 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
 
     case "sending": {
       let callData: Hex;
-      if (t.kind === "pay") {
-        // A one-off payment pays exactly the legs the sender checked and approved.
-        callData = encodeFunctionData({
-          abi: splitsRouterAbi,
-          functionName: "pay",
-          args: [
-            t.expected.map((l) => ({
-              recipient: l.address as Address,
-              fixedAmount: BigInt(l.amount),
-              shareBps: 0,
-              purpose: purposeToBytes32(l.purpose),
-            })),
-            amount,
-            t.ref as Hex,
-          ],
-        });
-      } else {
+      if (t.kind === "auto") {
+        // A receiver's own rule runs its onchain split as it stands. It pays no fee.
         if (t.splitId === null || t.splitVersion === null) return fail("Split is missing");
         const split = await getSplit(ctx, t.splitId);
         if (split.onchainId === null) return fail("Split is not onchain");
@@ -392,6 +446,25 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
           functionName: "send",
           args: [split.onchainId, t.splitVersion, amount, t.ref as Hex],
         });
+      } else {
+        if (t.kind === "send") {
+          // Saved splits pay through pay() so the fee can ride along; the template must be unchanged.
+          if (t.splitId === null || t.splitVersion === null) return fail("Split is missing");
+          const split = await getSplit(ctx, t.splitId);
+          if (split.status !== "active") return fail(notSent(t, "SplitInactive"));
+          if (split.version !== t.splitVersion) return fail(notSent(t, "VersionMismatch"));
+          // The stored legs must still be what the template gives for this amount; the template,
+          // not the payment row, is the independent record of what the sender approved.
+          const fromTemplate = expectedAmounts(split, BigInt(t.amount));
+          const same =
+            fromTemplate.length === t.expected.length &&
+            fromTemplate.every(
+              (l, i) => l.address.toLowerCase() === t.expected[i]!.address.toLowerCase() && l.amount === BigInt(t.expected[i]!.amount),
+            );
+          if (!same) return fail("This payment does not match what was approved. Flagged for review. Nothing was sent.");
+        }
+        // Exactly the legs the sender approved, then the fee.
+        callData = encodeFunctionData({ abi: splitsRouterAbi, functionName: "pay", args: [routerLegs(t), amount, t.ref as Hex] });
       }
       let row = await submitOnce(ctx, t.id, "send", 1, (idempotencyKey) =>
         ctx.wallets.execute({
@@ -412,27 +485,69 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       return fail(notSent(t, row.error ?? row.rawState));
     }
 
-    case "verifying": {
-      if (!t.txHash) return "wait";
-      const receipt = await ctx.chain.receipt(t.txHash as Hex);
-      if (!receipt) return "wait";
-      if (receipt.status !== "success") return fail("The payment reverted onchain");
-      const paid = receipt.legPaid.filter((l) => l.ref.toLowerCase() === t.ref.toLowerCase());
-      const want = t.expected.filter((l) => BigInt(l.amount) > 0n);
-      const matches =
-        paid.length === want.length &&
-        paid.every(
-          (p, i) => p.recipient.toLowerCase() === want[i]!.address.toLowerCase() && p.amount === BigInt(want[i]!.amount),
-        );
-      if (!matches || !(await ctx.chain.refUsed(payer.address, t.ref as Hex))) {
-        return fail("Onchain receipt does not match the expected split. Flagged for review.");
-      }
-      return { status: "settled", patch: { lastError: null } };
-    }
+    case "verifying":
+      return verify(ctx, t);
 
     default:
       return "wait";
   }
+}
+
+/**
+ * Checks the Arc receipt against what was approved: the payer, the ref, and every leg (the fee
+ * last). Anything else fails and is flagged; nothing is settled on a guess.
+ */
+async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
+  if (!t.txHash) return "wait";
+  const receipt = await ctx.chain.receipt(t.txHash as Hex);
+  if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt))) return recoverOwnWallet(ctx, t, receipt);
+  if (!receipt) return "wait";
+  if (receipt.status !== "success") return fail("The payment reverted onchain");
+  if (!receiptMatches(t, receipt) || !(await ctx.chain.refUsed(t.payerAddress as Address, t.ref as Hex))) {
+    return fail("Onchain receipt does not match what was approved. Flagged for review.");
+  }
+  return { status: "settled", patch: { lastError: null } };
+}
+
+/** Grace after a reservation ends before a hash that never appears is given up on. */
+const UNSEEN_HASH_GRACE_MS = 10 * 60_000;
+
+/**
+ * The submitted hash didn't prove the payment (it reverted, never appeared, or isn't this payer's).
+ * The ref decides instead: it is unique to this reservation and payer, so if it was spent, Arc holds
+ * the visitor's real transaction (a wallet retry, a speed-up, a Safe hash) and we switch to it.
+ */
+async function recoverOwnWallet(ctx: Ctx, t: Transfer, receipt: RouterReceipt | null): Promise<StepResult> {
+  const payer = t.payerAddress as Address;
+  if (await ctx.chain.refUsed(payer, t.ref as Hex)) {
+    const found = await ctx.chain.findSplitSent(payer, t.ref as Hex, t.fromBlock ?? 0n);
+    if (found && found.toLowerCase() !== t.txHash!.toLowerCase()) return { status: "verifying", patch: { txHash: found } };
+    if (!found) return "wait"; // spent, but the node hasn't indexed the log yet
+    return fail("Onchain receipt does not match what was approved. Flagged for review.");
+  }
+  // Nothing has left the visitor's wallet under this reservation.
+  const expired = t.expiresAt !== null && t.expiresAt <= ctx.now();
+  const reopen = (lastError: string): StepResult =>
+    expired ? { status: "cancelled", patch: { txHash: null, lastError } } : { status: "awaiting_wallet", patch: { txHash: null, lastError } };
+  if (receipt?.status === "reverted") return reopen("The send reverted onchain. Nothing moved from your wallet.");
+  if (receipt) return fail("Onchain receipt does not match what was approved. Flagged for review.");
+  if (t.expiresAt && t.expiresAt.getTime() + UNSEEN_HASH_GRACE_MS <= ctx.now().getTime()) {
+    return reopen("That transaction never appeared on Arc. Nothing moved from your wallet.");
+  }
+  return "wait";
+}
+
+function receiptMatches(t: Transfer, receipt: RouterReceipt): boolean {
+  if (receipt.status !== "success") return false;
+  const payer = t.payerAddress.toLowerCase();
+  const sent = receipt.splitSent.some((s) => s.ref.toLowerCase() === t.ref.toLowerCase() && s.payer.toLowerCase() === payer);
+  const paid = receipt.legPaid.filter((l) => l.ref.toLowerCase() === t.ref.toLowerCase());
+  const want = routerLegs(t);
+  return (
+    sent &&
+    paid.length === want.length &&
+    paid.every((p, i) => p.recipient.toLowerCase() === want[i]!.recipient.toLowerCase() && p.amount === want[i]!.fixedAmount)
+  );
 }
 
 /**
@@ -458,10 +573,22 @@ function revertReason(error: string): string {
 
 /** Transfers that still have work to do and nobody holding them. */
 export async function activeTransferIds(ctx: Ctx, limit: number): Promise<string[]> {
+  return idsIn(ctx, ACTIVE.filter((s) => s !== "awaiting_wallet"), limit);
+}
+
+/**
+ * Own-wallet reservations still waiting for the visitor's wallet, least recently checked first. A
+ * queue of their own, so many open reservations never crowd out payments that are moving.
+ */
+export async function openReservationIds(ctx: Ctx, limit: number): Promise<string[]> {
+  return idsIn(ctx, ["awaiting_wallet"], limit);
+}
+
+async function idsIn(ctx: Ctx, statuses: TransferStatus[], limit: number): Promise<string[]> {
   const rows = await ctx.db
     .select({ id: transfers.id })
     .from(transfers)
-    .where(and(inArray(transfers.status, ACTIVE), or(isNull(transfers.leaseUntil), lt(transfers.leaseUntil, ctx.now()))))
+    .where(and(inArray(transfers.status, statuses), or(isNull(transfers.leaseUntil), lt(transfers.leaseUntil, ctx.now()))))
     .orderBy(transfers.updatedAt)
     .limit(limit);
   return rows.map((r) => r.id);

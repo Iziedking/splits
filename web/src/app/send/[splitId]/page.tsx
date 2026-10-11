@@ -7,6 +7,7 @@ import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { CountUp } from "@/components/app/count-up";
+import { FeeLines } from "@/components/app/fee-lines";
 import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { inputClass, Notice } from "@/components/ui/field";
@@ -24,7 +25,15 @@ export default function SendPage() {
 
 const CURRENCIES = { GBP: "£", EUR: "€", USD: "$" } as const;
 type Currency = keyof typeof CURRENCIES;
-type Preview = { amount: string; rate: string | null; simulatedCard: boolean; legs: { name: string; purpose: string; amount: string }[] };
+type Preview = {
+  amount: string;
+  fee: string;
+  feePercent: number;
+  total: string;
+  rate: string | null;
+  simulatedCard: boolean;
+  legs: { name: string; purpose: string; amount: string }[];
+};
 
 /** "10.5" -> 1050 pence; null when it isn't a money amount. */
 function toMinor(value: string): number | null {
@@ -202,6 +211,7 @@ function Send() {
                   </li>
                 ))}
               </ul>
+              <FeeLines className="mt-4 border-t border-border pt-3" fee={preview.fee} percent={preview.feePercent} total={preview.total} />
             </>
           ) : previewError ? (
             <p className="text-sm text-destructive">{previewError}</p>
@@ -229,6 +239,7 @@ function Send() {
           <div className="space-y-3 text-sm">
             <p className="figure text-4xl">${pending.transfer.amount}</p>
             <p className="text-muted-foreground">USDC through {split.name}</p>
+            <FeeLines fee={pending.transfer.fee} percent={pending.transfer.feePercent} total={pending.transfer.total} />
             <Ribbon parts={pending.transfer.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
             <ul className="space-y-1.5">
               {pending.transfer.legs.map((leg, i) => (

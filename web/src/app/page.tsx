@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Backdrop } from "@/components/app/backdrop";
@@ -86,6 +87,12 @@ export default function SignIn() {
             <Button variant="secondary" className="w-full" onClick={() => start(true)}>
               I already have an account
             </Button>
+            <Link
+              href="/send"
+              className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              Pay without an account
+            </Link>
           </div>
         </section>
       )}

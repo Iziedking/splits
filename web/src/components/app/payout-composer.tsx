@@ -16,10 +16,13 @@ export function PayoutComposer({
   mode,
   initialLabel,
   onChecked,
+  checkPath = "/api/payouts/check",
 }: {
   mode: "one" | "many";
   initialLabel: string;
   onChecked: (check: PayoutCheck | null) => void;
+  /** Visitors check through /api/visitor/check; accounts use the default. */
+  checkPath?: string;
 }) {
   const [who, setWho] = React.useState("");
   const [amount, setAmount] = React.useState("");
@@ -56,7 +59,7 @@ export function PayoutComposer({
         mode === "one"
           ? { mode: "each" as const, text: `${who.trim()}, ${amount}, ${label.trim()}`, label: label.trim() }
           : { mode: split, text, pot: split === "equal" ? pot : undefined, label: label.trim() };
-      onChecked(await api<PayoutCheck>("/api/payouts/check", { body }));
+      onChecked(await api<PayoutCheck>(checkPath, { body }));
     } catch (err) {
       setError(errorMessage(err));
       onChecked(null);

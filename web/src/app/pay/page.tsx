@@ -7,9 +7,11 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
 import { ReviewTable } from "@/components/app/review-table";
 import { Ribbon } from "@/components/app/ribbon";
+import { VisitorLimit } from "@/components/app/visitor-limit";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, ApiError, errorMessage, type ActionView, type PayoutCheck, type SplitView, type TransferView } from "@/lib/api";
@@ -49,6 +51,8 @@ function Pay() {
   const [cardChosen, setCardChosen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  /** The error is the send limit, shown with what to do next. */
+  const [limited, setLimited] = React.useState(false);
   const [pending, setPending] = React.useState<{ action: ActionView; transfer: TransferView } | null>(null);
   const [splits, setSplits] = React.useState<SplitView[] | null>(null);
 
@@ -70,7 +74,8 @@ function Pay() {
   }, [mode, splits]);
 
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
-  const canUseBalance = check?.total ? cents(balance) >= cents(check.total) : false;
+  const charge = check?.charge ?? check?.total ?? null;
+  const canUseBalance = charge ? cents(balance) >= cents(charge) : false;
 
   // Default to the balance when it covers the total, unless the person came here for the card.
   React.useEffect(() => {
@@ -95,6 +100,7 @@ function Pay() {
       );
     } catch (err) {
       setError(errorMessage(err));
+      setLimited(err instanceof ApiError && err.code === "SEND_LIMIT");
       if (err instanceof ApiError && (err.code === "LIST_CHANGED" || err.code === "LIST_ALREADY_PAID")) setCheck(null);
       if (err instanceof ApiError && (err.code === "FUNDING_LIMIT" || err.code === "FUNDING_OFF") && canUseBalance) {
         setFundWith("balance");
@@ -140,7 +146,7 @@ function Pay() {
   }
 
   const count = check?.lines.length ?? 0;
-  const payLabel = check?.total ? (count === 1 ? `Pay $${check.total}` : `Pay ${count} people $${check.total}`) : "Pay";
+  const payLabel = charge ? (count === 1 ? `Pay $${charge}` : `Pay ${count} people $${charge}`) : "Pay";
 
   return (
     <div className="enter space-y-6 pt-4">
@@ -205,6 +211,7 @@ function Pay() {
             <ReviewTable check={check} />
             {check.ready ? (
               <div className="surface space-y-4 p-5">
+                {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
                 <div role="radiogroup" aria-label="Pay from" className="grid grid-cols-2 gap-2">
                   {(["balance", "card"] as const).map((option) => {
                     const disabled = option === "balance" && !canUseBalance;
@@ -229,7 +236,7 @@ function Pay() {
                     );
                   })}
                 </div>
-                {error && <Notice tone="error">{error}</Notice>}
+                {error && (limited ? <VisitorLimit message={error} signedIn /> : <Notice tone="error">{error}</Notice>)}
                 <Button className="w-full" busy={busy} onClick={() => void pay()}>
                   {payLabel}
                 </Button>
@@ -252,6 +259,7 @@ function Pay() {
         {pending && (
           <div className="space-y-3 text-sm">
             <p className="figure text-4xl">${pending.transfer.amount}</p>
+            <FeeLines fee={pending.transfer.fee} percent={pending.transfer.feePercent} total={pending.transfer.total} />
             <p className="text-muted-foreground">
               {pending.transfer.recipients === 1 ? "To 1 person" : `To ${pending.transfer.recipients} people`}, for{" "}
               {pending.transfer.legs[0]?.purpose}

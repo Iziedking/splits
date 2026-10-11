@@ -1,9 +1,9 @@
 "use client";
 
-import { Check, ExternalLink, Printer, Share2 } from "lucide-react";
+import { ArrowLeft, Check, ExternalLink, Printer, Share2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
-import { ManualLink, receiptText, shareLink } from "@/components/app/receipt-share";
+import { ManualLink, readReturn, receiptText, shareLink } from "@/components/app/receipt-share";
 import { Button } from "@/components/ui/button";
 import type { ReceiptView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
@@ -39,6 +39,8 @@ function Row({ label, order, children }: { label: string; order: number; childre
  */
 export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
   const [shared, setShared] = React.useState<"copied" | "shared" | "failed" | null>(null);
+  const [back, setBack] = React.useState<string | null>(null);
+  React.useEffect(() => setBack(readReturn(window.location.pathname)), []);
   const fill = purposeFill(receipt.index);
   const addressName = /^0x[0-9a-f]{4}…[0-9a-f]{4}$/i.test(receipt.name);
 
@@ -49,13 +51,24 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
 
   return (
     <div className="space-y-6 pt-4">
+      {back && (
+        <Link
+          href={back}
+          className="-mt-2 -ml-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none print:hidden"
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+          Back to payment
+        </Link>
+      )}
       <div className="text-center">
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_12px_28px_-12px_rgb(15_163_154/0.8)] motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both] print:animate-none">
           <Check className="h-7 w-7" strokeWidth={3} aria-hidden="true" />
         </span>
         <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">Received on Arc.</h1>
         <p className="mt-1 text-muted-foreground">
-          {addressName ? "One part" : `${receipt.name}'s part`} of a payment from {receipt.from}.
+          {receipt.whole
+            ? `A payment from ${receipt.from}.`
+            : `${addressName ? "One part" : `${receipt.name}'s part`} of a payment from ${receipt.from}.`}
         </p>
       </div>
 

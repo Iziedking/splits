@@ -1,4 +1,4 @@
-import type { actionView, receiptView, splitView, transferView, userView, walletView } from "@/server/views";
+import type { actionView, receiptView, splitView, transferView, userView, visitorPaymentView, walletView } from "@/server/views";
 
 /** Response shapes, taken from the server's own view functions so the two can't drift apart. */
 export type UserView = ReturnType<typeof userView>;
@@ -7,6 +7,20 @@ export type SplitView = ReturnType<typeof splitView>;
 export type TransferView = ReturnType<typeof transferView>;
 export type ActionView = ReturnType<typeof actionView>;
 export type ReceiptView = ReturnType<typeof receiptView>;
+export type VisitorPaymentView = ReturnType<typeof visitorPaymentView>;
+/** What a visitor's browser needs to pay on Arc (GET /api/visitor/config). */
+export type VisitorConfig = {
+  live: boolean;
+  network: "arc" | "arc-testnet";
+  chainId: number;
+  rpcUrl: string;
+  explorerUrl: string;
+  router: `0x${string}`;
+  usdc: `0x${string}`;
+  limits: { perPayment: string; daily: string };
+};
+/** One router leg as the server hands it to the visitor's wallet. */
+export type ContractLeg = { recipient: `0x${string}`; fixedAmount: string; shareBps: 0; purpose: `0x${string}` };
 import type { ReceivedItem } from "@/server/services/activity";
 export type { ReceivedItem };
 export type { CheckLine, PayoutCheck } from "@/server/services/payouts";

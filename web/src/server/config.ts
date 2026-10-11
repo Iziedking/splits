@@ -60,6 +60,28 @@ const schema = z
     // transaction can carry (MAX_RECIPIENTS_CEILING, measured on a mainnet fork).
     MAX_PAYOUT_RECIPIENTS: z.coerce.number().int().min(1).max(MAX_RECIPIENTS_CEILING).default(50),
 
+    // Until a KYC provider is integrated nobody sends more than this: per payment, and per sender
+    // in any rolling 24 hours. Visitors (no account) have their own pair so they can be set lower.
+    SEND_LIMIT_PER_PAYMENT_USDC: usdcAmount.default("500"),
+    SEND_LIMIT_DAILY_USDC: usdcAmount.default("500"),
+    VISITOR_SEND_LIMIT_PER_PAYMENT_USDC: usdcAmount.default("500"),
+    VISITOR_SEND_LIMIT_DAILY_USDC: usdcAmount.default("500"),
+    VISITOR_CHECKS_PER_HOUR: z.coerce.number().int().min(1).default(20),
+    // A backstop across all visitors together, since a visitor can drop cookies.
+    VISITOR_CHECKS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(1000),
+
+    // The Splits fee, paid by the sender on top. Basis points; 0 and 0 turns fees off.
+    FEE_BPS: z.coerce.number().int().min(0).max(1000).default(150),
+    FEE_MANY_BPS: z.coerce.number().int().min(0).max(1000).default(200),
+    FEE_MANY_FROM_RECIPIENTS: z.coerce.number().int().min(2).default(10),
+    // Where fees land. Defaults to the treasury; a live mainnet server must set it.
+    FEE_WALLET_ADDRESS: address.optional(),
+
+    // Behind the production proxy, the visitor's IP is the first x-forwarded-for hop.
+    TRUST_PROXY: bool.default(false),
+    // The RPC a visitor's wallet and browser use. ARC_RPC_URLS may be private to the server.
+    ARC_PUBLIC_RPC_URL: z.url().optional(),
+
     // Background driver for payments nobody is watching. 0 turns the in-process loop off
     // (for example on serverless, where the cron route does the job instead).
     SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(5000),
@@ -79,6 +101,9 @@ const schema = z
     for (const key of required) {
       if (!env[key]) ctx.addIssue({ code: "custom", path: [key], message: "required when SPLITS_MODE=live" });
     }
+    if (!testnet && !env.FEE_WALLET_ADDRESS) {
+      ctx.addIssue({ code: "custom", path: ["FEE_WALLET_ADDRESS"], message: "required when SPLITS_MODE=live on mainnet" });
+    }
     // Testnet runs may use a local PGlite database and on-screen codes. Mainnet never may.
     if (!env.DATABASE_URL && !(testnet && env.PGLITE_DIR)) {
       ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "required when SPLITS_MODE=live (PGLITE_DIR is allowed on testnet only)" });
@@ -97,6 +122,7 @@ const schema = z
 
 export type Config = z.infer<typeof schema> & {
   rpcUrls: string[];
+  publicRpcUrl: string;
   rpId: string;
   origin: string;
 };
@@ -109,9 +135,11 @@ export function parseConfig(source: Record<string, string | undefined>): Config 
   }
   const env = result.data;
   const url = new URL(env.APP_URL);
+  const rpcUrls = env.ARC_RPC_URLS.split(",").map((u) => u.trim()).filter(Boolean);
   return {
     ...env,
-    rpcUrls: env.ARC_RPC_URLS.split(",").map((u) => u.trim()).filter(Boolean),
+    rpcUrls,
+    publicRpcUrl: env.ARC_PUBLIC_RPC_URL ?? rpcUrls[0]!,
     rpId: url.hostname,
     origin: url.origin,
   };

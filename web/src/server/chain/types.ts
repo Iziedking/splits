@@ -34,4 +34,7 @@ export interface ChainReader {
   getSplit(splitId: bigint): Promise<OnchainSplit | null>;
   /** null while the transaction is not yet visible to the node. */
   receipt(txHash: Hex): Promise<RouterReceipt | null>;
+  blockNumber(): Promise<bigint>;
+  /** The transaction in which `payer` paid with `ref`, searching from `fromBlock`; null if none yet. */
+  findSplitSent(payer: Address, ref: Hex, fromBlock: bigint): Promise<Hex | null>;
 }

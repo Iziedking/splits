@@ -1,10 +1,12 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  check,
   index,
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -132,6 +134,7 @@ export const actions = pgTable("actions", {
 
 export const TRANSFER_STATUSES = [
   "awaiting_confirmation",
+  "awaiting_wallet",
   "confirmed",
   "funding",
   "approving",
@@ -150,8 +153,12 @@ export const transfers = pgTable(
   "transfers",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    payerUserId: uuid("payer_user_id").notNull().references(() => users.id),
-    payerWalletId: uuid("payer_wallet_id").notNull().references(() => wallets.id),
+    /** Null when a visitor paid from their own wallet. */
+    payerUserId: uuid("payer_user_id").references(() => users.id),
+    payerWalletId: uuid("payer_wallet_id").references(() => wallets.id),
+    /** The address the money leaves from: the payer's Splits wallet, or the visitor's own wallet. */
+    payerAddress: text("payer_address").notNull(),
+    funding: text("funding", { enum: ["balance", "card", "own_wallet"] }).notNull().default("balance"),
     /** "send" pays a saved split, "auto" runs a receiver's rule, "pay" pays a checked list once. */
     kind: text("kind", { enum: ["send", "auto", "pay"] }).notNull(),
     /** Null for one-off ("pay") payments, which have no saved split. */
@@ -164,6 +171,17 @@ export const transfers = pgTable(
     /** Set, under a lock, when the top-up is reserved against the daily caps. */
     fundedAt: timestamp("funded_at", { withTimezone: true }),
     expected: jsonb("expected").$type<ExpectedLeg[]>().notNull(),
+    /** The Splits fee in USDC base units, fixed at quote. The sender pays amount + fee. */
+    feeAmount: text("fee_amount").notNull().default("0"),
+    feeBps: integer("fee_bps").notNull().default(0),
+    feeAddress: text("fee_address"),
+    /** Own-wallet payments: the reservation ends here if no payment arrives. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    /** Own-wallet payments: the private /p/<token> link. */
+    visitorToken: text("visitor_token").unique(),
+    visitorEmail: text("visitor_email"),
+    /** Own-wallet payments: the Arc block at reservation, where log searches start. */
+    fromBlock: bigint("from_block", { mode: "bigint" }),
     ref: text("ref").notNull().unique(),
     status: text("status", { enum: TRANSFER_STATUSES }).notNull(),
     parentTransferId: uuid("parent_transfer_id"),
@@ -176,6 +194,7 @@ export const transfers = pgTable(
   },
   (t) => [
     index("transfers_payer").on(t.payerUserId, t.createdAt),
+    index("transfers_payer_address").on(t.payerAddress, t.createdAt),
     // One automatic split per parent payment and wallet, so a replayed trigger can't run it twice.
     uniqueIndex("transfers_one_auto_per_parent").on(t.parentTransferId, t.payerWalletId),
   ],
@@ -225,7 +244,10 @@ export const payoutDrafts = pgTable(
   "payout_drafts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    ownerUserId: uuid("owner_user_id").notNull().references(() => users.id),
+    /** Set for an account's list. */
+    ownerUserId: uuid("owner_user_id").references(() => users.id),
+    /** Set for a visitor's list: sha256 of the visitor cookie. Exactly one owner is set. */
+    visitorKeyHash: text("visitor_key_hash"),
     legs: jsonb("legs").$type<DraftLeg[]>().notNull(),
     total: text("total").notNull(),
     hash: text("hash").notNull(),
@@ -234,7 +256,10 @@ export const payoutDrafts = pgTable(
     transferId: uuid("transfer_id"),
     createdAt: createdAt(),
   },
-  (t) => [index("payout_drafts_owner").on(t.ownerUserId, t.createdAt)],
+  (t) => [
+    index("payout_drafts_owner").on(t.ownerUserId, t.createdAt),
+    check("payout_drafts_one_owner", sql`num_nonnulls(${t.ownerUserId}, ${t.visitorKeyHash}) = 1`),
+  ],
 );
 
 /** "You received money" emails, one per payment and recipient. */
@@ -270,4 +295,15 @@ export const receiptLinks = pgTable(
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("receipt_links_one_per_leg").on(t.transferId, t.legIndex)],
+);
+
+/** Fixed-window counters for public endpoints. One row per key and window. */
+export const rateHits = pgTable(
+  "rate_hits",
+  {
+    key: text("key").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
 );

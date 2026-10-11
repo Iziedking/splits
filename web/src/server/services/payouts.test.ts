@@ -85,3 +85,27 @@ ${bobAddress}, 1`, label: "prize" });
     await expect(claimDraft(ctx, user, draft!.id, draft!.hash)).rejects.toMatchObject({ code: "LIST_CHANGED" });
   });
 });
+
+describe("visitor lists", () => {
+  const visitor = { visitorKeyHash: "a".repeat(64) };
+  const addr = "0x00000000000000000000000000000000000000c1";
+
+  it("checks a visitor's list and only that visitor can use it", async () => {
+    const { ctx } = await testCtx();
+    const res = await checkPayout(ctx, visitor, { mode: "each", text: `${addr}, 2`, label: "gift" });
+    expect(res.ready).toBe(true);
+    const draft = await claimDraft(ctx, visitor, res.draft!.id, res.draft!.hash);
+    expect(draft.visitorKeyHash).toBe(visitor.visitorKeyHash);
+    expect(draft.ownerUserId).toBeNull();
+    await expect(claimDraft(ctx, { visitorKeyHash: "b".repeat(64) }, res.draft!.id, res.draft!.hash)).rejects.toThrow("no longer exists");
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    await expect(claimDraft(ctx, user, res.draft!.id, res.draft!.hash)).rejects.toThrow("no longer exists");
+  });
+
+  it("does not let an account use a visitor key", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const res = await checkPayout(ctx, user, { mode: "each", text: `${addr}, 2`, label: "gift" });
+    await expect(claimDraft(ctx, visitor, res.draft!.id, res.draft!.hash)).rejects.toThrow("no longer exists");
+  });
+});

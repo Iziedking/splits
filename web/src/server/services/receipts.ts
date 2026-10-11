@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import type { Ctx } from "../context";
-import { receiptLinks as receiptLinksTable, transfers, users, wallets } from "../db/schema";
+import { receiptLinks as receiptLinksTable, transfers, users } from "../db/schema";
 import { randomToken } from "../domain/ids";
 import { notFound } from "../errors";
 import { receiptView } from "../views";
@@ -31,14 +31,16 @@ export async function receiptLinks(ctx: Ctx, t: Transfer): Promise<string[] | nu
 export async function receiptByToken(ctx: Ctx, token: string) {
   if (!TOKEN.test(token)) throw notFound("Receipt not found");
   const [row] = await ctx.db
-    .select({ link: receiptLinksTable, t: transfers, payerEmail: users.email, payerAddress: wallets.address })
+    .select({ link: receiptLinksTable, t: transfers, payerEmail: users.email })
     .from(receiptLinksTable)
     .innerJoin(transfers, eq(transfers.id, receiptLinksTable.transferId))
-    .innerJoin(users, eq(users.id, transfers.payerUserId))
-    .innerJoin(wallets, eq(wallets.id, transfers.payerWalletId))
+    .leftJoin(users, eq(users.id, transfers.payerUserId))
     .where(eq(receiptLinksTable.token, token))
     .limit(1);
   const leg = row?.t.expected[row.link.legIndex];
   if (!row || !leg || row.t.status !== "settled") throw notFound("Receipt not found");
-  return receiptView(ctx, row.t, row.link.legIndex, { email: row.payerEmail, address: row.payerAddress });
+  return receiptView(ctx, row.t, row.link.legIndex, {
+    email: row.payerEmail ?? row.t.visitorEmail ?? null,
+    address: row.t.payerAddress,
+  });
 }

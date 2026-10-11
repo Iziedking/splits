@@ -87,4 +87,29 @@ contract ArcForkTest is Test {
         emit log_named_uint("SAFE_RECIPIENTS (half a block)", (block.gaslimit / 2) / perLeg);
         assertGt(perLeg, 0);
     }
+
+    /// @dev What a visitor's own wallet does: approve the exact total, then pay. The app's verifier
+    ///      needs SplitSent with this payer and ref, and one LegPaid per leg.
+    function test_Fork_PlainWalletApprovesAndPays() public {
+        vm.deal(payer, 10 ether);
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](2);
+        legs[0] = SplitsRouter.Leg(landlord, 2e6, 0, bytes32("gift"));
+        legs[1] = SplitsRouter.Leg(school, 3e6, 0, bytes32("gift"));
+        bytes32 ref = keccak256("visitor-fork-1");
+
+        vm.startPrank(payer);
+        ARC_USDC.approve(address(router), 5e6);
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.SplitSent(0, payer, ref, 5e6, 0);
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.LegPaid(0, ref, landlord, 2e6, bytes32("gift"));
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.LegPaid(0, ref, school, 3e6, bytes32("gift"));
+        router.pay(legs, 5e6, ref);
+        vm.stopPrank();
+
+        assertTrue(router.refUsed(payer, ref));
+        assertEq(ARC_USDC.allowance(payer, address(router)), 0);
+        assertEq(ARC_USDC.balanceOf(landlord), 2e6);
+    }
 }

@@ -1,6 +1,7 @@
 import { and, eq, isNull, lt, lte, or } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { notices, transfers, users } from "../db/schema";
+import { greetingName } from "../../lib/format";
 import { formatUsdc } from "../domain/money";
 import type { Transfer } from "./transfers";
 
@@ -15,7 +16,9 @@ const LIVE_GAP_MS = 300;
 /** Queues one "you received money" email per email recipient of a settled payment. Safe to repeat. */
 export async function queueNotices(ctx: Ctx, t: Transfer): Promise<number> {
   if (t.status !== "settled" || (t.kind !== "send" && t.kind !== "pay")) return 0;
-  const [payer] = await ctx.db.select({ email: users.email }).from(users).where(eq(users.id, t.payerUserId)).limit(1);
+  const [payer] = t.payerUserId
+    ? await ctx.db.select({ email: users.email }).from(users).where(eq(users.id, t.payerUserId)).limit(1)
+    : [];
   const rows = t.expected
     .filter((l) => l.email && l.email !== payer?.email && BigInt(l.amount) > 0n)
     .map((l) => ({ transferId: t.id, email: l.email!, amount: l.amount, purpose: l.purpose }));
@@ -31,10 +34,10 @@ export async function queueNotices(ctx: Ctx, t: Transfer): Promise<number> {
 export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sent: number; failed: number }> {
   const now = ctx.now();
   const due = await ctx.db
-    .select({ n: notices, from: users.email })
+    .select({ n: notices, from: users.email, payerAddress: transfers.payerAddress, visitorEmail: transfers.visitorEmail })
     .from(notices)
     .innerJoin(transfers, eq(transfers.id, notices.transferId))
-    .innerJoin(users, eq(users.id, transfers.payerUserId))
+    .leftJoin(users, eq(users.id, transfers.payerUserId))
     .where(
       and(
         eq(notices.status, "pending"),
@@ -47,7 +50,7 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
 
   let sent = 0;
   let failed = 0;
-  for (const [i, { n, from }] of due.entries()) {
+  for (const [i, { n, from, payerAddress, visitorEmail }] of due.entries()) {
     if (i > 0 && ctx.mode === "live") await new Promise((r) => setTimeout(r, LIVE_GAP_MS));
     // Claim the notice first, so two sweeps running at once can't both send it.
     const [claimed] = await ctx.db
@@ -58,7 +61,7 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
     if (!claimed) continue;
     try {
       await ctx.email.sendPaymentNotice(n.email, {
-        from,
+        from: from ?? (visitorEmail ? greetingName(visitorEmail) : `${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}`),
         amount: formatUsdc(BigInt(n.amount)),
         purpose: n.purpose,
         appUrl: ctx.appUrl,

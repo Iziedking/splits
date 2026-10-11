@@ -48,6 +48,8 @@ export async function createAutoTransfer(
       id,
       payerUserId: wallet.userId,
       payerWalletId: wallet.id,
+      payerAddress: wallet.address,
+      funding: "balance",
       kind: "auto",
       splitId: rule.id,
       splitVersion: rule.version,

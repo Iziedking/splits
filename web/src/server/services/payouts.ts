@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Ctx } from "../context";
 import { payoutDrafts, type DraftLeg } from "../db/schema";
 import { SplitRuleError } from "../domain/allocation";
+import { feeFor } from "../domain/fees";
 import { sha256Hex } from "../domain/ids";
 import { formatUsdc, parseUsdc, purposeToBytes32 } from "../domain/money";
 import { equalPot, parsePayoutLines, recipientKey, type PayoutTarget } from "../domain/payouts";
@@ -11,6 +12,11 @@ import { badRequest, conflict, notFound } from "../errors";
 import { ensureMainWallet, ensureUser, mainWallet, type User } from "./users";
 
 export const DRAFT_TTL_MS = 30 * 60_000;
+
+/** A list checked by someone without an account: owned by the hash of their visitor cookie. */
+export type VisitorOwner = { visitorKeyHash: string };
+export type DraftOwner = User | VisitorOwner;
+const isVisitor = (o: DraftOwner): o is VisitorOwner => "visitorKeyHash" in o;
 export type Draft = typeof payoutDrafts.$inferSelect;
 
 export const payoutCheckInput = z.object({
@@ -35,6 +41,12 @@ export type PayoutCheck = {
   lines: CheckLine[];
   total: string | null;
   ready: boolean;
+  /** The total in USDC base units, for exact arithmetic. */
+  totalUnits: string | null;
+  /** The Splits fee the sender would pay on top, and the whole charge. */
+  fee: string | null;
+  feePercent: number;
+  charge: string | null;
   maxRecipients: number;
   draft: { id: string; hash: string; expiresAt: string } | null;
 };
@@ -81,7 +93,7 @@ function flag(l: Working, status: Exclude<LineStatus, "ready">, message: string)
  * Reads a pasted list, works out every amount, makes sure every person can be paid, and saves
  * the result as a draft the sender can approve. Nothing moves here.
  */
-export async function checkPayout(ctx: Ctx, user: User, input: PayoutCheckInput): Promise<PayoutCheck> {
+export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutCheckInput): Promise<PayoutCheck> {
   try {
     purposeToBytes32(input.label);
   } catch {
@@ -109,7 +121,7 @@ export async function checkPayout(ctx: Ctx, user: User, input: PayoutCheckInput)
   }));
 
   // Duplicates, and the sender's own email or wallet.
-  const mine = (await mainWallet(ctx, user.id))?.address.toLowerCase();
+  const mine = isVisitor(owner) ? undefined : (await mainWallet(ctx, owner.id))?.address.toLowerCase();
   const seen = new Set<string>();
   for (const l of lines) {
     if (l.status !== "ready" || !l.target) continue;
@@ -117,7 +129,7 @@ export async function checkPayout(ctx: Ctx, user: User, input: PayoutCheckInput)
     if (seen.has(key)) flag(l, "duplicate", MESSAGES.duplicate);
     seen.add(key);
     const self =
-      (l.target.type === "email" && l.target.email === user.email) ||
+      (l.target.type === "email" && !isVisitor(owner) && l.target.email === owner.email) ||
       (l.target.type === "address" && l.target.address.toLowerCase() === mine);
     if (l.status === "ready" && self) flag(l, "self", MESSAGES.self);
   }
@@ -186,7 +198,16 @@ export async function checkPayout(ctx: Ctx, user: User, input: PayoutCheckInput)
   }));
   const ready = lines.every((l) => l.status === "ready");
   const total = lines.every((l) => l.cents !== null) ? lines.reduce((sum, l) => sum + l.cents!, 0n) : null;
-  const base = { lines: out, total: total === null ? null : formatUsdc(total), maxRecipients: ctx.limits.maxPayoutRecipients };
+  const fee = total === null ? null : feeFor(total, lines.length, ctx.fees.rule);
+  const base = {
+    lines: out,
+    total: total === null ? null : formatUsdc(total),
+    totalUnits: total === null ? null : total.toString(),
+    fee: fee === null ? null : formatUsdc(fee.amount),
+    feePercent: fee === null ? 0 : fee.bps / 100,
+    charge: total === null || fee === null ? null : formatUsdc(total + fee.amount),
+    maxRecipients: ctx.limits.maxPayoutRecipients,
+  };
   if (!ready || total === null) return { ...base, ready: false, draft: null };
 
   const legs: DraftLeg[] = lines.map((l) => ({
@@ -201,15 +222,24 @@ export async function checkPayout(ctx: Ctx, user: User, input: PayoutCheckInput)
   const expiresAt = new Date(ctx.now().getTime() + DRAFT_TTL_MS);
   const [draft] = await ctx.db
     .insert(payoutDrafts)
-    .values({ ownerUserId: user.id, legs, total: total.toString(), hash, expiresAt, createdAt: ctx.now() })
+    .values({
+      ownerUserId: isVisitor(owner) ? null : owner.id,
+      visitorKeyHash: isVisitor(owner) ? owner.visitorKeyHash : null,
+      legs,
+      total: total.toString(),
+      hash,
+      expiresAt,
+      createdAt: ctx.now(),
+    })
     .returning();
   return { ...base, ready: true, draft: { id: draft!.id, hash, expiresAt: expiresAt.toISOString() } };
 }
 
 /** The draft behind an approval, if it is the sender's, unchanged, unexpired and not yet paid. */
-export async function claimDraft(ctx: Ctx, user: User, draftId: string, hash: string): Promise<Draft> {
+export async function claimDraft(ctx: Ctx, owner: DraftOwner, draftId: string, hash: string): Promise<Draft> {
   const [draft] = await ctx.db.select().from(payoutDrafts).where(eq(payoutDrafts.id, draftId)).limit(1);
-  if (!draft || draft.ownerUserId !== user.id) throw notFound("This list no longer exists. Check it again.");
+  const mine = isVisitor(owner) ? draft?.visitorKeyHash === owner.visitorKeyHash : draft?.ownerUserId === owner.id;
+  if (!draft || !mine) throw notFound("This list no longer exists. Check it again.");
   if (draft.consumedAt) throw conflict("LIST_ALREADY_PAID", "This list was already paid");
   if (draft.hash !== hash || draft.expiresAt <= ctx.now()) throw conflict("LIST_CHANGED", "This list changed. Check it again.");
   return draft;

@@ -65,6 +65,8 @@ export class PreviewArc {
   private blocked = new Set<string>();
   private inbound = new Map<string, { txHash: Hex; from: Address; amount: bigint; at: Date }[]>();
   private pendingPolls: number;
+  private sent: { payer: string; ref: string; txHash: Hex; block: bigint }[] = [];
+  private externalCount = 0;
 
   constructor(opts: PreviewArcOptions = {}) {
     this.pendingPolls = opts.pendingPolls ?? 1;
@@ -146,6 +148,10 @@ export class PreviewArc {
       return s ? structuredClone(s) : null;
     },
     receipt: async (txHash) => this.receipts.get(txHash) ?? null,
+    blockNumber: async () => this.block,
+    findSplitSent: async (payer, ref, fromBlock) =>
+      this.sent.find((s) => s.payer === payer.toLowerCase() && s.ref === ref.toLowerCase() && s.block >= fromBlock)?.txHash ??
+      null,
   };
 
   // ---------------------------------------------------------------- internals
@@ -168,29 +174,52 @@ export class PreviewArc {
     const txHash = keccak256(stringToHex(`preview:tx:${providerTxId}`));
     this.txKeys.set(idempotencyKey, providerTxId);
     try {
-      const fx = run();
-      this.commit(fx);
-      for (const m of fx.moves) {
-        const key = m.to.toLowerCase();
-        this.inbound.set(key, [{ txHash, from: m.from, amount: m.amount, at: new Date() }, ...(this.inbound.get(key) ?? [])]);
-      }
-      const receipt: RouterReceipt = { txHash, status: "success", blockNumber: this.block++, ...fx.receipt };
-      this.receipts.set(txHash, receipt);
+      const receipt = this.settle(run(), txHash);
       this.txs.set(providerTxId, { polls: 0, outcome: { ok: true, receipt } });
     } catch (err) {
       if (!(err instanceof Revert) && !(err instanceof SplitRuleError)) throw err;
-      this.receipts.set(txHash, {
-        txHash,
-        status: "reverted",
-        blockNumber: this.block++,
-        splitCreated: [],
-        splitLegsSet: [],
-        splitSent: [],
-        legPaid: [],
-      });
+      this.revert(txHash);
       this.txs.set(providerTxId, { polls: 0, outcome: { ok: false, error: err.message, txHash } });
     }
     return { providerTxId };
+  }
+
+  /** A call from a wallet Splits doesn't hold, the way a visitor's own wallet calls Arc. */
+  callFrom(sender: Address, contract: Address, callData: Hex): Hex {
+    const txHash = keccak256(stringToHex(`preview:external:${this.externalCount++}`));
+    try {
+      this.settle(this.applyCall(sender, contract, callData), txHash);
+    } catch (err) {
+      if (!(err instanceof Revert) && !(err instanceof SplitRuleError)) throw err;
+      this.revert(txHash);
+    }
+    return txHash;
+  }
+
+  private settle(fx: Effects, txHash: Hex): RouterReceipt {
+    this.commit(fx);
+    for (const m of fx.moves) {
+      const key = m.to.toLowerCase();
+      this.inbound.set(key, [{ txHash, from: m.from, amount: m.amount, at: new Date() }, ...(this.inbound.get(key) ?? [])]);
+    }
+    const receipt: RouterReceipt = { txHash, status: "success", blockNumber: this.block++, ...fx.receipt };
+    this.receipts.set(txHash, receipt);
+    for (const s of receipt.splitSent) {
+      this.sent.push({ payer: s.payer.toLowerCase(), ref: s.ref.toLowerCase(), txHash, block: receipt.blockNumber });
+    }
+    return receipt;
+  }
+
+  private revert(txHash: Hex) {
+    this.receipts.set(txHash, {
+      txHash,
+      status: "reverted",
+      blockNumber: this.block++,
+      splitCreated: [],
+      splitLegsSet: [],
+      splitSent: [],
+      legPaid: [],
+    });
   }
 
   private fork(): Effects {

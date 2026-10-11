@@ -67,6 +67,9 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [],
     status: t.status,
     splitId: t.splitId,
     amount: formatUsdc(BigInt(t.amount)),
+    fee: formatUsdc(BigInt(t.feeAmount)),
+    feePercent: t.feeBps / 100,
+    total: formatUsdc(BigInt(t.amount) + BigInt(t.feeAmount)),
     quote: quote?.currency
       ? {
           currency: quote.currency,
@@ -103,20 +106,36 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [],
  * One recipient's receipt, for a link anyone holding it can open. It names the sender by first
  * name only and leaves out the total and every other recipient.
  */
-export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { email: string; address: string }) {
+export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { email: string | null; address: string }) {
   const leg = t.expected[legIndex]!;
   return {
     index: legIndex,
+    /** True when this person was the payment's only recipient, so the receipt is the whole payment. */
+    whole: t.expected.length === 1,
     name: leg.name,
     purpose: leg.purpose,
     amount: formatUsdc(BigInt(leg.amount)),
     to: leg.address,
-    from: greetingName(payer.email),
+    from: payer.email ? greetingName(payer.email) : `${payer.address.slice(0, 6)}…${payer.address.slice(-4)}`,
     fromAddress: payer.address,
     paidAt: (t.settledAt ?? t.updatedAt).toISOString(),
     txHash: t.txHash,
     explorerUrl: txUrl(ctx, t.txHash),
     network: ctx.network,
     simulated: ctx.mode === "preview",
+  };
+}
+
+/** A visitor's payment, for the /p/<token> page. Carries what their wallet needs to pay it. */
+export function visitorPaymentView(ctx: Ctx, t: Transfer, receipts: string[] | null) {
+  return {
+    ...transferView(ctx, t, [], receipts),
+    token: t.visitorToken,
+    /** The wallet this reservation is for; the page refuses to sign from any other. */
+    payer: t.payerAddress,
+    expiresAt: t.expiresAt?.toISOString() ?? null,
+    ref: t.ref,
+    router: ctx.router,
+    usdc: ctx.usdc,
   };
 }

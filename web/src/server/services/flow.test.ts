@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getAddress, type Address, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import type { Ctx } from "../context";
-import { providerTxs, transfers, users } from "../db/schema";
+import { providerTxs, splits, transfers, users } from "../db/schema";
 import { AppError } from "../errors";
 import { formatUsdc } from "../domain/money";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
@@ -620,6 +620,7 @@ describe("receipts", () => {
       from: "Ada",
       txHash: t.txHash,
       simulated: true,
+      whole: false,
     });
     const shown = JSON.stringify(school);
     for (const other of [t.expected[0]!, t.expected[2]!]) {
@@ -628,6 +629,14 @@ describe("receipts", () => {
     }
     expect(shown).not.toContain(formatUsdc(BigInt(t.amount)));
     expect(shown).not.toContain("ada.obi@example.com");
+  });
+
+  it("says a one-person payment is the whole payment, not a part of one", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const t = await payDraft(ctx, user, await checkedDraft(ctx, user, winner(1), "2"));
+    const [link] = (await receiptLinks(ctx, t))!;
+    expect(await receiptByToken(ctx, link!)).toMatchObject({ whole: true, amount: "2.00" });
   });
 
   it("has no links before the payment settles", async () => {
@@ -642,5 +651,109 @@ describe("receipts", () => {
     const { ctx } = await testCtx();
     expect(await code(receiptByToken(ctx, "A".repeat(24)))).toBe("NOT_FOUND");
     expect(await code(receiptByToken(ctx, "'; drop table transfers;--"))).toBe("NOT_FOUND");
+  });
+});
+
+describe("the Splits fee", () => {
+  const fees = { FEE_BPS: "150", FEE_MANY_BPS: "200", FEE_MANY_FROM_RECIPIENTS: "10" };
+
+  it("charges the fee on top and pays it in the same transaction", async () => {
+    const { ctx, arc } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const payer = (await mainWallet(ctx, user.id))!.address as Address;
+    arc.mint(payer, 10_000_000n);
+    const feeBefore = await ctx.chain.usdcBalance(ctx.fees.address);
+    const t = await payDraft(ctx, user, await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "4"), "balance");
+    expect(t.status).toBe("settled");
+    expect(t.feeAmount).toBe("60000");
+    expect(t.feeBps).toBe(150);
+    expect(await ctx.chain.usdcBalance(winner(1))).toBe(2_000_000n);
+    expect(await ctx.chain.usdcBalance(payer)).toBe(10_000_000n - 4_060_000n);
+    expect((await ctx.chain.usdcBalance(ctx.fees.address)) - feeBefore).toBe(60_000n);
+    const receipt = await ctx.chain.receipt(t.txHash as Hex);
+    expect(receipt!.legPaid.at(-1)).toMatchObject({ recipient: ctx.fees.address, amount: 60_000n });
+  });
+
+  it("uses the many-people rate from the cutoff", async () => {
+    const { ctx } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "host@example.com");
+    for (const [people, bps] of [[9, 150], [10, 200], [11, 200]] as const) {
+      const list = Array.from({ length: people }, (_, i) => winner(100 * people + i)).join("\n");
+      const draft = await checkedDraft(ctx, user, list, String(people));
+      const { transfer } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" });
+      expect(transfer.feeBps).toBe(bps);
+    }
+  });
+
+  it("keeps the quoted fee when the rate changes before the payment runs", async () => {
+    const { ctx, arc } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "host@example.com");
+    arc.mint((await mainWallet(ctx, user.id))!.address as Address, 10_000_000n);
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "4");
+    const { transfer, action } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "balance" });
+    ctx.fees = { ...ctx.fees, rule: { ...ctx.fees.rule, bps: 900 } };
+    await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+    const t = await drive(ctx, transfer.id);
+    expect(t.status).toBe("settled");
+    expect(t.feeAmount).toBe("60000");
+  });
+
+  it("tops the demo card up by the amount plus the fee", async () => {
+    const { ctx } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "4");
+    const { transfer } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" });
+    expect(transfer.topUp).toBe("4060000");
+  });
+
+  it("refuses a balance payment that covers the amount but not the fee", async () => {
+    const { ctx, arc } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "host@example.com");
+    arc.mint((await mainWallet(ctx, user.id))!.address as Address, 4_000_000n);
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "4");
+    expect(await code(quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "balance" }))).toBe("INSUFFICIENT_BALANCE");
+  });
+
+  it("pays a saved split through pay(), each person as the template says, plus the fee", async () => {
+    const { ctx } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const t = await pay(ctx, user, split.id, 1_000);
+    expect(t.status).toBe("settled");
+    const receipt = await ctx.chain.receipt(t.txHash as Hex);
+    expect(receipt!.splitSent[0]!.splitId).toBe(0n);
+    const paid = receipt!.legPaid.map((l) => l.amount);
+    const want = t.expected.map((l) => BigInt(l.amount)).filter((a) => a > 0n);
+    expect(paid).toEqual([...want, BigInt(t.feeAmount)]);
+    expect(BigInt(t.feeAmount)).toBeGreaterThan(0n);
+  });
+
+  it("refuses to pay a saved split that changed after approval", async () => {
+    const { ctx } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const { transfer, action } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1_000 });
+    await ctx.db.update(splits).set({ version: split.version + 1 }).where(eq(splits.id, split.id));
+    await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+    const t = await drive(ctx, transfer.id);
+    expect(t.status).toBe("failed");
+    expect(t.lastError).toMatch(/^The split changed after you confirmed\. Nothing was sent\./);
+  });
+});
+
+describe("send limit on account payments", () => {
+  it("refuses an account payment over the limit at quote and again at confirm", async () => {
+    const { ctx, arc } = await testCtx({ SEND_LIMIT_DAILY_USDC: "3" });
+    const { user } = await signedInUser(ctx, "host@example.com");
+    arc.mint((await mainWallet(ctx, user.id))!.address as Address, 10_000_000n);
+    const first = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
+    const second = await checkedDraft(ctx, user, [winner(3), winner(4)].join("\n"), "2");
+    const a = await quoteTransfer(ctx, user, { draftId: first.id, draftHash: first.hash, fundWith: "balance" });
+    const b = await quoteTransfer(ctx, user, { draftId: second.id, draftHash: second.hash, fundWith: "balance" });
+    await confirmTransfer(ctx, user, a.action.id, { pin: TEST_PIN });
+    expect(await code(confirmTransfer(ctx, user, b.action.id, { pin: TEST_PIN }))).toBe("SEND_LIMIT");
+    expect((await getTransfer(ctx, b.transfer.id)).status).toBe("cancelled");
+    const third = await checkedDraft(ctx, user, [winner(5), winner(6)].join("\n"), "2");
+    expect(await code(quoteTransfer(ctx, user, { draftId: third.id, draftHash: third.hash, fundWith: "balance" }))).toBe("SEND_LIMIT");
   });
 });

@@ -33,10 +33,6 @@ mutate "random-idempotency-key" src/server/services/providerTx.ts \
   'const idempotencyKey = deterministicUuid(`${subjectId}:${step}:${attempt}`);' \
   'const idempotencyKey = crypto.randomUUID();' \
   "not sent twice"
-mutate "no-receipt-check" "$T" \
-  'if (!matches || !(await ctx.chain.refUsed(payer.address, t.ref as Hex))) {' \
-  'if (false) {' \
-  "doesn't match what the user approved"
 mutate "no-user-daily-cap" "$T" \
   "if (userTotal > ctx.limits.perUserDaily) {" \
   "if (false) {" \
@@ -112,5 +108,29 @@ mutate "notice-to-payer" src/server/services/notices.ts \
 mutate "receipt-shows-total" src/server/views.ts   '    network: ctx.network,' '    network: ctx.network, total: formatUsdc(BigInt(t.amount)),'   "shows only their part"
 mutate "receipt-before-settled" src/server/services/receipts.ts   '  if (t.status !== "settled") return null;' ''   "has no links before the payment settles"
 
+mutate_in "no-send-limit" src/server/services/sendLimits.ts \
+  '    if (used + amount > daily) {' '    if (false) {' \
+  src/server/services/sendLimits.test.ts "counts a rolling 24 hours"
+mutate_in "reservations-not-counted" src/server/services/sendLimits.ts \
+  '? or(inArray(transfers.status, COUNTED), and(eq(transfers.status, "awaiting_wallet"), gt(transfers.expiresAt, now)))' '? inArray(transfers.status, COUNTED)' \
+  src/server/services/sendLimits.test.ts "counts a rolling 24 hours"
+mutate_in "payer-not-checked" src/server/services/transfers.ts \
+  '    sent &&' '    true &&' \
+  src/server/services/visitorPayments.test.ts "another wallet's hash was submitted"
+mutate_in "fee-leg-not-verified" "$T" \
+  '  if (BigInt(t.feeAmount) > 0n) {' '  if (false) {' \
+  src/server/services/visitorPayments.test.ts "leaves the fee out"
+mutate_in "fee-tier-ignored" src/server/domain/fees.ts \
+  'const bps = recipients >= rule.manyFrom ? rule.manyBps : rule.bps;' 'const bps = rule.bps;' \
+  src/server/domain/fees.test.ts "uses the many-people rate"
+mutate "fee-from-env-not-stored" "$T" \
+  'export const chargeOf = (t: Pick<Transfer, "amount" | "feeAmount">) => BigInt(t.amount) + BigInt(t.feeAmount);' 'export const chargeOf = (t: Pick<Transfer, "amount" | "feeAmount">) => BigInt(t.amount) + (BigInt(t.amount) * 900n) / 10_000n;' \
+  "keeps the quoted fee"
+mutate_in "visitor-key-unchecked" src/server/services/payouts.ts \
+  'isVisitor(owner) ? draft?.visitorKeyHash === owner.visitorKeyHash' 'isVisitor(owner) ? true' \
+  src/server/services/payouts.test.ts "only that visitor can use it"
+mutate_in "no-receipt-check" "$T" \
+  '  if (receipt.status !== "success") return false;' '  return receipt.status === "success";' \
+  src/server/services/visitorPayments.test.ts "fails a payment whose legs differ"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

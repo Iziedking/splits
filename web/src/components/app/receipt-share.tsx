@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ReceiptText, Share2, X } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import type { TransferView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
@@ -41,6 +42,28 @@ export function ManualLink({ path }: { path: string }) {
   );
 }
 
+const RETURN_KEY = "splits:receipt-return";
+const PAYMENT_PATH = /^\/(payments\/[0-9a-f-]{36}|p\/[A-Za-z0-9_-]{24})$/;
+
+/** Remembers which payment this receipt was opened from, so that receipt can offer the way back. */
+export function rememberReturn(from: string, receipt: string) {
+  try {
+    sessionStorage.setItem(RETURN_KEY, JSON.stringify({ from, receipt }));
+  } catch {
+    // Storage blocked: the receipt simply shows no back link.
+  }
+}
+
+/** The payment this receipt was opened from in this tab, if any. A shared link opened cold has none. */
+export function readReturn(receipt: string): string | null {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "null") as { from?: unknown; receipt?: unknown } | null;
+    return saved?.receipt === receipt && typeof saved.from === "string" && PAYMENT_PATH.test(saved.from) ? saved.from : null;
+  } catch {
+    return null;
+  }
+}
+
 export const receiptText = (leg: Pick<Leg, "amount" | "purpose" | "name">) =>
   `Receipt for $${leg.amount} to ${leg.name}${leg.purpose ? `, for ${leg.purpose}` : ""}. Paid with Splits on Arc.`;
 
@@ -48,7 +71,17 @@ export const receiptText = (leg: Pick<Leg, "amount" | "purpose" | "name">) =>
  * Pick whose receipt to share. Each link opens that person's part only, so the list is the
  * decision: one row per recipient, each with its own share and view.
  */
-export function ShareReceipts({ legs, open, onClose }: { legs: Leg[]; open: boolean; onClose: () => void }) {
+export function ShareReceipts({
+  legs,
+  returnTo,
+  open,
+  onClose,
+}: {
+  legs: Leg[];
+  returnTo: string;
+  open: boolean;
+  onClose: () => void;
+}) {
   const ref = React.useRef<HTMLDialogElement>(null);
   const [filter, setFilter] = React.useState("");
   const [done, setDone] = React.useState<{ index: number; result: "copied" | "shared" | "failed" } | null>(null);
@@ -132,15 +165,14 @@ export function ShareReceipts({ legs, open, onClose }: { legs: Leg[]; open: bool
               </span>
               {leg.receipt && (
                 <>
-                  <a
+                  <Link
                     href={leg.receipt}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={() => rememberReturn(returnTo, leg.receipt!)}
                     aria-label={`View ${leg.name}'s receipt`}
                     className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-primary hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <ReceiptText className="h-[18px] w-[18px]" aria-hidden="true" />
-                  </a>
+                  </Link>
                   <button
                     type="button"
                     onClick={() => void share(leg, index)}

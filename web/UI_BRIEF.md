@@ -42,6 +42,38 @@ layout. The Figma file is read only; nothing in it was changed.
 Motion: unchanged rules (one entry settle, a dialog that rises, reduced motion turns it all off). The
 blobs do not move.
 
+## Pay from your own wallet, fees and the send limit (2026-10-11)
+
+**Intent.** Anyone can pay a list straight from a wallet they already have, without an account or a
+deposit. Every payment carries a small Splits fee on top, and nobody sends more than 500 USDC until
+identity checks exist.
+
+- **Entry.** `/send`, linked from the welcome screen as "Pay without an account". Signed-in people
+  are sent to `/pay`. Same composer and line-by-line check as accounts (one person, or many).
+- **Fee lines.** Wherever a total is approved (review, PIN sheet, saved-split preview, the visitor's
+  wallet step): "Splits fee (1.5%) $0.03" and "You pay $2.03". Recipients get exactly what was typed.
+  The landed screen adds "Plus a $0.03 Splits fee (1.5%)." Receipts and notice emails never show it.
+- **Wallet steps.** "Pay $X from your wallet" opens the Reown sheet (browser wallets, WalletConnect
+  QR, phone deep links; teal accent, Manrope). Then two labelled steps: "1 of 2: Allow Splits to send
+  exactly $X" and "2 of 2: Send". Step 1 is skipped when an earlier approval covers it. Never an
+  unlimited approval.
+- **Status link.** After "Send", the page moves to `/p/<token>`: "Waiting for your wallet", then the
+  night "Sending…" steps (Sent from your wallet, Settled on Arc, Receipt checked), then the shared
+  "Landed" view with receipts and "Email me my receipt". The link keeps working on another device.
+- **Limit copy.** Over the per-payment limit: "Payments over 500.00 USDC need identity verification,
+  which is coming soon. Lower the total to continue." Over the day: "You can send $N more today.
+  Your limit resets at HH:MM UTC." Visitors also see "Create an account to raise your limit" with
+  the honest note that verified accounts will send more once identity checks arrive.
+- **Failures.** No wallet: QR or "Open in your wallet app". Wrong network: switch to Arc, or how to
+  add it. Not enough USDC: how much more, plus the faucet on testnet. Declined: "Nothing moved." Expired
+  reservation: "This took longer than 30 minutes. Check the list again." A payment that fails the
+  onchain check: "Not sent" with the reason.
+- **Weight.** AppKit and wagmi load only on `/send` and `/p/<token>`, after the button is tapped.
+  Coinbase's optional x402 packages are aliased to a stub (`lib/wallet/x402-absent.ts`): Splits never
+  makes x402 payments.
+- **Rejected:** a single signature via a permit function (needs a contract change days before mainnet);
+  auto-detecting wallets without WalletConnect (phones in normal browsers couldn't pay).
+
 ## Receipts (2026-10-11): one receipt per recipient
 
 **Intent.** After a payment lands, the sender can share each person's receipt with that person.

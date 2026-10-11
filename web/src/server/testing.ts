@@ -9,7 +9,8 @@ import { finishSignIn, startSignIn } from "./services/signin";
 
 /** A preview context on a fresh in-memory Postgres, with a clock tests can move. */
 export async function testCtx(env: Record<string, string> = {}, arcOptions: PreviewArcOptions = {}) {
-  const config = parseConfig({ SPLITS_MODE: "preview", ...env });
+  // Fees are off unless a test turns them on, so amounts in older tests keep their meaning.
+  const config = parseConfig({ SPLITS_MODE: "preview", FEE_BPS: "0", FEE_MANY_BPS: "0", ...env });
   const arc = new PreviewArc(arcOptions);
   const ctx = previewCtx(await createPgliteDb(), config, arc);
   let now = new Date("2026-10-12T09:00:00Z");

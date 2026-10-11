@@ -95,6 +95,9 @@ try {
   assert.equal(quote.status, 201, JSON.stringify(quote.data));
   assert.equal(quote.data.transfer.amount, "12.70");
   assert.deepEqual(quote.data.transfer.legs.map((l) => l.amount), ["5.08", "4.44", "3.18"]);
+  // The Splits fee (1.5% by default) rides on top: recipients still get the full 12.70.
+  assert.equal(quote.data.transfer.fee, "0.19");
+  assert.equal(quote.data.transfer.total, "12.89");
   const pay = await call("POST", "/api/transfers/confirm", { actionId: quote.data.action.id, pin: "482913" });
   assert.equal(pay.status, 200, JSON.stringify(pay.data));
   let transfer = pay.data.transfer;
@@ -148,6 +151,7 @@ try {
   assert.equal(giveaway.status, "settled", JSON.stringify(giveaway));
   assert.equal(giveaway.kind, "pay");
   assert.equal(giveaway.legs.length, 20);
+  assert.equal(giveaway.fee, "0.20"); // 2% from 10 recipients
   step("the giveaway pays 20 people in one transaction, and a second click can't pay again");
 
   const activity = await call("GET", "/api/activity");
@@ -158,6 +162,35 @@ try {
 
   assert.equal((await call("GET", "/api/cron/sweep")).status, 401);
   step("cron route needs its secret");
+
+  // Visitors: config, a checked list, the limit, the status link without a cookie.
+  const session = cookie;
+  cookie = "";
+  const cfg = await call("GET", "/api/visitor/config", undefined, { withCookie: false });
+  assert.equal(cfg.status, 200, JSON.stringify(cfg.data));
+  assert.equal(cfg.data.limits.perPayment, "500.00");
+  step("visitor config is public");
+
+  const vcheck = await call("POST", "/api/visitor/check", { mode: "each", text: "0x00000000000000000000000000000000000000f1, 2", label: "gift" }, { withCookie: false });
+  assert.equal(vcheck.status, 200, JSON.stringify(vcheck.data));
+  assert.equal(vcheck.data.ready, true);
+  assert.equal(vcheck.data.fee, "0.03");
+  assert.equal(vcheck.data.charge, "2.03");
+  step("a visitor can check a list, with the fee on top");
+
+  const big = await call("POST", "/api/visitor/check", { mode: "each", text: "0x00000000000000000000000000000000000000f1, 501", label: "gift" }, { withCookie: false });
+  assert.equal(big.status, 403, JSON.stringify(big.data));
+  assert.equal(big.data.error.code, "SEND_LIMIT");
+  step("a visitor list over 500 is refused");
+
+  const missing = await call("GET", "/api/visitor/payments/xxxxxxxxxxxxxxxxxxxxxxxx", undefined, { withCookie: false });
+  assert.equal(missing.status, 404);
+  step("an unknown visitor payment link is a 404");
+
+  const cross = await call("POST", "/api/visitor/check", { mode: "each", text: "x, 1", label: "gift" }, { origin: "https://evil.example", withCookie: false });
+  assert.equal(cross.status, 403);
+  step("visitor routes refuse cross-site posts");
+  cookie = session;
 
   console.log("api smoke: all checks passed");
 } catch (err) {

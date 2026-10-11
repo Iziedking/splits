@@ -6,6 +6,8 @@ export type PaymentNotice = { from: string; amount: string; purpose: string; app
 export interface EmailSender {
   sendLoginCode(email: string, code: string): Promise<void>;
   sendPaymentNotice(to: string, notice: PaymentNotice): Promise<void>;
+  /** A visitor's own receipt: a link back to their payment. */
+  sendReceiptLink(to: string, r: { amount: string; url: string }): Promise<void>;
 }
 
 /** Preview mode keeps codes in memory so the sign-in screen can show them. Nothing is sent. */
@@ -17,6 +19,10 @@ export class PreviewEmail implements EmailSender {
   }
   async sendPaymentNotice(to: string, notice: PaymentNotice) {
     this.notices.push({ to, notice });
+  }
+  readonly receipts: { to: string; amount: string; url: string }[] = [];
+  async sendReceiptLink(to: string, r: { amount: string; url: string }) {
+    this.receipts.push({ to, ...r });
   }
 }
 
@@ -40,6 +46,15 @@ export function createResendEmail(apiKey: string, from: string): EmailSender {
         if (error.name === "rate_limit_exceeded") err.name = "RateLimited";
         throw err;
       }
+    },
+    async sendReceiptLink(to, r) {
+      const { error } = await resend.emails.send({
+        from,
+        to,
+        subject: `Your Splits receipt for $${r.amount}`,
+        text: `Your payment of $${r.amount} landed on Arc.\n\nSee it and each person's receipt: ${r.url}`,
+      });
+      if (error) throw new Error(`Email provider refused the message: ${error.message}`);
     },
   };
 }

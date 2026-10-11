@@ -87,3 +87,46 @@ describe("PreviewArc pay", () => {
     expect(await arc.walletProvider.walletAddress(PREVIEW_TREASURY_WALLET_ID)).toBe(arc.walletAddress(PREVIEW_TREASURY_WALLET_ID));
   });
 });
+
+const outsider = getAddress("0x00000000000000000000000000000000000000d1");
+const friend = getAddress("0x00000000000000000000000000000000000000d2");
+
+describe("PreviewArc calls from outside wallets", () => {
+  it("lets an outside wallet approve and pay, and finds the payment by payer and ref", async () => {
+    const arc = new PreviewArc();
+    arc.mint(outsider, 5_000_000n);
+    const ref = keccak256(stringToHex("visitor-1"));
+    const from = await arc.chainReader.blockNumber();
+    arc.callFrom(outsider, arc.usdc, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [arc.router, 2_000_000n] }));
+    const hash = arc.callFrom(
+      outsider,
+      arc.router,
+      encodeFunctionData({
+        abi: splitsRouterAbi,
+        functionName: "pay",
+        args: [[{ recipient: friend, fixedAmount: 2_000_000n, shareBps: 0, purpose: purposeToBytes32("gift") }], 2_000_000n, ref],
+      }),
+    );
+    expect((await arc.chainReader.receipt(hash))?.status).toBe("success");
+    expect(await arc.chainReader.usdcBalance(friend)).toBe(2_000_000n);
+    expect(await arc.chainReader.findSplitSent(outsider, ref, from)).toBe(hash);
+    expect(await arc.chainReader.findSplitSent(friend, ref, from)).toBeNull();
+    expect(await arc.chainReader.findSplitSent(outsider, ref, (await arc.chainReader.blockNumber()) + 1n)).toBeNull();
+  });
+
+  it("records a revert and finds nothing", async () => {
+    const arc = new PreviewArc();
+    const ref = keccak256(stringToHex("visitor-2"));
+    const hash = arc.callFrom(
+      outsider,
+      arc.router,
+      encodeFunctionData({
+        abi: splitsRouterAbi,
+        functionName: "pay",
+        args: [[{ recipient: friend, fixedAmount: 1_000_000n, shareBps: 0, purpose: purposeToBytes32("gift") }], 1_000_000n, ref],
+      }),
+    );
+    expect((await arc.chainReader.receipt(hash))?.status).toBe("reverted");
+    expect(await arc.chainReader.findSplitSent(outsider, ref, 0n)).toBeNull();
+  });
+});

@@ -23,6 +23,8 @@ export type ViemChainOptions = {
   usdc: Address;
 };
 
+const LOG_CHUNK = 10_000n;
+
 export function arcChain(opts: Pick<ViemChainOptions, "chainId" | "rpcUrls" | "explorerUrl">) {
   return defineChain({
     id: opts.chainId,
@@ -121,6 +123,26 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
         if (err instanceof Error && err.message.includes("SplitNotFound")) return null;
         throw err;
       }
+    },
+
+    blockNumber: () => client.getBlockNumber(),
+
+    // Searched in chunks: a day of Arc blocks is more than many RPCs serve in one getLogs call.
+    async findSplitSent(payer, ref, fromBlock) {
+      const latest = await client.getBlockNumber();
+      for (let from = fromBlock; from <= latest; from += LOG_CHUNK) {
+        const to = from + LOG_CHUNK - 1n < latest ? from + LOG_CHUNK - 1n : latest;
+        const logs = await client.getContractEvents({
+          address: opts.router,
+          abi: splitsRouterAbi,
+          eventName: "SplitSent",
+          args: { payer, ref },
+          fromBlock: from,
+          toBlock: to,
+        });
+        if (logs[0]) return logs[0].transactionHash;
+      }
+      return null;
     },
 
     async receipt(txHash) {

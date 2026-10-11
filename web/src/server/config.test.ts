@@ -46,7 +46,12 @@ describe("config", () => {
   });
 
   it("never lets mainnet use those shortcuts or the wrong chain id", () => {
-    const mainnet = { ...liveKeys, DATABASE_URL: "postgres://x", RESEND_API_KEY: "r" };
+    const mainnet = {
+      ...liveKeys,
+      DATABASE_URL: "postgres://x",
+      RESEND_API_KEY: "r",
+      FEE_WALLET_ADDRESS: "0x0000000000000000000000000000000000000002",
+    };
     expect(() => parseConfig(mainnet)).not.toThrow();
     expect(() => parseConfig({ ...mainnet, EMAIL_PROVIDER: "screen" })).toThrow(/testnet only/);
     expect(() => parseConfig({ ...mainnet, DATABASE_URL: undefined, PGLITE_DIR: "/tmp/x" })).toThrow(/DATABASE_URL/);
@@ -58,5 +63,36 @@ describe("config", () => {
     expect(() => parseConfig({ FUNDING_MAX_PER_TOPUP_USDC: "-5" })).toThrow();
     expect(() => parseConfig({ SPLITS_ROUTER_ADDRESS: "0x123" })).toThrow();
     expect(() => parseConfig({ FUNDING_ENABLED: "yes" })).toThrow();
+  });
+
+  it("caps sends at 500 USDC by default, separately for visitors", () => {
+    const c = parseConfig({});
+    expect(c.SEND_LIMIT_PER_PAYMENT_USDC).toBe("500");
+    expect(c.SEND_LIMIT_DAILY_USDC).toBe("500");
+    expect(c.VISITOR_SEND_LIMIT_PER_PAYMENT_USDC).toBe("500");
+    expect(c.VISITOR_SEND_LIMIT_DAILY_USDC).toBe("500");
+    expect(c.VISITOR_CHECKS_PER_HOUR).toBe(20);
+    expect(c.TRUST_PROXY).toBe(false);
+    expect(parseConfig({ VISITOR_SEND_LIMIT_DAILY_USDC: "100" }).VISITOR_SEND_LIMIT_DAILY_USDC).toBe("100");
+    expect(() => parseConfig({ SEND_LIMIT_DAILY_USDC: "-1" })).toThrow("SEND_LIMIT_DAILY_USDC");
+  });
+
+  it("charges 1.5%, 2% from 10 recipients, bounded to 10%", () => {
+    const c = parseConfig({});
+    expect([c.FEE_BPS, c.FEE_MANY_BPS, c.FEE_MANY_FROM_RECIPIENTS]).toEqual([150, 200, 10]);
+    expect(() => parseConfig({ FEE_BPS: "1001" })).toThrow("FEE_BPS");
+    expect(() => parseConfig({ FEE_MANY_BPS: "-1" })).toThrow("FEE_MANY_BPS");
+  });
+
+  it("needs a fee wallet on a live mainnet server only", () => {
+    expect(() => parseConfig({ ...liveKeys, DATABASE_URL: "postgres://x", RESEND_API_KEY: "r" })).toThrow(/FEE_WALLET_ADDRESS: required/);
+    expect(() =>
+      parseConfig({ ...liveKeys, CIRCLE_BLOCKCHAIN: "ARC-TESTNET", ARC_CHAIN_ID: "5042002", PGLITE_DIR: "/tmp/x", EMAIL_PROVIDER: "screen" }),
+    ).not.toThrow();
+  });
+
+  it("uses the first RPC as the public one unless told otherwise", () => {
+    expect(parseConfig({ ARC_RPC_URLS: "https://a.example,https://b.example" }).publicRpcUrl).toBe("https://a.example");
+    expect(parseConfig({ ARC_PUBLIC_RPC_URL: "https://rpc.example" }).publicRpcUrl).toBe("https://rpc.example");
   });
 });
