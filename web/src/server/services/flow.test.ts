@@ -16,6 +16,7 @@ import {
   getTransfer,
   previewTransfer,
   quoteTransfer,
+  refreshPendingSteps,
 } from "./transfers";
 import { createPocket, mainWallet, type User } from "./users";
 
@@ -108,6 +109,20 @@ describe("sending money home through a split", () => {
     await settleEverything(ctx);
     expect((await getTransfer(ctx, transfer.id)).status).toBe("settled");
     expect(await balanceOf(ctx, "sister@example.com")).toBe(3_180_000n);
+  });
+
+  it("brings step records up to date when the chain moved faster than the provider", async () => {
+    // Seen on Arc Testnet: the approval shows onchain before Circle reports it complete, so the
+    // payment settles while the approve record still says pending.
+    const { ctx } = await testCtx({}, { pendingPolls: 4 });
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const t = await pay(ctx, user, split.id, 1000);
+    expect(t.status).toBe("settled");
+
+    for (let i = 0; i < 6; i++) await refreshPendingSteps(ctx, t.id);
+    const steps = await ctx.db.select().from(providerTxs).where(eq(providerTxs.subjectId, t.id));
+    expect(steps.map((s) => s.status)).toEqual(["complete", "complete", "complete"]);
   });
 
   it("refuses a second confirmation of the same payment", async () => {

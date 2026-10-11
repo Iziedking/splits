@@ -9,6 +9,8 @@ export type CircleOptions = {
   walletSetId: string;
   blockchain: "ARC" | "ARC-TESTNET";
   usdc: Address;
+  /** Circle's token id for USDC's ERC-20 interface on this chain. Looked up if not given. */
+  usdcTokenId?: string;
 };
 
 const COMPLETE = new Set(["COMPLETE"]);
@@ -51,6 +53,24 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
     entitySecret: opts.entitySecret,
   });
 
+  // Circle lists USDC on Arc twice: as the native gas token (18 decimals) and as the ERC-20
+  // interface at 0x3600... (6 decimals). Transfers must name the ERC-20 one by token id; sending
+  // tokenAddress with a walletId is rejected as "API parameter invalid" (seen on Arc Testnet,
+  // 2026-10-11). The id is looked up once from a funded wallet, or pinned with CIRCLE_USDC_TOKEN_ID.
+  let usdcTokenId = opts.usdcTokenId;
+  async function resolveUsdcTokenId(walletId: string): Promise<string> {
+    if (usdcTokenId) return usdcTokenId;
+    const res = await client.getWalletTokenBalance({ id: walletId, includeAll: true });
+    const token = res.data?.tokenBalances?.find(
+      (b) => !b.token.isNative && b.token.tokenAddress?.toLowerCase() === opts.usdc.toLowerCase(),
+    )?.token;
+    if (!token?.id) {
+      throw new Error(`USDC ${opts.usdc} is not listed for wallet ${walletId}. Fund it, or set CIRCLE_USDC_TOKEN_ID.`);
+    }
+    usdcTokenId = token.id;
+    return token.id;
+  }
+
   return {
     async createWallet({ refId, name, idempotencyKey }) {
       const res = await client.createWallets({
@@ -81,9 +101,8 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
 
     async transferUsdc({ walletId, to, amount, idempotencyKey, refId }) {
       const res = await client.createTransaction({
-        // With walletId the SDK infers the chain from the wallet; passing blockchain is a type error.
         walletId,
-        tokenAddress: opts.usdc,
+        tokenId: await resolveUsdcTokenId(walletId),
         destinationAddress: to,
         amount: [formatUnits(amount, USDC_DECIMALS)],
         fee: { type: "level", config: { feeLevel: "MEDIUM" } },

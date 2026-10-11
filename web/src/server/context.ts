@@ -101,6 +101,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
       walletSetId: config.CIRCLE_WALLET_SET_ID!,
       blockchain: config.CIRCLE_BLOCKCHAIN,
       usdc: config.USDC_ADDRESS,
+      usdcTokenId: config.CIRCLE_USDC_TOKEN_ID,
     }),
     chain: createViemChain({
       chainId: config.ARC_CHAIN_ID,

@@ -408,3 +408,13 @@ export async function transfersFor(ctx: Ctx, userId: string, limit = 50): Promis
 export async function transferSteps(ctx: Ctx, transferId: string) {
   return ctx.db.select().from(providerTxs).where(eq(providerTxs.subjectId, transferId));
 }
+
+/**
+ * Asks the provider about any step it hasn't confirmed yet. A payment can settle onchain while a
+ * step record still says pending (the chain showed the approval before Circle reported it), so the
+ * payment screen calls this to keep the step list honest.
+ */
+export async function refreshPendingSteps(ctx: Ctx, transferId: string): Promise<void> {
+  const rows = await transferSteps(ctx, transferId);
+  await Promise.all(rows.filter((r) => r.status === "pending").map((r) => refreshProviderTx(ctx, r)));
+}

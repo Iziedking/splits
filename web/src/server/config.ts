@@ -24,6 +24,8 @@ const schema = z
     CIRCLE_WALLET_SET_ID: z.string().optional(),
     CIRCLE_TREASURY_WALLET_ID: z.string().optional(),
     CIRCLE_BLOCKCHAIN: z.enum(["ARC", "ARC-TESTNET"]).default("ARC"),
+    // Optional. Circle's token id for USDC's ERC-20 interface; looked up from the treasury if unset.
+    CIRCLE_USDC_TOKEN_ID: z.uuid().optional(),
 
     ARC_CHAIN_ID: z.coerce.number().int().positive().default(5042),
     ARC_RPC_URLS: z.string().default("https://rpc.mainnet.arc.io"),

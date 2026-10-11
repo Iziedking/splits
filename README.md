@@ -103,8 +103,8 @@ Live mode won't start with a missing key, a mismatched chain id, or (on mainnet)
 | Part | State |
 | --- | --- |
 | Contract | Tested: 36 unit and fuzz tests, 11 of 11 deliberate bugs caught by the mutation check, 3 fork tests on Arc mainnet state |
-| App, preview mode | Tested: 60 tests, 6 of 6 deliberate bugs caught, an end-to-end API check, and a browser walkthrough at desktop and phone width |
-| Arc Testnet deployment | In progress |
+| App, preview mode | Tested: 61 tests, 6 of 6 deliberate bugs caught, an end-to-end API check, and a browser walkthrough at desktop and phone width |
+| Arc Testnet deployment | Live. Payments run end to end with Circle wallets and Gas Station, and are checked onchain |
 | Arc mainnet deployment | Not yet |
 | Card payments and currency exchange | Simulated. The card isn't charged and the rate is fixed. The USDC leg is real in live mode. |
 | Payout to bank or mobile money | Not built. Recipients hold USDC. |
@@ -113,8 +113,10 @@ Live mode won't start with a missing key, a mismatched chain id, or (on mainnet)
 
 | Network | SplitsRouter | Record |
 | --- | --- | --- |
-| Arc Testnet (5042002) | not deployed yet | |
-| Arc mainnet (5042) | not deployed yet | |
+| Arc Testnet (5042002) | [`0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F`](https://explorer.testnet.arc.io/address/0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F) | [`arc-testnet.json`](deployments/arc-testnet.json) |
+| Arc mainnet (5042) | not deployed yet (same address once deployed) | |
+
+The first live payment on testnet: £1 became 1.27 USDC, paid as 0.50 for rent, 0.44 for school fees and 0.33 for upkeep in [one transaction](https://explorer.testnet.arc.io/tx/0x826b56a479d420f1b46294ba78e4e4e1fd1f70ce314104ae231006137f8d0f0f), with each part's purpose in its `LegPaid` event.
 
 ## Things to know
 
