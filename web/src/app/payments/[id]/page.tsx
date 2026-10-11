@@ -30,8 +30,8 @@ function stepsFor(t: TransferView): Step[] {
   const steps: Step[] = [];
   if (t.quote) steps.push({ key: "fund", label: "Card top-up (simulated card)", reachedAt: "funding" });
   steps.push(
-    { key: "approve", label: "Allow the split to move this amount", reachedAt: "approving" },
-    { key: "send", label: "Split and pay out on Arc", reachedAt: "sending" },
+    { key: "approve", label: "Allow Splits to move this amount", reachedAt: "approving" },
+    { key: "send", label: t.kind !== "pay" ? "Split and pay out on Arc" : t.recipients === 1 ? "Pay on Arc" : "Pay everyone on Arc", reachedAt: "sending" },
     { key: "verify", label: "Check the onchain receipt", reachedAt: "verifying" },
   );
   return steps;
@@ -50,6 +50,28 @@ function stepState(t: TransferView, step: Step, next: Step | undefined): "done" 
   if (now >= nextAt) return "done";
   if (now >= at) return "active";
   return "waiting";
+}
+
+/** Up to 8 branches stay readable; past that the rest share one grouped branch. */
+const MAX_BRANCHES = 8;
+function branchesFor(t: TransferView) {
+  // Stream labels are short: the part of an email before the "@" is enough to tell people apart.
+  const all = t.legs.map((l) => ({ label: l.name.includes("@") ? l.name.split("@")[0]! : l.name, weight: Number(l.amount) }));
+  if (all.length <= MAX_BRANCHES) return all;
+  const rest = all.slice(MAX_BRANCHES - 1);
+  return [
+    ...all.slice(0, MAX_BRANCHES - 1),
+    { label: `and ${rest.length} more`, weight: rest.reduce((sum, b) => sum + b.weight, 0) },
+  ];
+}
+
+function titleFor(t: TransferView): string {
+  if (t.kind === "auto") return "Automatic split";
+  if (t.kind !== "pay") return "Payment";
+  const who = t.recipients === 1 ? (t.legs[0]?.name ?? "1 person") : `${t.recipients} people`;
+  if (t.status === "settled") return `Paid ${who}`;
+  if (t.status === "failed" || t.status === "cancelled") return `Payment to ${who}`;
+  return `Paying ${who}`;
 }
 
 /** The stream follows the server: funding and approval fill the trunk, paying out draws the branches. */
@@ -115,7 +137,7 @@ function Payment() {
         <div className="p-6 pb-2">
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-[15px] font-medium text-muted-foreground">
-              {t.kind === "auto" ? "Automatic split" : "Payment"}
+              {titleFor(t)}
             </h1>
             <AnimatePresence mode="wait">
               <motion.p
@@ -149,15 +171,23 @@ function Payment() {
         </div>
 
         <SplitStream
-          branches={t.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))}
+          branches={branchesFor(t)}
           stage={streamStage(t.status)}
           className="w-full px-2 text-foreground"
         />
 
         <div className="space-y-6 p-6 pt-2">
           {failed && t.error && <Notice tone="error">{t.error}</Notice>}
+          {failed && t.kind === "pay" && (
+            <Link
+              href="/pay?mode=many"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-[14px] bg-card px-5 text-[15px] font-semibold ring-1 ring-border hover:ring-ring/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              Back to Pay
+            </Link>
+          )}
 
-          <ul className="space-y-3">
+          <ul className={cn("space-y-3", t.legs.length > 8 && "max-h-96 overflow-y-auto pr-1")}>
             {t.legs.map((leg, i) => (
               <li key={i} className="flex items-center justify-between gap-4">
                 <span className="flex min-w-0 items-center gap-3">
@@ -172,7 +202,7 @@ function Payment() {
                       <motion.span
                         initial={reduce ? false : { scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
-                        transition={reduce ? { duration: 0 } : { delay: 0.15 + i * 0.12, type: "spring", stiffness: 500, damping: 22 }}
+                        transition={reduce ? { duration: 0 } : { delay: 0.15 + Math.min(i, 10) * 0.1, type: "spring", stiffness: 500, damping: 22 }}
                         className="flex h-5 w-5 items-center justify-center rounded-full bg-success text-white"
                       >
                         <Check className="h-3.5 w-3.5" aria-label="received" />

@@ -55,7 +55,7 @@ export function actionView(action: Action) {
 const STEP_LABELS: Record<string, string> = {
   fund: "Card top-up (simulated card, real USDC)",
   approve: "Allow the split contract to move this amount",
-  send: "Split and pay out on Arc",
+  send: "Pay everyone on Arc",
 };
 
 export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = []) {
@@ -74,6 +74,7 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [])
           simulated: true,
         }
       : null,
+    recipients: t.expected.length,
     legs: t.expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
     txHash: t.txHash,
     explorerUrl: txUrl(ctx, t.txHash),

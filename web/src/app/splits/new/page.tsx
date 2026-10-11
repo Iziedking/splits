@@ -31,6 +31,9 @@ const EXAMPLES = [
   { name: "Sister", email: "sister@example.com", purpose: "upkeep", percent: "25" },
 ];
 
+/** Saved splits stay human-sized; one-off payouts to many people go through Pay instead. */
+const MAX_SPLIT_LEGS = 20;
+
 let nextKey = 1;
 const blankLeg = (): LegDraft => ({ key: nextKey++, name: "", email: "", purpose: "", kind: "percent", value: "" });
 
@@ -49,6 +52,16 @@ function NewSplit() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [pending, setPending] = React.useState<{ action: ActionView; split: SplitView } | null>(null);
+
+  // Starting points from Home. Read after mount so the page needs no suspense boundary.
+  React.useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("template") !== "team") return;
+    setName("Team revenue share");
+    setLegs([
+      { ...blankLeg(), name: "Partner A", purpose: "revenue share", value: "50" },
+      { ...blankLeg(), name: "Partner B", purpose: "revenue share", value: "50" },
+    ]);
+  }, []);
 
   const percentLegs = legs.filter((l) => l.kind === "percent");
   const totalBps = percentLegs.reduce((sum, l) => sum + (percentToBps(l.value) ?? 0), 0);
@@ -193,7 +206,7 @@ function NewSplit() {
               </div>
             </motion.fieldset>
           ))}
-          {legs.length < 10 && (
+          {legs.length < MAX_SPLIT_LEGS && (
             <Button type="button" variant="secondary" onClick={() => setLegs((current) => [...current, blankLeg()])}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add recipient

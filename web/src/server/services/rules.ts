@@ -5,6 +5,7 @@ import type { Ctx } from "../context";
 import { splits, transfers } from "../db/schema";
 import { CENT } from "../domain/allocation";
 import { transferRef } from "../domain/ids";
+import { queueNotices } from "./notices";
 import { expectedAmounts } from "./splits";
 import { advanceTransfer, type Transfer } from "./transfers";
 import { walletByAddress, type Wallet } from "./users";
@@ -72,7 +73,7 @@ export async function createAutoTransfer(
 }
 
 export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]> {
-  if (parent.kind !== "send" || parent.status !== "settled") return [];
+  if ((parent.kind !== "send" && parent.kind !== "pay") || parent.status !== "settled") return [];
   const received = new Map<string, bigint>();
   for (const leg of parent.expected) {
     const amount = BigInt(leg.amount);
@@ -92,6 +93,7 @@ export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]
 export async function advanceWithRules(ctx: Ctx, transferId: string): Promise<Transfer> {
   const t = await advanceTransfer(ctx, transferId);
   if (t.status === "settled") {
+    await queueNotices(ctx, t);
     for (const childId of await triggerRules(ctx, t)) {
       await advanceTransfer(ctx, childId);
     }

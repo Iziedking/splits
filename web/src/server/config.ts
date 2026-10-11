@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getAddress, isAddress, type Address } from "viem";
+import { MAX_RECIPIENTS_CEILING } from "./domain/payouts";
 
 const address = z
   .string()
@@ -54,6 +55,10 @@ const schema = z
 
     // Receiver auto-splits ignore incoming amounts below this, so dust never costs gas.
     AUTO_SPLIT_MIN_USDC: usdcAmount.default("0.10"),
+
+    // Most recipients one payment may have. Raise it as the user base grows, up to what one Arc
+    // transaction can carry (MAX_RECIPIENTS_CEILING, measured on a mainnet fork).
+    MAX_PAYOUT_RECIPIENTS: z.coerce.number().int().min(1).max(MAX_RECIPIENTS_CEILING).default(50),
 
     // Background driver for payments nobody is watching. 0 turns the in-process loop off
     // (for example on serverless, where the cron route does the job instead).

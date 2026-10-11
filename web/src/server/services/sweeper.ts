@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { actions, splits } from "../db/schema";
+import { sendDueNotices } from "./notices";
 import { advanceWithRules } from "./rules";
 import { advanceSplit } from "./splits";
 import { activeTransferIds } from "./transfers";
@@ -42,6 +43,13 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
       result.errors++;
       console.error(`[sweep] split ${id}`, err);
     }
+  }
+
+  try {
+    await sendDueNotices(ctx, limit);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] notices", err);
   }
   return result;
 }

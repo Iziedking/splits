@@ -6,6 +6,10 @@ export type WalletView = ReturnType<typeof walletView>;
 export type SplitView = ReturnType<typeof splitView>;
 export type TransferView = ReturnType<typeof transferView>;
 export type ActionView = ReturnType<typeof actionView>;
+import type { ReceivedItem } from "@/server/services/activity";
+export type { ReceivedItem };
+export type { CheckLine, PayoutCheck } from "@/server/services/payouts";
+export type ActivityView = { sent: TransferView[]; received: ReceivedItem[]; receivedError: string | null };
 export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; user: UserView; wallets: WalletView[] };
 
 export class ApiError extends Error {

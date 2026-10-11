@@ -61,6 +61,21 @@ contract SplitsRouterTest is Test {
         return router.send(id, version, amount, ref);
     }
 
+    function _pay(address payer, SplitsRouter.Leg[] memory legs, uint256 amount, bytes32 ref)
+        internal
+        returns (uint256[] memory)
+    {
+        vm.prank(payer);
+        return router.pay(legs, amount, ref);
+    }
+
+    function _winners(uint256 n, uint96 each) internal pure returns (SplitsRouter.Leg[] memory legs) {
+        legs = new SplitsRouter.Leg[](n);
+        for (uint256 i; i < n; ++i) {
+            legs[i] = _leg(address(uint160(0x10000 + i)), each, 0, "giveaway prize");
+        }
+    }
+
     // ------------------------------------------------------------------ create
 
     function test_CreateSplit_StoresOwnerVersionAndLegs() public {
@@ -92,13 +107,11 @@ contract SplitsRouterTest is Test {
         _create(sender, new SplitsRouter.Leg[](0));
     }
 
-    function test_RevertWhen_TooManyLegs() public {
-        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](11);
-        for (uint256 i; i < 11; ++i) {
-            legs[i] = _leg(address(uint160(0x1000 + i)), 1, 0, "x");
-        }
-        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.TooManyLegs.selector, 11, 10));
-        _create(sender, legs);
+    function test_CreateSplit_HasNoRecipientLimit() public {
+        SplitsRouter.Leg[] memory legs = _winners(30, uint96(1 * USDC));
+        uint256 id = _create(sender, legs);
+        _send(sender, id, 1, 30 * USDC, keccak256("thirty"));
+        assertEq(usdc.balanceOf(legs[29].recipient), 1 * USDC);
     }
 
     function test_RevertWhen_RecipientIsZeroRouterOrToken() public {
@@ -356,6 +369,113 @@ contract SplitsRouterTest is Test {
     function test_RevertWhen_UpdateMissingSplit() public {
         vm.expectRevert(abi.encodeWithSelector(SplitsRouter.SplitNotFound.selector, 7));
         router.setActive(7, false);
+    }
+
+    // ------------------------------------------------------------------ pay (one-off)
+
+    function test_Pay_FixedLegsPayEachWinnerExactly() public {
+        SplitsRouter.Leg[] memory legs = _winners(20, uint96(5 * USDC));
+        uint256 before = usdc.balanceOf(sender);
+        _pay(sender, legs, 100 * USDC, keccak256("g1"));
+        for (uint256 i; i < 20; ++i) {
+            assertEq(usdc.balanceOf(legs[i].recipient), 5 * USDC);
+        }
+        assertEq(usdc.balanceOf(sender), before - 100 * USDC);
+        assertEq(usdc.balanceOf(address(router)), 0);
+        assertTrue(router.refUsed(sender, keccak256("g1")));
+        assertEq(router.nextSplitId(), 1, "pay stores nothing");
+    }
+
+    function test_Pay_EmitsOneOffReceipts() public {
+        SplitsRouter.Leg[] memory legs = _winners(2, uint96(1 * USDC));
+        bytes32 ref = keccak256("g2");
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.SplitSent(0, sender, ref, 2 * USDC, 0);
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.LegPaid(0, ref, legs[0].recipient, 1 * USDC, bytes32("giveaway prize"));
+        vm.expectEmit(true, true, true, true, address(router));
+        emit SplitsRouter.LegPaid(0, ref, legs[1].recipient, 1 * USDC, bytes32("giveaway prize"));
+        _pay(sender, legs, 2 * USDC, ref);
+    }
+
+    function test_Pay_SharesUseTheSameCentRules() public {
+        uint256[] memory paid = _pay(sender, _familyLegs(), 12_700_000, keccak256("g3"));
+        assertEq(paid[0], 5_080_000);
+        assertEq(paid[1], 4_440_000);
+        assertEq(paid[2], 3_180_000);
+    }
+
+    function test_Pay_RevertWhen_RefReusedAcrossSendAndPay() public {
+        uint256 id = _create(sender, _familyLegs());
+        bytes32 ref = keccak256("shared-ref");
+        _send(sender, id, 1, 10 * USDC, ref);
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.RefAlreadyUsed.selector, sender, ref));
+        _pay(sender, _winners(1, uint96(1 * USDC)), 1 * USDC, ref);
+
+        bytes32 ref2 = keccak256("pay-first");
+        _pay(sender, _winners(1, uint96(1 * USDC)), 1 * USDC, ref2);
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.RefAlreadyUsed.selector, sender, ref2));
+        _pay(sender, _winners(1, uint96(1 * USDC)), 1 * USDC, ref2);
+    }
+
+    function test_Pay_RevertWhen_LegInvalid() public {
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](1);
+        legs[0] = _leg(address(router), uint96(1 * USDC), 0, "x");
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.InvalidRecipient.selector, 0, address(router)));
+        _pay(sender, legs, 1 * USDC, keccak256("bad1"));
+
+        legs[0] = _leg(landlord, uint96(1 * USDC + 1), 0, "x");
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.FixedAmountNotCents.selector, 0, 1 * USDC + 1));
+        _pay(sender, legs, 1 * USDC + 1, keccak256("bad2"));
+
+        vm.expectRevert(SplitsRouter.NoLegs.selector);
+        _pay(sender, new SplitsRouter.Leg[](0), 1 * USDC, keccak256("bad3"));
+    }
+
+    function test_Pay_RevertWhen_AmountDoesNotMatchFixedTotal() public {
+        SplitsRouter.Leg[] memory legs = _winners(3, uint96(1 * USDC));
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.AmountMustEqualFixed.selector, 4 * USDC, 3 * USDC));
+        _pay(sender, legs, 4 * USDC, keccak256("over"));
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.AmountBelowFixed.selector, 2 * USDC, 3 * USDC));
+        _pay(sender, legs, 2 * USDC, keccak256("under"));
+    }
+
+    function test_Pay_RevertWhen_ZeroAmountOrZeroRef() public {
+        SplitsRouter.Leg[] memory legs = _winners(1, uint96(1 * USDC));
+        vm.expectRevert(SplitsRouter.ZeroAmount.selector);
+        _pay(sender, legs, 0, keccak256("z"));
+        vm.expectRevert(SplitsRouter.ZeroRef.selector);
+        _pay(sender, legs, 1 * USDC, bytes32(0));
+    }
+
+    function test_Pay_BlocklistedWinner_RevertsWholePayment() public {
+        SplitsRouter.Leg[] memory legs = _winners(5, uint96(1 * USDC));
+        usdc.setBlocked(legs[3].recipient, true);
+        bytes32 ref = keccak256("blocked-winner");
+        vm.expectRevert(abi.encodeWithSelector(MockUSDC.Blocklisted.selector, legs[3].recipient));
+        _pay(sender, legs, 5 * USDC, ref);
+        assertEq(usdc.balanceOf(legs[0].recipient), 0);
+        assertEq(usdc.balanceOf(sender), 100_000 * USDC);
+        assertFalse(router.refUsed(sender, ref));
+    }
+
+    function test_Pay_TwoHundredWinners() public {
+        SplitsRouter.Leg[] memory legs = _winners(200, uint96(10_000)); // one cent each
+        _pay(sender, legs, 200 * 10_000, keccak256("two-hundred"));
+        assertEq(usdc.balanceOf(legs[199].recipient), 10_000);
+    }
+
+    function testFuzz_PreviewPayMatchesPay(uint8 n, uint32 centsEach) public {
+        n = uint8(bound(n, 1, 60));
+        uint96 each = uint96(bound(centsEach, 1, 10_000)) * 10_000;
+        SplitsRouter.Leg[] memory legs = _winners(n, each);
+        uint256 total = uint256(each) * n;
+        uint256[] memory preview = router.previewPay(legs, total);
+        uint256[] memory paid = _pay(sender, legs, total, keccak256(abi.encode(n, each)));
+        assertEq(preview, paid);
+        for (uint256 i; i < n; ++i) {
+            assertEq(paid[i] % 10_000, 0);
+        }
     }
 
     // ------------------------------------------------------------------ all-or-nothing

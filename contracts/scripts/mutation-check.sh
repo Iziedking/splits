@@ -43,6 +43,12 @@ mutate "no-cent-rounding" "/ BPS_DENOMINATOR / CENT * CENT;" "/ BPS_DENOMINATOR;
 mutate "sub-cent-amount-allowed" "if (amount % CENT != 0) revert AmountNotCents(amount);" "" "test_RevertWhen_AmountNotWholeCents"
 mutate "sub-cent-fixed-allowed" "if (legs[i].fixedAmount % CENT != 0)" "if (false)" "test_RevertWhen_FixedAmountNotWholeCents"
 mutate "fixed-only-overpay" "if (lastShare == type(uint256).max && remainder != 0)" "if (false)" "test_Send_FixedOnlyNeedsExactTotal"
+mutate "pay-wrong-split-id" "emit SplitSent(0, msg.sender, ref, amount, 0);" "emit SplitSent(1, msg.sender, ref, amount, 0);" "test_Pay_EmitsOneOffReceipts"
+mutate "pay-skips-validation" "_validate(legs);
+        if (amount == 0) revert ZeroAmount();
+        _spendRef(ref);" "if (amount == 0) revert ZeroAmount();
+        _spendRef(ref);" "test_Pay_RevertWhen_LegInvalid"
+mutate "pay-drops-last-leg" "uint256 count = amounts.length;" "uint256 count = amounts.length - 1;" "test_Pay_FixedLegsPayEachWinnerExactly"
 
 if [ "$failures" -ne 0 ]; then
   echo "mutation check: $failures problem(s)"; exit 1

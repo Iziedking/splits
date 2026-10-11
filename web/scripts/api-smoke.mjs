@@ -7,9 +7,12 @@ import assert from "node:assert/strict";
 const PORT = Number(process.env.SMOKE_PORT ?? 3917);
 const ORIGIN = `http://localhost:${PORT}`;
 
-const server = spawn("npx", ["next", "start", "-p", String(PORT)], {
+// Next runs in its own process group so the whole group can be stopped at the end. Through npx,
+// SIGTERM reached only npx and left next-server holding this script's pipes, so it never exited.
+const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(PORT)], {
   env: { ...process.env, SPLITS_MODE: "preview", APP_URL: ORIGIN, SWEEP_INTERVAL_MS: "1000" },
   stdio: ["ignore", "pipe", "pipe"],
+  detached: true,
 });
 let logs = "";
 server.stdout.on("data", (d) => (logs += d));
@@ -112,6 +115,47 @@ try {
   assert.equal(me.data.wallets[0].balance, "0.00");
   step("sender's wallet shows the money has left");
 
+  // A giveaway: 20 people, addresses and emails mixed, paid in one transaction. $10 keeps the day's
+  // simulated card total (12.70 + 10) under the default $25 per-person cap.
+  const lines = [
+    ...Array.from({ length: 15 }, (_, i) => `0x${(0xcafe00 + i).toString(16).padStart(40, "0")}`),
+    ...Array.from({ length: 5 }, (_, i) => `winner${i}@example.com`),
+  ];
+  const check = await call("POST", "/api/payouts/check", { mode: "equal", text: lines.join("\n"), pot: "10", label: "giveaway prize" });
+  assert.equal(check.status, 200, JSON.stringify(check.data));
+  assert.equal(check.data.ready, true, JSON.stringify(check.data.lines.filter((l) => l.status !== "ready")));
+  assert.equal(check.data.lines.length, 20);
+  assert.ok(check.data.lines.every((l) => l.amount === "0.50"));
+  step("a 20-person giveaway list checks out at $0.50 each");
+
+  const bad = await call("POST", "/api/payouts/check", { mode: "each", text: `${lines[0]}, 1\n${lines[0]}, 1`, label: "x" });
+  assert.equal(bad.data.ready, false);
+  assert.equal(bad.data.lines[1].status, "duplicate");
+  step("a duplicate blocks a list");
+
+  const giveawayBody = { draftId: check.data.draft.id, draftHash: check.data.draft.hash, fundWith: "card" };
+  const giveawayQuote = await call("POST", "/api/transfers", giveawayBody);
+  assert.equal(giveawayQuote.status, 201, JSON.stringify(giveawayQuote.data));
+  const again = await call("POST", "/api/transfers", giveawayBody);
+  assert.equal(again.data.error.code, "LIST_ALREADY_PAID");
+  const giveawayPay = await call("POST", "/api/transfers/confirm", { actionId: giveawayQuote.data.action.id, pin: "482913" });
+  assert.equal(giveawayPay.status, 200, JSON.stringify(giveawayPay.data));
+  let giveaway = giveawayPay.data.transfer;
+  for (let i = 0; i < 40 && !["settled", "failed"].includes(giveaway.status); i++) {
+    await new Promise((r) => setTimeout(r, 300));
+    giveaway = (await call("GET", `/api/transfers/${giveaway.id}`)).data.transfer;
+  }
+  assert.equal(giveaway.status, "settled", JSON.stringify(giveaway));
+  assert.equal(giveaway.kind, "pay");
+  assert.equal(giveaway.legs.length, 20);
+  step("the giveaway pays 20 people in one transaction, and a second click can't pay again");
+
+  const activity = await call("GET", "/api/activity");
+  assert.equal(activity.status, 200);
+  assert.ok(activity.data.sent.some((t) => t.id === giveaway.id));
+  assert.equal(activity.data.receivedError, null);
+  step("activity lists the giveaway");
+
   assert.equal((await call("GET", "/api/cron/sweep")).status, 401);
   step("cron route needs its secret");
 
@@ -121,5 +165,11 @@ try {
   console.error("--- server log ---\n" + logs.slice(-4000));
   process.exitCode = 1;
 } finally {
-  server.kill("SIGTERM");
+  try {
+    process.kill(-server.pid, "SIGTERM");
+  } catch {
+    server.kill("SIGTERM");
+  }
+  server.stdout.destroy();
+  server.stderr.destroy();
 }

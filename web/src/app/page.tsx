@@ -61,10 +61,10 @@ export default function SignIn() {
     <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:px-8">
       <section>
         <p className="display-face text-2xl font-bold tracking-tight">Splits</p>
-        <h1 className="mt-8 max-w-xl text-[2.6rem] leading-[1.02] font-bold sm:text-6xl">Send money home with its purpose built in.</h1>
+        <h1 className="mt-8 max-w-xl text-[2.6rem] leading-[1.02] font-bold sm:text-6xl">Split any payment, to anyone.</h1>
         <p className="mt-5 max-w-md text-lg leading-relaxed text-muted-foreground">
-          One payment leaves you and arrives already divided. Rent reaches the landlord, fees reach the school, and the
-          rest reaches family, each with a receipt that says what it was for.
+          Send money home already divided into rent, school fees and upkeep. Pay twenty giveaway winners in one go.
+          Everyone gets their exact share, with a receipt that says what it was for.
         </p>
         <SplitStream branches={HERO} stage="done" intro className="mt-8 w-full max-w-lg text-foreground" />
       </section>

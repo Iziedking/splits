@@ -1,5 +1,61 @@
 # Splits UI brief
 
+## v3: pay anyone, giveaways, add money (2026-10-11)
+
+The user asked for Splits to work for anyone who needs to split money, with diaspora family support
+staying the foundation: pay people who have no account (by email or Arc address), pay many people
+in one go (a giveaway with 20 winners), put money into the balance, find and copy their own address,
+and stop wasting half the screen. Design spec: `docs/superpowers/specs/2026-10-11-pay-anyone-giveaways-design.md`.
+
+**Meaning:** one payment can reach everyone it's meant for, exactly, with a receipt that says what
+each part was for. **Emotional contract:** after the first giveaway the sender feels certain that
+every winner got the right amount, and that nothing would have moved if anything was wrong. It
+would feel false if a bad line were only discovered after paying.
+
+**Flows and the one primary action on each surface**
+
+| Surface | Primary action | Supporting | Secondary until asked |
+| --- | --- | --- | --- |
+| Home | Pay | Add money, copy address, open a split | Start something, automatic split |
+| Pay: one person | Check, then Pay $x | Pay from balance or demo card | Save as a split |
+| Pay: many people | Check list, then Pay N people $total | Split a pot equally / set each amount | Save as a split |
+| Add money | Copy address | QR code, demo card | Testnet faucet link (testnet only) |
+| Profile | Copy address | Change PIN, add Face ID or fingerprint | Sign out |
+
+**Discovery vs commitment.** Typing a list is free. Checking it creates wallets for emails and
+probes each address but moves no money. Paying asks for the PIN or passkey, as every money
+movement does. The checked list is the thing approved: editing it after a check clears the check.
+
+**Focal object.** The SplitStream stays the product's gesture. A giveaway receipt reuses the
+Ribbon, one block per winner, coloured in list order; past 8 branches the rest collapse into one
+grouped "and N more" branch, so a 50-person payout still reads (12 was tried in the browser
+walkthrough and the labels crowded).
+
+**Trust boundary.** Verified: amounts and purposes on the receipt are read back from Arc. Checked
+but can change: "can receive" is a probe at check time, and the payment can still be refused if an
+address is blocked later; the receipt then says nothing was sent. Simulated: the demo card. Not
+available: bank or mobile money, shown as "Coming soon", never as a working option.
+
+**Layout.** Container widens from 64rem to 75rem. Home on desktop is two columns, about 7/5: wallet
+panel and activity on the left (the things that change), splits, the automatic split and starting
+points on the right (the things you reuse). Phone order: wallet, actions, splits, activity, with a
+bottom bar for Home, Pay and Profile.
+
+**States per flow.** Review table: ready, invalid, duplicate, your own wallet, can't receive,
+wallet setup failed. Approval: list changed or expired ("Check it again"), list already paid,
+demo top-ups used up, not enough balance. Activity: loading, empty, received list unavailable
+(sent items still shown). Copy: copied confirmation in place, with a screen-reader status.
+
+**Motion additions.** Review rows settle in once per check, staggered and capped at 0.3s, never
+on each keystroke. A row's status mark cross-fades when it changes. Add money is a dialog that
+rises from the bottom on a phone and centres on desktop. Copy swaps its icon for a tick. All of it
+is off under reduced motion.
+
+**Rejected.** A separate Giveaway section (it duplicates Pay and splits the vocabulary). CSV upload
+(pasting covers it, and works on a phone). Claim links for email recipients (signing in is the
+claim; a link is one more thing to phish). Showing bank payout as a disabled form (it implies it
+nearly works).
+
 ## v2 visual direction (2026-10-11): "Adire and colour blocks"
 
 The user asked for modern fills and motion instead of a generic AI look. The direction comes from

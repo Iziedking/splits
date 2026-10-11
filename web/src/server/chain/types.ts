@@ -29,6 +29,8 @@ export interface ChainReader {
   usdcBalance(owner: Address): Promise<bigint>;
   usdcAllowance(owner: Address, spender: Address): Promise<bigint>;
   refUsed(payer: Address, ref: Hex): Promise<boolean>;
+  /** True if `to` can receive USDC right now: simulates a 1-cent transfer from `from`, sends nothing. */
+  canReceive(from: Address, to: Address): Promise<boolean>;
   getSplit(splitId: bigint): Promise<OnchainSplit | null>;
   /** null while the transaction is not yet visible to the node. */
   receipt(txHash: Hex): Promise<RouterReceipt | null>;

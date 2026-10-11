@@ -1,7 +1,7 @@
 import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
-import { formatUnits, getAddress, type Address, type Hex } from "viem";
+import { formatUnits, getAddress, parseUnits, zeroAddress, type Address, type Hex } from "viem";
 import { USDC_DECIMALS } from "../domain/money";
-import type { ProviderTx, WalletProvider } from "./types";
+import type { InboundTx, ProviderTx, WalletProvider } from "./types";
 
 export type CircleOptions = {
   apiKey: string;
@@ -111,6 +111,33 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
       });
       if (!res.data?.id) throw new Error("Circle returned no transaction id");
       return { providerTxId: res.data.id };
+    },
+
+    async listInbound(walletId, limit) {
+      const res = await client.listTransactions({ walletIds: [walletId], txType: "INBOUND", pageSize: limit });
+      // Not filtered by token id: on Arc, USDC can arrive through the native or the ERC-20 view of
+      // the same balance, and Circle may list each. One entry per transaction hash is kept.
+      const seen = new Set<string>();
+      const out: InboundTx[] = [];
+      for (const t of res.data?.transactions ?? []) {
+        const amount = t.amounts?.[0];
+        if (t.state !== "COMPLETE" || !t.txHash || !amount || seen.has(t.txHash.toLowerCase())) continue;
+        seen.add(t.txHash.toLowerCase());
+        out.push({
+          txHash: t.txHash as Hex,
+          from: t.sourceAddress ? getAddress(t.sourceAddress) : zeroAddress,
+          amount: parseUnits(amount, USDC_DECIMALS),
+          at: new Date(t.createDate),
+        });
+      }
+      return out;
+    },
+
+    async walletAddress(walletId) {
+      const res = await client.getWallet({ id: walletId });
+      const address = res.data?.wallet?.address;
+      if (!address) throw new Error(`Circle wallet ${walletId} has no address`);
+      return getAddress(address);
     },
 
     async getTx(providerTxId) {

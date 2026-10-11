@@ -1,6 +1,8 @@
 # Local planning notes and the private test policy stay out of the repo.
 PLAN.md
+docs/superpowers/
 .izie/
 .env
 .env.*
 !.env.example
+.superpowers/

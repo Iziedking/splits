@@ -1,7 +1,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-type Variant = "primary" | "secondary" | "ghost" | "light";
+type Variant = "primary" | "secondary" | "ghost" | "light" | "outlineLight";
 
 const variants: Record<Variant, string> = {
   primary: "bg-primary text-primary-foreground hover:bg-[#2b2668] shadow-[0_6px_16px_-6px_rgb(31_27_77/0.55)]",
@@ -9,6 +9,8 @@ const variants: Record<Variant, string> = {
   ghost: "text-muted-foreground hover:bg-secondary hover:text-foreground",
   /** On an indigo fill. */
   light: "bg-white text-primary hover:bg-white/90",
+  /** A quieter action on an indigo fill. */
+  outlineLight: "text-white ring-1 ring-white/40 hover:bg-white/10",
 };
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

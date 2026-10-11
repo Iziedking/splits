@@ -1,12 +1,16 @@
 # Splits
 
-Send money home with its purpose built in.
+Split any payment, to anyone, in one transaction on Arc.
 
-Someone in London supporting family in Lagos rarely sends money for one thing. Part of it is rent, part is a sibling's school fees, the rest is upkeep. Today they either send one lump sum and hope it gets divided the way they meant, or they make several transfers and pay fees on each.
+Splits started with one problem, and it is still the lead example. Someone in London supporting family in Lagos rarely sends money for one thing. Part of it is rent, part is a sibling's school fees, the rest is upkeep. Today they either send one lump sum and hope it gets divided the way they meant, or they make several transfers and pay fees on each.
 
 With Splits, the sender sets up a split once: who gets paid, how much, and what for. Every payment through it lands already divided, in one USDC transaction on [Arc](https://arc.io), with an onchain receipt that records what each part was for.
 
 Recipients don't need to install anything. Their email address is their wallet.
+
+The same engine pays anyone who needs a payment divided: twenty giveaway winners from one pot, a
+team's revenue share, or one person paid by email or Arc address. Paste the list, check it, approve
+once, and everyone is paid in a single transaction, or nobody is.
 
 ## How a payment moves
 
@@ -26,6 +30,15 @@ flowchart LR
 4. After approval, the app tops up the sender's wallet, approves the exact amount, and calls the router. The router pays every recipient in a single transaction, or pays nobody if any leg fails.
 5. The app reads the receipt back from Arc and checks every payout against what the sender approved, before it shows "Delivered".
 6. A recipient can set their own automatic split, such as "put 30% of everything I receive into savings". It runs by itself when money arrives.
+
+### Paying many people at once
+
+1. On **Pay**, paste one person per line: an email or an Arc address, and optionally an amount and a label. Choose "Split a pot equally" or "Set each amount".
+2. **Check** reads every line before anything moves. Duplicates, your own wallet, malformed lines and addresses that can't receive USDC right now (a free simulated 1-cent transfer) are marked, and the list can't be approved until they're fixed. Email recipients get a wallet here.
+3. The checked list is saved as a draft. Approving with your PIN or passkey pays exactly that list, once; a second click or a changed list is refused.
+4. The router's `pay` function pays everyone in one transaction with a `LegPaid` receipt per person. People paid by email get a "you received money" email and find it in their balance when they sign in.
+
+An equal pot is split to the cent: $100 across 7 winners pays four of them $14.29 and three $14.28. No two winners differ by more than a cent.
 
 ## Why Arc
 
@@ -49,6 +62,8 @@ flowchart LR
 - **It never holds money.** USDC goes straight from the payer to each recipient with `transferFrom`. There is no owner, no admin, no fee and no rescue function, so there is nothing to drain and no key that can redirect a payment.
 - **All or nothing.** If any recipient can't be paid, for example an address on Arc's blocklist, the whole payment reverts.
 - **No double payments.** Each payment carries a reference, and the router refuses to use the same reference twice for the same payer, so a retried request can never pay twice.
+- **No recipient limit.** Neither `send` nor `pay` caps the number of recipients; a long list only costs its caller gas. The app's limit is a setting, `MAX_PAYOUT_RECIPIENTS` (default 50), bounded by what one Arc transaction can carry: measured on a mainnet fork at 49,160 gas per recipient against a 30,000,000 block gas limit, so the app allows at most 300.
+- **One-off payments.** `pay(legs, amount, ref)` pays a list once without storing it, under the same rules, and emits split id 0.
 - **No surprise edits.** A payment names the split version the sender saw. If the split changed in between, the payment reverts instead of paying the new recipients.
 - **Whole cents only.** Each share is rounded down to a cent, and the leftover cent goes to the last share. Nobody is ever paid a fraction of a cent.
 - **Purpose receipts.** Every payout emits `LegPaid` with the recipient, the amount and the purpose label.
@@ -102,21 +117,23 @@ Live mode won't start with a missing key, a mismatched chain id, or (on mainnet)
 
 | Part | State |
 | --- | --- |
-| Contract | Tested: 36 unit and fuzz tests, 11 of 11 deliberate bugs caught by the mutation check, 3 fork tests on Arc mainnet state |
-| App, preview mode | Tested: 61 tests, 6 of 6 deliberate bugs caught, an end-to-end API check, and a browser walkthrough at desktop and phone width |
+| Contract | Tested: 46 unit and fuzz tests, 14 of 14 deliberate bugs caught by the mutation check, 4 fork tests on Arc mainnet state (including the gas measurement) |
+| App, preview mode | Tested: 89 tests, 12 of 12 deliberate bugs caught, an end-to-end API check that pays a 20-person giveaway, and a browser walkthrough at desktop and phone width |
 | Arc Testnet deployment | Live. Payments run end to end with Circle wallets and Gas Station, and are checked onchain |
 | Arc mainnet deployment | Not yet |
 | Card payments and currency exchange | Simulated. The card isn't charged and the rate is fixed. The USDC leg is real in live mode. |
-| Payout to bank or mobile money | Not built. Recipients hold USDC. |
+| Payout to bank or mobile money | Not built. Shown in the app as "Coming soon". Recipients hold USDC. |
 
 ## Deployments
 
 | Network | SplitsRouter | Record |
 | --- | --- | --- |
-| Arc Testnet (5042002) | [`0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F`](https://explorer.testnet.arc.io/address/0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F) | [`arc-testnet.json`](deployments/arc-testnet.json) |
+| Arc Testnet (5042002) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.testnet.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`arc-testnet.json`](deployments/arc-testnet.json) |
 | Arc mainnet (5042) | not deployed yet (same address once deployed) | |
 
-The first live payment on testnet: £1 became 1.27 USDC, paid as 0.50 for rent, 0.44 for school fees and 0.33 for upkeep in [one transaction](https://explorer.testnet.arc.io/tx/0x826b56a479d420f1b46294ba78e4e4e1fd1f70ce314104ae231006137f8d0f0f), with each part's purpose in its `LegPaid` event.
+The first live giveaway on testnet paid 20 people, 15 Arc addresses and 5 email recipients, 0.10 USDC each from a 2.00 pot, in [one transaction](https://explorer.testnet.arc.io/tx/0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2): one `SplitSent` with split id 0 and 20 `LegPaid` receipts, each marked "giveaway prize".
+
+The first live payment, on the earlier router without `pay` ([`0xEAE0…f41F`](https://explorer.testnet.arc.io/address/0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F)): £1 became 1.27 USDC, paid as 0.50 for rent, 0.44 for school fees and 0.33 for upkeep in [one transaction](https://explorer.testnet.arc.io/tx/0x826b56a479d420f1b46294ba78e4e4e1fd1f70ce314104ae231006137f8d0f0f), with each part's purpose in its `LegPaid` event.
 
 ## Things to know
 

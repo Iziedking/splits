@@ -1,11 +1,13 @@
 import { eq } from "drizzle-orm";
-import type { Address, Hex } from "viem";
+import { getAddress, type Address, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import type { Ctx } from "../context";
 import { providerTxs, transfers, users } from "../db/schema";
 import { AppError } from "../errors";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
+import { activityFor } from "./activity";
+import { checkPayout } from "./payouts";
 import { advanceWithRules } from "./rules";
 import { advanceSplit, confirmSplit, draftSplit, splitsFor, type SplitInput } from "./splits";
 import { sweep } from "./sweeper";
@@ -390,5 +392,191 @@ describe("confirmation", () => {
     const bad = structuredClone(familySplit);
     bad.legs[2]!.amount = { type: "percent", percent: 24.99 };
     expect(await code(draftSplit(ctx, user, bad))).toBe("SHARES_MUST_TOTAL");
+  });
+});
+
+// ------------------------------------------------------------------ one-off payments to a checked list
+
+const winner = (n: number) => getAddress(`0x${(0xbeef00 + n).toString(16).padStart(40, "0")}`);
+
+async function checkedDraft(ctx: Ctx, user: User, text: string, pot = "10") {
+  const res = await checkPayout(ctx, user, { mode: "equal", text, pot, label: "giveaway prize" });
+  expect(res.ready).toBe(true);
+  return res.draft!;
+}
+
+async function payDraft(ctx: Ctx, user: User, draft: { id: string; hash: string }, fundWith: "card" | "balance" = "card") {
+  const { transfer, action } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith });
+  await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+  return drive(ctx, transfer.id);
+}
+
+describe("paying a checked list in one transaction", () => {
+  it("pays 20 winners, mixing addresses and emails, and verifies every leg", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const lines = [...Array.from({ length: 15 }, (_, i) => winner(i)), ...Array.from({ length: 5 }, (_, i) => `w${i}@example.com`)];
+    const draft = await checkedDraft(ctx, user, lines.join("\n"), "20");
+    const t = await payDraft(ctx, user, draft);
+    expect(t.status).toBe("settled");
+    expect(t.kind).toBe("pay");
+    expect(t.splitId).toBeNull();
+    for (let i = 0; i < 15; i++) expect(await ctx.chain.usdcBalance(winner(i))).toBe(1_000_000n);
+    expect(await balanceOf(ctx, "w4@example.com")).toBe(1_000_000n);
+  });
+
+  it("pays from the balance without a top-up", async () => {
+    const { ctx, arc } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    arc.mint((await mainWallet(ctx, user.id))!.address as Address, 5_000_000n);
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "3");
+    const t = await payDraft(ctx, user, draft, "balance");
+    expect(t.status).toBe("settled");
+    expect(t.topUp).toBe("0");
+    expect(await balanceOf(ctx, "host@example.com")).toBe(2_000_000n);
+  });
+
+  it("creates exactly one payment when the same list is paid twice", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, winner(1));
+    await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" });
+    expect(await code(quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" }))).toBe("LIST_ALREADY_PAID");
+  });
+
+  it("refuses a list that changed or expired", async () => {
+    const { ctx, clock } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, winner(1));
+    expect(await code(quoteTransfer(ctx, user, { draftId: draft.id, draftHash: "f".repeat(64), fundWith: "card" }))).toBe("LIST_CHANGED");
+    clock.advance(31 * 60_000);
+    expect(await code(quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" }))).toBe("LIST_CHANGED");
+  });
+
+  it("sends nothing when a winner is blocked after the check, and keeps the top-up in the balance", async () => {
+    const { ctx, arc } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
+    arc.setBlocked(winner(2), true);
+    const t = await payDraft(ctx, user, draft);
+    expect(t.status).toBe("failed");
+    expect(t.lastError).toBe(
+      "One recipient can't receive USDC right now. Nothing was sent. $2.00 from the demo card is still in your balance.",
+    );
+    expect(await ctx.chain.usdcBalance(winner(1))).toBe(0n);
+    expect(await balanceOf(ctx, "host@example.com")).toBe(2_000_000n);
+  });
+
+  it("says nothing was sent when the provider gives only a generic reason", async () => {
+    const { ctx, arc } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
+    arc.setBlocked(winner(2), true);
+    // Circle reports a failed contract call without the revert's name.
+    const getTx = ctx.wallets.getTx;
+    ctx.wallets.getTx = async (id) => {
+      const tx = await getTx(id);
+      return tx.status === "failed" ? { ...tx, error: "ESTIMATION_ERROR" } : tx;
+    };
+    const t = await payDraft(ctx, user, draft);
+    expect(t.status).toBe("failed");
+    expect(t.lastError).toBe("Arc rejected the payment. Nothing was sent. $2.00 from the demo card is still in your balance.");
+  });
+
+  it("runs a winner's automatic split on what they received", async () => {
+    const { ctx } = await testCtx();
+    const { user: host } = await signedInUser(ctx, "host@example.com");
+    const { user: bob } = await signedInUser(ctx, "bob@example.com");
+    const pocket = await createPocket(ctx, bob, "Savings");
+    const bobMain = (await mainWallet(ctx, bob.id))!;
+    await activeSplit(ctx, bob, {
+      name: "Save",
+      autoForWalletId: bobMain.id,
+      legs: [
+        { name: "Savings", to: { type: "wallet", walletId: pocket.id }, amount: { type: "percent", percent: 50 }, purpose: "savings" },
+        { name: "Main", to: { type: "wallet", walletId: bobMain.id }, amount: { type: "percent", percent: 50 }, purpose: "spending" },
+      ],
+    });
+    const draft = await checkedDraft(ctx, host, "bob@example.com", "4");
+    await payDraft(ctx, host, draft);
+    await settleEverything(ctx);
+    expect(await ctx.chain.usdcBalance(pocket.address as Address)).toBe(2_000_000n);
+  });
+});
+
+describe("telling email recipients they were paid", () => {
+  it("sends one notice per email recipient, never to the payer, and never twice", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    const draft = await checkedDraft(ctx, user, ["a@example.com", "b@example.com", winner(1)].join("\n"), "3");
+    await payDraft(ctx, user, draft);
+    await sweep(ctx);
+    await sweep(ctx);
+    const notices = ctx.previewEmail!.notices;
+    expect(notices.map((n) => n.to).sort()).toEqual(["a@example.com", "b@example.com"]);
+    expect(notices[0]!.notice).toMatchObject({ from: "host@example.com", amount: "1.00", purpose: "giveaway prize" });
+  });
+
+  it("retries a failed notice and never blocks the payment", async () => {
+    const { ctx, clock } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    let failures = 1;
+    const real = ctx.email.sendPaymentNotice.bind(ctx.email);
+    ctx.email.sendPaymentNotice = async (to, n) => {
+      if (failures-- > 0) throw new Error("provider down");
+      return real(to, n);
+    };
+    const draft = await checkedDraft(ctx, user, "a@example.com", "1");
+    const t = await payDraft(ctx, user, draft);
+    expect(t.status).toBe("settled");
+    await sweep(ctx);
+    expect(ctx.previewEmail!.notices).toHaveLength(0);
+    // Backs off instead of hammering the provider: nothing goes out until the retry time.
+    await sweep(ctx);
+    expect(ctx.previewEmail!.notices).toHaveLength(0);
+    clock.advance(31_000);
+    await sweep(ctx);
+    expect(ctx.previewEmail!.notices).toHaveLength(1);
+  });
+
+  it("never sends a notice to the payer", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "host@example.com");
+    // A saved split may name the payer's own email (the payout check blocks this for lists).
+    const split = await activeSplit(ctx, user, {
+      name: "Me and Ada",
+      legs: [
+        { name: "Me", to: { type: "email", email: "host@example.com" }, amount: { type: "percent", percent: 50 }, purpose: "keep" },
+        { name: "Ada", to: { type: "email", email: "ada@example.com" }, amount: { type: "percent", percent: 50 }, purpose: "gift" },
+      ],
+    });
+    await pay(ctx, user, split.id, 100);
+    await sweep(ctx);
+    expect(ctx.previewEmail!.notices.map((n) => n.to)).toEqual(["ada@example.com"]);
+  });
+});
+
+describe("activity", () => {
+  it("shows what you received with its label and sender, and survives the provider being down", async () => {
+    const { ctx } = await testCtx();
+    const { user: host } = await signedInUser(ctx, "host@example.com");
+    const { user: bob } = await signedInUser(ctx, "bob@example.com");
+    const draft = await checkedDraft(ctx, host, "bob@example.com", "2");
+    await payDraft(ctx, host, draft);
+
+    const a = await activityFor(ctx, bob);
+    expect(a.receivedError).toBeNull();
+    expect(a.received.find((r) => r.amount === "2.00")).toMatchObject({ purpose: "giveaway prize", fromLabel: "host@example.com" });
+
+    // The demo card's top-up comes from the app's treasury; it is named, not shown as a bare address.
+    const hostActivity = await activityFor(ctx, host);
+    expect(hostActivity.received).toEqual([expect.objectContaining({ amount: "2.00", fromLabel: "Demo card top-up", source: "topup" })]);
+
+    ctx.wallets.listInbound = async () => {
+      throw new Error("down");
+    };
+    const down = await activityFor(ctx, host);
+    expect(down.receivedError).toBe("Couldn't load received payments. Try again.");
+    expect(down.sent).toHaveLength(1);
   });
 });

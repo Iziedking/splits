@@ -7,9 +7,10 @@ import type { Ctx } from "../context";
 import { providerTxs, transfers, wallets, type ExpectedLeg, type TransferStatus } from "../db/schema";
 import { FIAT_CURRENCIES, quote as fxQuote, QuoteError } from "../domain/fx";
 import { transferRef } from "../domain/ids";
-import { formatUsdc, MoneyError, parseUsdc } from "../domain/money";
+import { formatUsdc, MoneyError, parseUsdc, purposeToBytes32 } from "../domain/money";
 import { badRequest, conflict, forbidden, notFound } from "../errors";
 import { confirmAction, createAction, type Action, type Confirmation } from "./actions";
+import { claimDraft, consumeDraft } from "./payouts";
 import { findProviderTx, refreshProviderTx, submitOnce } from "./providerTx";
 import { expectedAmounts, getSplit } from "./splits";
 import { mainWallet, type User } from "./users";
@@ -19,7 +20,7 @@ export type Transfer = typeof transfers.$inferSelect;
 const LEASE_MS = 30_000;
 const ACTIVE: TransferStatus[] = ["confirmed", "funding", "approving", "sending", "verifying"];
 
-export const transferInput = z.discriminatedUnion("fundWith", [
+const splitTransferInput = z.discriminatedUnion("fundWith", [
   z.object({
     splitId: z.uuid(),
     fundWith: z.literal("card"),
@@ -29,15 +30,27 @@ export const transferInput = z.discriminatedUnion("fundWith", [
   z.object({ splitId: z.uuid(), fundWith: z.literal("balance"), usdc: z.string() }),
 ]);
 
+/** Pays a checked list once. The amount is the list's total; nothing about it can be changed here. */
+const draftTransferInput = z.object({
+  draftId: z.uuid(),
+  draftHash: z.string().regex(/^[0-9a-f]{64}$/),
+  fundWith: z.enum(["card", "balance"]),
+});
+
+export const transferInput = z.union([draftTransferInput, splitTransferInput]);
+
 export type TransferInput = z.infer<typeof transferInput>;
 
-/** Prices a payment against one of the user's active splits and waits for confirmation. */
+/**
+ * Prices a payment, through one of the user's active splits or a checked list, and waits for
+ * confirmation. A checked list is used up here, so it can only ever back one payment.
+ */
 export async function quoteTransfer(
   ctx: Ctx,
   user: User,
   input: TransferInput,
 ): Promise<{ transfer: Transfer; action: Action }> {
-  const { split, wallet, amount, quoteData, topUp, expected } = await priceTransfer(ctx, user, input);
+  const { kind, split, draft, wallet, amount, quoteData, topUp, expected } = await priceTransfer(ctx, user, input);
   const id = randomUUID();
   const [transfer] = await ctx.db
     .insert(transfers)
@@ -45,9 +58,9 @@ export async function quoteTransfer(
       id,
       payerUserId: user.id,
       payerWalletId: wallet.id,
-      kind: "send",
-      splitId: split.id,
-      splitVersion: split.version,
+      kind,
+      splitId: split?.id ?? null,
+      splitVersion: split?.version ?? null,
       amount: amount.toString(),
       quote: quoteData,
       topUp: topUp.toString(),
@@ -59,8 +72,13 @@ export async function quoteTransfer(
     })
     .returning();
 
+  if (draft && !(await consumeDraft(ctx, draft.id, id))) {
+    await ctx.db.update(transfers).set({ status: "cancelled", updatedAt: ctx.now() }).where(eq(transfers.id, id));
+    throw conflict("LIST_ALREADY_PAID", "This list was already paid");
+  }
+
   const action = await createAction(ctx, user.id, "transfer", id, {
-    split: split.name,
+    split: split?.name ?? `${expected.length} people`,
     amount: amount.toString(),
     quote: quoteData,
     legs: expected,
@@ -79,15 +97,42 @@ export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput
   };
 }
 
+async function assertBalance(ctx: Ctx, address: Address, amount: bigint) {
+  const balance = await ctx.chain.usdcBalance(address);
+  if (balance < amount) throw badRequest("INSUFFICIENT_BALANCE", `You have ${formatUsdc(balance)} USDC`);
+}
+
 async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
+  const wallet = await mainWallet(ctx, user.id);
+  if (!wallet) throw conflict("NO_WALLET", "Your wallet is still being set up");
+
+  if ("draftId" in input) {
+    const draft = await claimDraft(ctx, user, input.draftId, input.draftHash);
+    const amount = BigInt(draft.total);
+    const topUp = input.fundWith === "card" ? amount : 0n;
+    if (topUp > 0n) assertFundingShape(ctx, topUp);
+    if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, amount);
+    const expected: ExpectedLeg[] = draft.legs.map((l) => ({
+      name: l.name,
+      address: l.address,
+      amount: l.amount,
+      purpose: l.purpose,
+      email: l.email,
+    }));
+    // The demo card is charged in dollars at 1:1, so the quote is the list total.
+    const quoteData =
+      input.fundWith === "card"
+        ? { currency: "USD", fiatMinor: Number(amount / 10_000n), rate: "1000000", usdc: draft.total, simulated: true }
+        : null;
+    return { kind: "pay" as const, split: null, draft, wallet, amount, quoteData, topUp, expected };
+  }
+
   const split = await getSplit(ctx, input.splitId);
   if (split.ownerUserId !== user.id) throw notFound("Split not found");
   if (split.status !== "active" || split.onchainId === null) {
     throw conflict("SPLIT_NOT_READY", "This split isn't active yet");
   }
   if (split.autoForWalletId) throw badRequest("SPLIT_IS_RULE", "Automatic splits run on their own");
-  const wallet = await mainWallet(ctx, user.id);
-  if (!wallet) throw conflict("NO_WALLET", "Your wallet is still being set up");
 
   let amount: bigint;
   let quoteData: Record<string, unknown> | null = null;
@@ -107,13 +152,14 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
 
   const topUp = input.fundWith === "card" ? amount : 0n;
   if (topUp > 0n) assertFundingShape(ctx, topUp);
-  if (input.fundWith === "balance") {
-    const balance = await ctx.chain.usdcBalance(wallet.address as Address);
-    if (balance < amount) throw badRequest("INSUFFICIENT_BALANCE", `You have ${formatUsdc(balance)} USDC`);
-  }
+  if (input.fundWith === "balance") await assertBalance(ctx, wallet.address as Address, amount);
 
-  const expected: ExpectedLeg[] = expectedAmounts(split, amount).map((l) => ({ ...l, amount: l.amount.toString() }));
-  return { split, wallet, amount, quoteData, topUp, expected };
+  const expected: ExpectedLeg[] = expectedAmounts(split, amount).map((l, i) => ({
+    ...l,
+    amount: l.amount.toString(),
+    email: split.legs[i]!.email,
+  }));
+  return { kind: "send" as const, split, draft: null, wallet, amount, quoteData, topUp, expected };
 }
 
 /** PIN or passkey moves the payment to confirmed. The caller then drives it with advanceWithRules. */
@@ -320,17 +366,38 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
     }
 
     case "sending": {
-      const split = await getSplit(ctx, t.splitId);
-      if (split.onchainId === null) return fail("Split is not onchain");
+      let callData: Hex;
+      if (t.kind === "pay") {
+        // A one-off payment pays exactly the legs the sender checked and approved.
+        callData = encodeFunctionData({
+          abi: splitsRouterAbi,
+          functionName: "pay",
+          args: [
+            t.expected.map((l) => ({
+              recipient: l.address as Address,
+              fixedAmount: BigInt(l.amount),
+              shareBps: 0,
+              purpose: purposeToBytes32(l.purpose),
+            })),
+            amount,
+            t.ref as Hex,
+          ],
+        });
+      } else {
+        if (t.splitId === null || t.splitVersion === null) return fail("Split is missing");
+        const split = await getSplit(ctx, t.splitId);
+        if (split.onchainId === null) return fail("Split is not onchain");
+        callData = encodeFunctionData({
+          abi: splitsRouterAbi,
+          functionName: "send",
+          args: [split.onchainId, t.splitVersion, amount, t.ref as Hex],
+        });
+      }
       let row = await submitOnce(ctx, t.id, "send", 1, (idempotencyKey) =>
         ctx.wallets.execute({
           walletId: payer.providerWalletId,
           contract: ctx.router,
-          callData: encodeFunctionData({
-            abi: splitsRouterAbi,
-            functionName: "send",
-            args: [split.onchainId!, t.splitVersion, amount, t.ref as Hex],
-          }),
+          callData,
           idempotencyKey,
           refId: `send:${t.id}`,
         }),
@@ -342,7 +409,7 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       if (await ctx.chain.refUsed(payer.address, t.ref as Hex)) {
         return row.txHash ? { status: "verifying", patch: { txHash: row.txHash } } : "wait";
       }
-      return fail(friendlyRevert(row.error ?? row.rawState));
+      return fail(notSent(t, row.error ?? row.rawState));
     }
 
     case "verifying": {
@@ -368,13 +435,25 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
   }
 }
 
-function friendlyRevert(error: string): string {
-  if (error.includes("VersionMismatch")) return "The split changed after you confirmed. Nothing was sent.";
-  if (error.includes("SplitInactive")) return "This split is paused. Nothing was sent.";
-  if (error.includes("Blocklist")) return "One recipient can't receive USDC right now. Nothing was sent.";
-  if (error.includes("InsufficientBalance")) return "Not enough USDC in your wallet. Nothing was sent.";
-  if (error.includes("InsufficientAllowance")) return "Approval was too low. Nothing was sent.";
-  return `The payment was rejected: ${error}`;
+/**
+ * What the sender reads when the payout call failed. The caller has already checked onchain that
+ * the ref is unused, so nothing moved; the provider often reports only a generic reason, so the
+ * revert name is a bonus, not a requirement. A card top-up that already landed stays with them.
+ */
+function notSent(t: Transfer, error: string): string {
+  const topUp = BigInt(t.topUp);
+  const kept = topUp > 0n ? ` $${formatUsdc(topUp)} from the demo card is still in your balance.` : "";
+  return `${revertReason(error)} Nothing was sent.${kept}`;
+}
+
+function revertReason(error: string): string {
+  if (error.includes("VersionMismatch")) return "The split changed after you confirmed.";
+  if (error.includes("SplitInactive")) return "This split is paused.";
+  if (error.includes("Blocklist")) return "One recipient can't receive USDC right now.";
+  if (error.includes("InsufficientBalance")) return "Not enough USDC in your wallet.";
+  if (error.includes("InsufficientAllowance")) return "Approval was too low.";
+  if (error.includes("InvalidRecipient")) return "One recipient can't be paid.";
+  return "Arc rejected the payment.";
 }
 
 /** Transfers that still have work to do and nobody holding them. */

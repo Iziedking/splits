@@ -1,5 +1,8 @@
 import type { Address, Hex } from "viem";
 
+/** USDC that arrived in a wallet. */
+export type InboundTx = { txHash: Hex; from: Address; amount: bigint; at: Date };
+
 export type ProviderTxStatus = "pending" | "complete" | "failed";
 
 export type ProviderTx = {
@@ -35,4 +38,7 @@ export interface WalletProvider {
     refId: string;
   }): Promise<{ providerTxId: string }>;
   getTx(providerTxId: string): Promise<ProviderTx>;
+  /** USDC that arrived in this wallet, newest first. Used for the activity list. */
+  listInbound(walletId: string, limit: number): Promise<InboundTx[]>;
+  walletAddress(walletId: string): Promise<Address>;
 }

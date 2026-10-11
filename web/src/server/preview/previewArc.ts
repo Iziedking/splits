@@ -38,6 +38,7 @@ type Effects = {
   refs: Set<string>;
   nextSplitId: bigint;
   receipt: Omit<RouterReceipt, "txHash" | "status" | "blockNumber">;
+  moves: { from: Address; to: Address; amount: bigint }[];
 };
 
 export type PreviewArcOptions = {
@@ -62,6 +63,7 @@ export class PreviewArc {
   private txKeys = new Map<string, string>();
   private receipts = new Map<string, RouterReceipt>();
   private blocked = new Set<string>();
+  private inbound = new Map<string, { txHash: Hex; from: Address; amount: bigint; at: Date }[]>();
   private pendingPolls: number;
 
   constructor(opts: PreviewArcOptions = {}) {
@@ -86,6 +88,11 @@ export class PreviewArc {
 
   walletAddress(walletId: string): Address | undefined {
     return this.wallets.get(walletId);
+  }
+
+  /** USDC transfers into an address, newest first, the way a wallet provider lists them. */
+  inboundFor(address: Address) {
+    return this.inbound.get(address.toLowerCase()) ?? [];
   }
 
   // ---------------------------------------------------------------- adapters
@@ -121,12 +128,19 @@ export class PreviewArc {
       if (tx.outcome.ok) return { status: "complete", rawState: "COMPLETE", txHash: tx.outcome.receipt.txHash };
       return { status: "failed", rawState: "FAILED", txHash: tx.outcome.txHash, error: tx.outcome.error };
     },
+
+    listInbound: async (walletId, limit) => this.inboundFor(this.requireWallet(walletId)).slice(0, limit),
+
+    walletAddress: async (walletId) => this.requireWallet(walletId),
   };
 
   readonly chainReader: ChainReader = {
     usdcBalance: async (owner) => this.balances.get(owner.toLowerCase()) ?? 0n,
     usdcAllowance: async (owner, spender) => this.allowances.get(allowanceKey(owner, spender)) ?? 0n,
     refUsed: async (payer, ref) => this.refs.has(refKey(payer, ref)),
+    // Like the live probe, the simulated sender is given a balance, so only the recipient and the
+    // blocklist decide the answer.
+    canReceive: async (from, to) => !this.blocked.has(from.toLowerCase()) && !this.blocked.has(to.toLowerCase()),
     getSplit: async (splitId) => {
       const s = this.splits.get(splitId);
       return s ? structuredClone(s) : null;
@@ -156,6 +170,10 @@ export class PreviewArc {
     try {
       const fx = run();
       this.commit(fx);
+      for (const m of fx.moves) {
+        const key = m.to.toLowerCase();
+        this.inbound.set(key, [{ txHash, from: m.from, amount: m.amount, at: new Date() }, ...(this.inbound.get(key) ?? [])]);
+      }
       const receipt: RouterReceipt = { txHash, status: "success", blockNumber: this.block++, ...fx.receipt };
       this.receipts.set(txHash, receipt);
       this.txs.set(providerTxId, { polls: 0, outcome: { ok: true, receipt } });
@@ -183,6 +201,7 @@ export class PreviewArc {
       refs: new Set(this.refs),
       nextSplitId: this.nextSplitId,
       receipt: { splitCreated: [], splitLegsSet: [], splitSent: [], legPaid: [] },
+      moves: [],
     };
   }
 
@@ -202,6 +221,7 @@ export class PreviewArc {
     if (balance < amount) throw new Revert("ERC20InsufficientBalance");
     fx.balances.set(from.toLowerCase(), balance - amount);
     fx.balances.set(to.toLowerCase(), (fx.balances.get(to.toLowerCase()) ?? 0n) + amount);
+    fx.moves.push({ from, to, amount });
   }
 
   private applyCall(sender: Address, contract: Address, callData: Hex): Effects {
@@ -263,6 +283,28 @@ export class PreviewArc {
           fx.allowances.set(key, allowance - legAmount);
           this.move(fx, sender, leg.recipient, legAmount);
           fx.receipt.legPaid.push({ splitId, ref, recipient: leg.recipient, amount: legAmount, purpose: leg.purpose });
+        });
+        return fx;
+      }
+      case "pay": {
+        const [rawLegs, amount, ref] = call.args;
+        const legs = rawLegs.map((l) => ({ ...l }));
+        validateLegs(legs, [this.router, this.usdc]);
+        if (amount === 0n) throw new Revert("ZeroAmount");
+        if (/^0x0+$/.test(ref)) throw new Revert("ZeroRef");
+        if (fx.refs.has(refKey(sender, ref))) throw new Revert("RefAlreadyUsed");
+        fx.refs.add(refKey(sender, ref));
+        const amounts = allocate(legs, amount);
+        fx.receipt.splitSent.push({ splitId: 0n, payer: sender, ref, amount, version: 0 });
+        legs.forEach((leg, i) => {
+          const legAmount = amounts[i]!;
+          if (legAmount === 0n) return;
+          const key = allowanceKey(sender, this.router);
+          const allowance = fx.allowances.get(key) ?? 0n;
+          if (allowance < legAmount) throw new Revert("ERC20InsufficientAllowance");
+          fx.allowances.set(key, allowance - legAmount);
+          this.move(fx, sender, leg.recipient, legAmount);
+          fx.receipt.legPaid.push({ splitId: 0n, ref, recipient: leg.recipient, amount: legAmount, purpose: leg.purpose });
         });
         return fx;
       }

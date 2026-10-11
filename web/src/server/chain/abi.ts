@@ -7,6 +7,8 @@ export const splitsRouterAbi = parseAbi([
   "function updateSplit(uint256 splitId, Leg[] legs) returns (uint32 version)",
   "function setActive(uint256 splitId, bool active)",
   "function send(uint256 splitId, uint32 expectedVersion, uint256 amount, bytes32 ref) returns (uint256[] amounts)",
+  "function pay(Leg[] legs, uint256 amount, bytes32 ref) returns (uint256[] amounts)",
+  "function previewPay(Leg[] legs, uint256 amount) view returns (uint256[])",
   "function getSplit(uint256 splitId) view returns (address owner, uint32 version, bool active, Leg[] legs)",
   "function previewSend(uint256 splitId, uint256 amount) view returns (uint256[])",
   "function refUsed(address payer, bytes32 ref) view returns (bool)",

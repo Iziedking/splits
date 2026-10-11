@@ -7,7 +7,6 @@ import { getAddress, isAddress, zeroAddress, type Address } from "viem";
  */
 
 export const BPS_DENOMINATOR = 10_000;
-export const MAX_LEGS = 10;
 /** One cent in USDC base units. The router works in whole cents. */
 export const CENT = 10_000n;
 const MAX_UINT96 = (1n << 96n) - 1n;
@@ -20,7 +19,6 @@ export type LegRule = {
 
 export type SplitRuleCode =
   | "NO_LEGS"
-  | "TOO_MANY_LEGS"
   | "INVALID_RECIPIENT"
   | "LEG_NEEDS_EXACTLY_ONE_RULE"
   | "SHARES_MUST_TOTAL"
@@ -42,9 +40,6 @@ export class SplitRuleError extends Error {
 
 export function validateLegs(legs: readonly LegRule[], forbidden: readonly Address[]): void {
   if (legs.length === 0) throw new SplitRuleError("NO_LEGS", "Add at least one recipient");
-  if (legs.length > MAX_LEGS) {
-    throw new SplitRuleError("TOO_MANY_LEGS", `A split can have at most ${MAX_LEGS} recipients`);
-  }
   const blocked = new Set([zeroAddress, ...forbidden].map((a) => a.toLowerCase()));
   let totalBps = 0;
   legs.forEach((leg, i) => {

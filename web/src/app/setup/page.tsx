@@ -1,6 +1,6 @@
 "use client";
 
-import { browserSupportsWebAuthn, startRegistration } from "@simplewebauthn/browser";
+import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -8,6 +8,7 @@ import { AppFrame, useMe } from "@/components/app/app-frame";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage } from "@/lib/api";
+import { registerPasskey } from "@/lib/passkey";
 
 export default function SetupPage() {
   return (
@@ -51,12 +52,7 @@ function Setup() {
     setBusy(true);
     setError(null);
     try {
-      const optionsJSON = await api<Parameters<typeof startRegistration>[0]["optionsJSON"]>(
-        "/api/security/passkey/options",
-        { method: "POST" },
-      );
-      const response = await startRegistration({ optionsJSON });
-      await api("/api/security/passkey/verify", { body: { response } });
+      await registerPasskey();
       await refresh();
       router.replace("/home");
     } catch (err) {

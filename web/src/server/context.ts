@@ -17,6 +17,7 @@ export type Limits = {
   perUserDaily: bigint;
   globalDaily: bigint;
   autoSplitMin: bigint;
+  maxPayoutRecipients: number;
 };
 
 /** Everything a service needs. Built once per process; tests build their own. */
@@ -29,10 +30,14 @@ export type Ctx = {
   router: Address;
   usdc: Address;
   treasuryWalletId: string;
+  /** Used as the sender when probing whether a recipient can receive USDC. */
+  treasuryAddress: Address;
   rates: FxRates;
   limits: Limits;
   rp: RelyingParty;
   explorerUrl: string;
+  /** Public address of the app, used in emails. */
+  appUrl: string;
   network: "arc" | "arc-testnet";
   /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
   showCodes: boolean;
@@ -51,6 +56,7 @@ export function limitsFromConfig(config: Config): Limits {
     perUserDaily: parseUsdc(config.FUNDING_PER_USER_DAILY_USDC),
     globalDaily: parseUsdc(config.FUNDING_GLOBAL_DAILY_USDC),
     autoSplitMin: parseUsdc(config.AUTO_SPLIT_MIN_USDC),
+    maxPayoutRecipients: config.MAX_PAYOUT_RECIPIENTS,
   };
 }
 
@@ -69,10 +75,12 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     router: arc.router,
     usdc: arc.usdc,
     treasuryWalletId: PREVIEW_TREASURY_WALLET_ID,
+    treasuryAddress: arc.walletAddress(PREVIEW_TREASURY_WALLET_ID)!,
     rates: ratesFromConfig(config),
     limits: limitsFromConfig(config),
     rp: { rpId: config.rpId, rpName: config.WEBAUTHN_RP_NAME, origin: config.origin },
     explorerUrl: config.ARC_EXPLORER_URL,
+    appUrl: config.APP_URL,
     network: networkOf(config),
     showCodes: true,
     now: () => new Date(),
@@ -92,17 +100,18 @@ async function buildCtx(config: Config): Promise<Ctx> {
   // PGlite and on-screen-code shortcuts to testnet.
   const router = config.SPLITS_ROUTER_ADDRESS!;
   const screenCodes = config.EMAIL_PROVIDER === "screen";
+  const wallets = createCircleWallets({
+    apiKey: config.CIRCLE_API_KEY!,
+    entitySecret: config.CIRCLE_ENTITY_SECRET!,
+    walletSetId: config.CIRCLE_WALLET_SET_ID!,
+    blockchain: config.CIRCLE_BLOCKCHAIN,
+    usdc: config.USDC_ADDRESS,
+    usdcTokenId: config.CIRCLE_USDC_TOKEN_ID,
+  });
   return {
     mode: "live",
     db: config.DATABASE_URL ? await createPostgresDb(config.DATABASE_URL) : await createPgliteDb(config.PGLITE_DIR),
-    wallets: createCircleWallets({
-      apiKey: config.CIRCLE_API_KEY!,
-      entitySecret: config.CIRCLE_ENTITY_SECRET!,
-      walletSetId: config.CIRCLE_WALLET_SET_ID!,
-      blockchain: config.CIRCLE_BLOCKCHAIN,
-      usdc: config.USDC_ADDRESS,
-      usdcTokenId: config.CIRCLE_USDC_TOKEN_ID,
-    }),
+    wallets,
     chain: createViemChain({
       chainId: config.ARC_CHAIN_ID,
       rpcUrls: config.rpcUrls,
@@ -114,10 +123,12 @@ async function buildCtx(config: Config): Promise<Ctx> {
     router,
     usdc: config.USDC_ADDRESS,
     treasuryWalletId: config.CIRCLE_TREASURY_WALLET_ID!,
+    treasuryAddress: await wallets.walletAddress(config.CIRCLE_TREASURY_WALLET_ID!),
     rates: ratesFromConfig(config),
     limits: limitsFromConfig(config),
     rp: { rpId: config.rpId, rpName: config.WEBAUTHN_RP_NAME, origin: config.origin },
     explorerUrl: config.ARC_EXPLORER_URL,
+    appUrl: config.APP_URL,
     network: networkOf(config),
     showCodes: screenCodes,
     now: () => new Date(),

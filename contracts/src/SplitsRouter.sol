@@ -6,13 +6,14 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title SplitsRouter
-/// @notice Pays one USDC amount to several recipients in a single transaction, following a split
-///         its owner registered onchain. Every leg carries a purpose label ("rent", "school fees"),
-///         so each payout leaves a public receipt of what the money was for.
+/// @notice Pays one USDC amount to several recipients in a single transaction, either through a
+///         split its owner registered onchain (`send`) or as a one-off list (`pay`). Every leg
+///         carries a purpose label ("rent", "school fees", "giveaway prize"), so each payout leaves
+///         a public receipt of what the money was for.
 ///
-/// @dev Fund paths. USDC moves in exactly one place: `send`, which calls
-///      `usdc.safeTransferFrom(payer, leg.recipient, legAmount)` once per leg, where `payer` is
-///      always `msg.sender`. The contract never holds USDC. It has no payable function, no receive
+/// @dev Fund paths. USDC moves in exactly one place: `_payOut`, called by `send` and `pay`, which
+///      calls `usdc.safeTransferFrom(payer, leg.recipient, legAmount)` once per leg, where `payer`
+///      is always `msg.sender`. The contract never holds USDC. It has no payable function, no receive
 ///      or fallback, no owner, no fee and no rescue function, so there is nothing to drain and no
 ///      key that can redirect a payment.
 ///
@@ -27,6 +28,9 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///      payment must be whole cents, and each percentage share is rounded down to a cent, with the
 ///      leftover cents going to the last share leg. No recipient is ever paid a fraction of a cent.
 ///
+///      There is no recipient limit. A long list only costs its caller gas, and no state is shared
+///      between payers, so it can only fail the caller's own transaction.
+///
 ///      A send is all or nothing. If any leg reverts (for example an Arc-blocklisted recipient or a
 ///      short allowance), no recipient is paid and the payer's `ref` stays unused.
 contract SplitsRouter is ReentrancyGuard {
@@ -35,7 +39,6 @@ contract SplitsRouter is ReentrancyGuard {
     // ------------------------------------------------------------------ constants
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
-    uint256 public constant MAX_LEGS = 10;
     /// @notice One cent in USDC base units (6 decimals).
     uint256 public constant CENT = 10_000;
 
@@ -85,7 +88,6 @@ contract SplitsRouter is ReentrancyGuard {
 
     error ZeroAddress();
     error NoLegs();
-    error TooManyLegs(uint256 count, uint256 max);
     error InvalidRecipient(uint256 index, address recipient);
     error LegNeedsExactlyOneRule(uint256 index);
     error SharesMustTotal(uint256 totalBps);
@@ -151,20 +153,30 @@ contract SplitsRouter is ReentrancyGuard {
         if (!s.active) revert SplitInactive(splitId);
         if (s.version != expectedVersion) revert VersionMismatch(splitId, expectedVersion, s.version);
         if (amount == 0) revert ZeroAmount();
-        if (ref == bytes32(0)) revert ZeroRef();
-        if (refUsed[msg.sender][ref]) revert RefAlreadyUsed(msg.sender, ref);
+        _spendRef(ref);
 
-        refUsed[msg.sender][ref] = true;
-        amounts = _allocate(s.legs, amount);
+        Leg[] memory legs = s.legs;
+        amounts = _allocate(legs, amount);
         emit SplitSent(splitId, msg.sender, ref, amount, s.version);
+        _payOut(splitId, ref, legs, amounts);
+    }
 
-        uint256 count = amounts.length;
-        for (uint256 i; i < count; ++i) {
-            if (amounts[i] == 0) continue;
-            Leg storage leg = s.legs[i];
-            usdc.safeTransferFrom(msg.sender, leg.recipient, amounts[i]);
-            emit LegPaid(splitId, ref, leg.recipient, amounts[i], leg.purpose);
-        }
+    /// @notice Pull `amount` USDC from the caller and pay it across `legs` once, without storing a
+    ///         split. Same rules as `send`: whole cents, all or nothing, and a ref can't be reused.
+    /// @dev One-off payments emit split id 0, which no stored split ever has.
+    function pay(Leg[] calldata legs, uint256 amount, bytes32 ref)
+        external
+        nonReentrant
+        returns (uint256[] memory amounts)
+    {
+        _validate(legs);
+        if (amount == 0) revert ZeroAmount();
+        _spendRef(ref);
+
+        Leg[] memory list = legs;
+        amounts = _allocate(list, amount);
+        emit SplitSent(0, msg.sender, ref, amount, 0);
+        _payOut(0, ref, list, amounts);
     }
 
     // ------------------------------------------------------------------ views
@@ -187,6 +199,13 @@ contract SplitsRouter is ReentrancyGuard {
         return _allocate(s.legs, amount);
     }
 
+    /// @notice The exact per-leg amounts `pay` would send for `amount`. Reverts the same way.
+    function previewPay(Leg[] calldata legs, uint256 amount) external view returns (uint256[] memory) {
+        _validate(legs);
+        if (amount == 0) revert ZeroAmount();
+        return _allocate(legs, amount);
+    }
+
     // ------------------------------------------------------------------ internals
 
     function _ownedSplit(uint256 splitId) private view returns (Split storage s) {
@@ -198,7 +217,6 @@ contract SplitsRouter is ReentrancyGuard {
     function _validate(Leg[] calldata legs) private view {
         uint256 count = legs.length;
         if (count == 0) revert NoLegs();
-        if (count > MAX_LEGS) revert TooManyLegs(count, MAX_LEGS);
 
         uint256 totalBps;
         for (uint256 i; i < count; ++i) {
@@ -213,6 +231,21 @@ contract SplitsRouter is ReentrancyGuard {
         if (totalBps != 0 && totalBps != BPS_DENOMINATOR) revert SharesMustTotal(totalBps);
     }
 
+    function _spendRef(bytes32 ref) private {
+        if (ref == bytes32(0)) revert ZeroRef();
+        if (refUsed[msg.sender][ref]) revert RefAlreadyUsed(msg.sender, ref);
+        refUsed[msg.sender][ref] = true;
+    }
+
+    function _payOut(uint256 splitId, bytes32 ref, Leg[] memory legs, uint256[] memory amounts) private {
+        uint256 count = amounts.length;
+        for (uint256 i; i < count; ++i) {
+            if (amounts[i] == 0) continue;
+            usdc.safeTransferFrom(msg.sender, legs[i].recipient, amounts[i]);
+            emit LegPaid(splitId, ref, legs[i].recipient, amounts[i], legs[i].purpose);
+        }
+    }
+
     function _storeLegs(Split storage s, Leg[] calldata legs) private {
         delete s.legs;
         uint256 count = legs.length;
@@ -224,7 +257,7 @@ contract SplitsRouter is ReentrancyGuard {
     /// @dev Fixed legs are paid first. The rest is shared by bps, each share rounded down to a whole
     ///      cent, and the last share leg takes the leftover cents, so the amounts always sum to
     ///      exactly `amount` and every amount is whole cents.
-    function _allocate(Leg[] storage legs, uint256 amount) private view returns (uint256[] memory amounts) {
+    function _allocate(Leg[] memory legs, uint256 amount) private pure returns (uint256[] memory amounts) {
         if (amount % CENT != 0) revert AmountNotCents(amount);
         uint256 count = legs.length;
         amounts = new uint256[](count);

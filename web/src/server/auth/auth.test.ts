@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { AppError } from "../errors";
 import { finishSignIn, startSignIn } from "../services/signin";
-import { testCtx } from "../testing";
+import { signedInUser, TEST_PIN, testCtx } from "../testing";
 import { consumeLoginCode, issueLoginCode, normaliseEmail } from "./otp";
-import { assertPinShape, setInitialPin } from "./pin";
+import { assertPinShape, changePin, setInitialPin, verifyPin } from "./pin";
 import { createSession, endSession, userForSession } from "./sessions";
 
 describe("email sign-in", () => {
@@ -84,5 +84,17 @@ describe("PIN", () => {
     const { user } = await finishSignIn(ctx, "ada@example.com", (await startSignIn(ctx, "ada@example.com")).previewCode!);
     await setInitialPin(ctx.db, user.id, "482913");
     await expect(setInitialPin(ctx.db, user.id, "571920")).rejects.toMatchObject({ code: "PIN_ALREADY_SET" });
+  });
+});
+
+describe("changing the PIN", () => {
+  it("needs the current PIN, and the old one stops working", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "pin@example.com");
+    await expect(changePin(ctx.db, user.id, "111111", "583920", ctx.now())).rejects.toMatchObject({ code: "PIN_WRONG" });
+    await expect(changePin(ctx.db, user.id, TEST_PIN, "123456", ctx.now())).rejects.toMatchObject({ code: "PIN_TOO_SIMPLE" });
+    await changePin(ctx.db, user.id, TEST_PIN, "583920", ctx.now());
+    await expect(verifyPin(ctx.db, user.id, TEST_PIN, ctx.now())).rejects.toMatchObject({ code: "PIN_WRONG" });
+    await verifyPin(ctx.db, user.id, "583920", ctx.now());
   });
 });

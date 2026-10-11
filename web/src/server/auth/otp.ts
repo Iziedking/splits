@@ -1,8 +1,8 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
 import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
-import { z } from "zod";
 import type { Db } from "../db/client";
 import { otpCodes } from "../db/schema";
+import { emailSchema } from "../domain/email";
 import { sha256Hex } from "../domain/ids";
 import { badRequest, tooMany } from "../errors";
 
@@ -10,7 +10,6 @@ const CODE_TTL_MS = 10 * 60_000;
 const MAX_ATTEMPTS = 5;
 const MAX_CODES_PER_HOUR = 5;
 
-const emailSchema = z.email().max(254);
 
 export function normaliseEmail(input: string): string {
   const email = input.trim().toLowerCase();

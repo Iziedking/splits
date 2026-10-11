@@ -82,3 +82,10 @@ export async function verifyPin(db: Db, userId: string, pin: string, now: Date):
   }
   throw forbidden("PIN_WRONG", `Wrong PIN. ${MAX_FAILURES - reserved.failures} tries left.`);
 }
+
+/** Changes the PIN. The current PIN is checked with the same lockout as any confirmation. */
+export async function changePin(db: Db, userId: string, currentPin: string, newPin: string, now: Date) {
+  assertPinShape(newPin);
+  await verifyPin(db, userId, currentPin, now);
+  await db.update(users).set({ pinHash: await hashPin(newPin) }).where(eq(users.id, userId));
+}

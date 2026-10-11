@@ -90,12 +90,13 @@ describe("allocation mirrors SplitsRouter", () => {
     expect(() => validateLegs([{ recipient: C, ...share(10_000) }], [C])).toThrow(/can't receive/);
     expect(() => validateLegs([{ recipient: A, fixedAmount: 5n, shareBps: 10_000 }], [])).toThrow(SplitRuleError);
     expect(() => validateLegs([{ recipient: A, ...share(9999) }], [])).toThrow(/99.99%/);
+    // Like the router, the mirror has no recipient limit; the app's limit is MAX_PAYOUT_RECIPIENTS.
     expect(() =>
       validateLegs(
-        Array.from({ length: 11 }, () => ({ recipient: A, ...fixed(10_000n) })),
+        Array.from({ length: 250 }, () => ({ recipient: A, ...fixed(10_000n) })),
         [],
       ),
-    ).toThrow(/at most 10/);
+    ).not.toThrow();
   });
 });
 

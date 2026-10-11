@@ -143,7 +143,8 @@ export const TRANSFER_STATUSES = [
 ] as const;
 export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 
-export type ExpectedLeg = { name: string; address: string; amount: string; purpose: string };
+/** One payout a payment must make. `email` is set when the recipient was named by email. */
+export type ExpectedLeg = { name: string; address: string; amount: string; purpose: string; email?: string | null };
 
 export const transfers = pgTable(
   "transfers",
@@ -151,9 +152,11 @@ export const transfers = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     payerUserId: uuid("payer_user_id").notNull().references(() => users.id),
     payerWalletId: uuid("payer_wallet_id").notNull().references(() => wallets.id),
-    kind: text("kind", { enum: ["send", "auto"] }).notNull(),
-    splitId: uuid("split_id").notNull().references(() => splits.id),
-    splitVersion: integer("split_version").notNull(),
+    /** "send" pays a saved split, "auto" runs a receiver's rule, "pay" pays a checked list once. */
+    kind: text("kind", { enum: ["send", "auto", "pay"] }).notNull(),
+    /** Null for one-off ("pay") payments, which have no saved split. */
+    splitId: uuid("split_id").references(() => splits.id),
+    splitVersion: integer("split_version"),
     amount: text("amount").notNull(),
     quote: jsonb("quote").$type<Record<string, unknown>>(),
     /** USDC base units released from the treasury to cover a simulated card payment. */
@@ -203,3 +206,53 @@ export const webhookEvents = pgTable("webhook_events", {
   type: text("type").notNull(),
   receivedAt: createdAt(),
 });
+
+export type DraftLeg = {
+  name: string;
+  email: string | null;
+  walletId: string | null;
+  address: string;
+  /** USDC base units, whole cents. */
+  amount: string;
+  purpose: string;
+};
+
+/**
+ * A payout list that passed its checks. Approving a payment points at a draft, so what gets paid
+ * is exactly what was checked; a draft pays at most once.
+ */
+export const payoutDrafts = pgTable(
+  "payout_drafts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerUserId: uuid("owner_user_id").notNull().references(() => users.id),
+    legs: jsonb("legs").$type<DraftLeg[]>().notNull(),
+    total: text("total").notNull(),
+    hash: text("hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    transferId: uuid("transfer_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("payout_drafts_owner").on(t.ownerUserId, t.createdAt)],
+);
+
+/** "You received money" emails, one per payment and recipient. */
+export const notices = pgTable(
+  "notices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    transferId: uuid("transfer_id").notNull().references(() => transfers.id),
+    email: text("email").notNull(),
+    amount: text("amount").notNull(),
+    purpose: text("purpose").notNull(),
+    status: text("status", { enum: ["pending", "sent", "failed"] }).notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    /** Not retried before this time; backs off after each failure. */
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("notices_one_per_transfer_email").on(t.transferId, t.email), index("notices_status").on(t.status)],
+);

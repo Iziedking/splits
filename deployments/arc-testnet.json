@@ -1,13 +1,23 @@
 {
   "network": "arc-testnet",
   "chainId": 5042002,
-  "router": "0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F",
+  "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
   "usdc": "0x3600000000000000000000000000000000000000",
   "create2Factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
   "salt": "0x3d10f73c2ea3ad7b42ad808246548a7f107ffa91803e570a58d918f76639aa84",
-  "initCodeHash": "0x53a22fe420f5862844daf3f04eb6599e6403374bb6f083ed201b18cb762b4c26",
-  "runtimeCodeHash": "0x9025de5160a25ac4f3beb9178c56a13f7420e3b378258269119237efd0bb7f19",
-  "deployTx": "0x4994f6319689fcd0e8d9b7e347f1004777f92e399494d5796c9a6ab5a1c7c38f",
+  "initCodeHash": "0xbcc416c6b016cdefa30d21ff723967790c6c1a0257c12162a4444f1b79c34608",
+  "runtimeCodeHash": "0x2067237657cf43f47c068327d702712d53db5db358762d117d29e846c1dd71cc",
+  "deployTx": "0x56d4e98f5248f8781d265f6eb6d1add4755276c29cf44c3e85b14005a4e78bc3",
   "nextSplitId": "1",
-  "verifiedAt": "2026-10-11T14:05:32.562Z"
+  "verifiedAt": "2026-10-11T16:52:22.258Z",
+  "previous": {
+    "router": "0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F",
+    "note": "v1 without pay(); replaced 2026-10-11"
+  },
+  "gas": {
+    "payPerRecipient": 49160,
+    "blockGasLimit": 30000000,
+    "measuredOn": "Arc mainnet fork, 2026-10-11"
+  },
+  "firstGiveawayTx": "0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2"
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { Home, Send, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
@@ -9,6 +10,15 @@ import { Notice } from "@/components/ui/field";
 
 type MeState = { me: Me; refresh: () => Promise<void> };
 const MeContext = React.createContext<MeState | null>(null);
+
+const NAV = [
+  { href: "/home", label: "Home", icon: Home },
+  { href: "/pay", label: "Pay", icon: Send },
+  { href: "/profile", label: "Profile", icon: UserRound },
+] as const;
+
+/** "/pay" is current on /pay and /pay/..., but not on /payments. */
+const isCurrent = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
 export function useMe(): MeState {
   const value = React.useContext(MeContext);
@@ -49,13 +59,27 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-5 py-4 sm:px-6">
+      <header className="mx-auto flex max-w-[75rem] items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <Link
           href="/home"
           className="inline-flex min-h-11 items-center rounded-lg display-face text-xl font-bold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Splits
         </Link>
+        {me && pathname !== "/setup" && (
+          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-card p-1 ring-1 ring-border sm:flex">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
+                className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground"
+              >
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+        )}
         <div className="flex items-center gap-2">
           {me && (me.mode === "preview" || me.network === "arc-testnet") && (
             <span
@@ -66,19 +90,19 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
             </span>
           )}
           {me && (
-            <span className="hidden max-w-48 truncate text-sm text-muted-foreground sm:inline" title={me.user.email}>
+            <span className="hidden max-w-48 truncate text-sm text-muted-foreground lg:inline" title={me.user.email}>
               {me.user.email}
             </span>
           )}
           {me && pathname !== "/setup" && (
-            <Button variant="ghost" onClick={signOut} className="px-3">
+            <Button variant="ghost" onClick={signOut} className="hidden px-3 sm:inline-flex">
               Sign out
             </Button>
           )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl px-5 pb-20 sm:px-6">
+      <main className="mx-auto max-w-[75rem] px-4 pb-28 sm:px-6 sm:pb-20">
         {error && !me && (
           <div className="mx-auto mt-16 max-w-sm space-y-4">
             <Notice tone="error">{error}</Notice>
@@ -90,6 +114,24 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
         {!me && !error && <FrameSkeleton />}
         {me && <MeContext.Provider value={{ me, refresh }}>{children}</MeContext.Provider>}
       </main>
+      {me && pathname !== "/setup" && (
+        <nav
+          aria-label="Main"
+          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[not(backdrop-filter:blur(0))]:bg-card sm:hidden"
+        >
+          {NAV.map(({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              aria-current={isCurrent(pathname, href) ? "page" : undefined}
+              className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-muted-foreground focus-visible:bg-secondary focus-visible:outline-none aria-[current=page]:text-primary"
+            >
+              <Icon className="h-5 w-5" aria-hidden="true" />
+              {label}
+            </Link>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }

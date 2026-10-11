@@ -1,4 +1,6 @@
 import {
+  BaseError,
+  ContractFunctionRevertedError,
   createPublicClient,
   defineChain,
   erc20Abi,
@@ -84,6 +86,27 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
 
     refUsed: (payer, ref) =>
       client.readContract({ address: opts.router, abi: splitsRouterAbi, functionName: "refUsed", args: [payer, ref] }),
+
+    // Simulates a 1-cent transfer to `to`. On Arc the native balance is the USDC balance, so a
+    // balance override funds the simulated sender and the answer never depends on the treasury's
+    // float (checked on the Arc testnet node, 2026-10-11). Only a revert means "can't receive";
+    // RPC and transport errors are thrown so the caller can say the line couldn't be checked.
+    async canReceive(from, to) {
+      try {
+        await client.simulateContract({
+          account: from,
+          address: opts.usdc,
+          abi: erc20Abi,
+          functionName: "transfer",
+          args: [to, 10_000n],
+          stateOverride: [{ address: from, balance: 10n ** 18n }],
+        });
+        return true;
+      } catch (err) {
+        if (err instanceof BaseError && err.walk((e) => e instanceof ContractFunctionRevertedError)) return false;
+        throw err;
+      }
+    },
 
     async getSplit(splitId): Promise<OnchainSplit | null> {
       try {

@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { parseConfig } from "./config";
+import { MAX_RECIPIENTS_CEILING } from "./domain/payouts";
 
 describe("config", () => {
+  it("bounds MAX_PAYOUT_RECIPIENTS by the gas ceiling", () => {
+    expect(parseConfig({ MAX_PAYOUT_RECIPIENTS: "75" }).MAX_PAYOUT_RECIPIENTS).toBe(75);
+    expect(parseConfig({}).MAX_PAYOUT_RECIPIENTS).toBe(50);
+    expect(() => parseConfig({ MAX_PAYOUT_RECIPIENTS: String(MAX_RECIPIENTS_CEILING + 1) })).toThrow("MAX_PAYOUT_RECIPIENTS");
+    expect(() => parseConfig({ MAX_PAYOUT_RECIPIENTS: "0" })).toThrow("MAX_PAYOUT_RECIPIENTS");
+  });
+
   it("defaults to preview with Arc mainnet values", () => {
     const c = parseConfig({});
     expect(c.SPLITS_MODE).toBe("preview");

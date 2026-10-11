@@ -30,7 +30,7 @@ export const legInput = z.object({
 
 export const splitInput = z.object({
   name: z.string().trim().min(1).max(60),
-  legs: z.array(legInput).min(1).max(10),
+  legs: z.array(legInput).min(1).max(20),
   /** Turns this split into an automatic rule for money arriving in one of your wallets. */
   autoForWalletId: z.uuid().optional(),
 });

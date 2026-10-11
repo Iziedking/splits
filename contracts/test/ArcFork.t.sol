@@ -59,4 +59,32 @@ contract ArcForkTest is Test {
         // The native view moves with the ERC-20 view: 40 USDC left, less nothing for gas in a prank.
         assertEq(payer.balance, 40 ether);
     }
+
+    /// @dev Measures what one more recipient costs in a one-off `pay`, against real Arc USDC. The
+    ///      app's recipient ceiling (MAX_RECIPIENTS_CEILING in web/src/server/domain/payouts.ts)
+    ///      is derived from these numbers.
+    function test_Fork_PayGasPerRecipient() public {
+        vm.deal(payer, 1_000 ether);
+        vm.prank(payer);
+        ARC_USDC.approve(address(router), type(uint256).max);
+
+        uint256[4] memory sizes = [uint256(1), 10, 50, 100];
+        uint256[4] memory used;
+        for (uint256 k; k < sizes.length; ++k) {
+            SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](sizes[k]);
+            for (uint256 i; i < sizes[k]; ++i) {
+                legs[i] = SplitsRouter.Leg(address(uint160(0xA0000 + k * 1000 + i)), 10_000, 0, bytes32("gas"));
+            }
+            vm.prank(payer);
+            uint256 g = gasleft();
+            router.pay(legs, sizes[k] * 10_000, keccak256(abi.encode("gas", k)));
+            used[k] = g - gasleft();
+            emit log_named_uint(string.concat("pay gas, recipients=", vm.toString(sizes[k])), used[k]);
+        }
+        uint256 perLeg = (used[3] - used[1]) / 90;
+        emit log_named_uint("GAS_PER_LEG", perLeg);
+        emit log_named_uint("BLOCK_GAS_LIMIT", block.gaslimit);
+        emit log_named_uint("SAFE_RECIPIENTS (half a block)", (block.gaslimit / 2) / perLeg);
+        assertGt(perLeg, 0);
+    }
 }

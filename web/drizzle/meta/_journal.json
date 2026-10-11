@@ -8,6 +8,20 @@
       "when": 1791717017000,
       "tag": "0000_init",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791733707872,
+      "tag": "0001_damp_zaran",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791738588814,
+      "tag": "0002_salty_harpoon",
+      "breakpoints": true
     }
   ]
 }
