@@ -11,7 +11,7 @@ function Status({ line }: { line: CheckLine }) {
   const ok = line.status === "ready";
   return (
     <span className={cn("inline-flex items-start gap-2 text-sm", ok ? "text-success" : "text-destructive")}>
-      <span aria-hidden="true" className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", ok ? "bg-purpose-2" : "bg-purpose-3")} />
+      <span aria-hidden="true" className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", ok ? "bg-success" : "bg-destructive")} />
       {ok ? "Ready" : line.message}
     </span>
   );
@@ -19,7 +19,7 @@ function Status({ line }: { line: CheckLine }) {
 
 /**
  * Every pasted line with what it will pay and whether it can. Rows settle in once per check, not
- * on every keystroke. Below 640px each row becomes a two-line item.
+ * on every keystroke. Each row is a two-line item, since the app is a phone-width column.
  */
 export function ReviewTable({ check }: { check: PayoutCheck }) {
   const reduce = useReducedMotion();
@@ -32,7 +32,7 @@ export function ReviewTable({ check }: { check: PayoutCheck }) {
         <caption className="sr-only">
           {check.lines.length} people checked, {ready} ready
         </caption>
-        <thead className="hidden bg-secondary/60 text-sm text-muted-foreground sm:table-header-group">
+        <thead className="hidden bg-secondary/60 text-sm text-muted-foreground">
           <tr>
             <th scope="col" className="px-4 py-2.5 font-medium">
               Line
@@ -59,12 +59,12 @@ export function ReviewTable({ check }: { check: PayoutCheck }) {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: reduce ? 0 : i * stagger, duration: 0.2 }}
               className={cn(
-                "grid grid-cols-[auto_1fr_auto] gap-x-3 px-4 py-3 sm:table-row sm:p-0",
-                line.status !== "ready" && "bg-purpose-3/5",
+                "grid grid-cols-[auto_1fr_auto] gap-x-3 px-4 py-3",
+                line.status !== "ready" && "bg-destructive/5",
               )}
             >
-              <td className="text-sm text-muted-foreground tabular-nums sm:px-4 sm:py-3">{line.line}</td>
-              <td className="min-w-0 sm:px-4 sm:py-3">
+              <td className="text-sm text-muted-foreground tabular-nums">{line.line}</td>
+              <td className="min-w-0">
                 <span className="flex items-center gap-2">
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
                   <span className="truncate font-medium" title={line.recipient ?? line.raw}>
@@ -74,14 +74,14 @@ export function ReviewTable({ check }: { check: PayoutCheck }) {
               </td>
               <td
                 className={cn(
-                  "text-right font-semibold tabular-nums sm:px-4 sm:py-3",
+                  "text-right font-semibold tabular-nums",
                   line.status !== "ready" && "text-muted-foreground line-through",
                 )}
               >
                 {line.amount ? `$${line.amount}` : "–"}
               </td>
-              <td className="col-span-3 col-start-2 text-sm text-muted-foreground sm:px-4 sm:py-3">{line.label}</td>
-              <td className="col-span-3 col-start-2 sm:px-4 sm:py-3">
+              <td className="col-span-3 col-start-2 text-sm text-muted-foreground">{line.label}</td>
+              <td className="col-span-3 col-start-2">
                 <Status line={line} />
               </td>
             </motion.tr>

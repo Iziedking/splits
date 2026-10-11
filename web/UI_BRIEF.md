@@ -1,5 +1,47 @@
 # Splits UI brief
 
+## v4 visual direction (2026-10-11): "Glass and teal", from the design team
+
+Source: the team's Figma file "Splits — UI Draft" (mobile frames S1 Welcome to S8 Confirmation,
+plus Welcome Page, Email/Sign up, Connect Bank and two Dashboards). It replaces the v2 adire
+direction below for colour, type and surfaces. A PC layout is still to come from the designer, so
+until then wide screens show the same mobile composition, centred, rather than an invented desktop
+layout. The Figma file is read only; nothing in it was changed.
+
+| Token | Value | Use |
+| --- | --- | --- |
+| Teal | `#0FA39A` | primary pills, links, "They receive" figures, progress dots |
+| Teal deep | `#0B8780` | hover and pressed teal |
+| Ink | `#0E1C2B` | headings, figures, body |
+| Slate | `#5B6B78` | secondary text |
+| Mist | `#F3F7F8` | page base under the gradient |
+| Purpose fills | teal `#2BC4BA`, lilac `#9B8CF2`, coral `#F2896D`, then amber `#F5B83D`, sky `#5AA9F5`, lime `#8FCB5A` | split parts, in order |
+| Night | `#0A1A22` to `#0F2A2E` | the live "Sending…" screen |
+
+- **Type:** Manrope only. Bold headings (32px on phones), big bold figures, regular slate body.
+- **Backdrop:** soft blurred blobs, teal at the top right, lilac mid-right, peach bottom-left, over
+  mist. The live settlement screen uses the dark night variant with a teal glow and a warm glow.
+- **Cards:** frosted glass: white at about 65% opacity, backdrop blur, a 1px white edge and a soft
+  ink shadow, 18px radius. Without backdrop-filter support they fall back to solid white.
+- **Actions:** one full-width teal pill per screen for the primary action, a teal-outline pill for
+  the secondary one, both 52px tall.
+- **Split parts:** separated rounded bars and a coloured dot per recipient; a coloured underline on
+  each confirmation card.
+
+**Mapping the frames onto the product without changing its truths:**
+- Welcome and sign-up become the email-code sign-in. The design's username and password fields are
+  not used: an email is the account and the wallet, and the code proves it.
+- "They receive" stays in USD (USDC). The frames show naira, but recipients hold USDC and there is
+  no naira payout yet, so a naira figure would promise something the app doesn't do.
+- "How do you want to pay?" maps to the existing sources: the balance and the simulated demo card.
+  Bank account appears as "Coming soon".
+- "Sending…" maps the live states onto the step list: Funded, Approved, Settled on Arc, Receipt
+  checked. Each step lights only when the server says it happened.
+- The split stream from v2 is retired: the design's bars, dots and step list carry the same meaning.
+
+Motion: unchanged rules (one entry settle, a dialog that rises, reduced motion turns it all off). The
+blobs do not move.
+
 ## v3: pay anyone, giveaways, add money (2026-10-11)
 
 The user asked for Splits to work for anyone who needs to split money, with diaspora family support

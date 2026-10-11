@@ -143,14 +143,14 @@ function Pay() {
   const payLabel = check?.total ? (count === 1 ? `Pay $${check.total}` : `Pay ${count} people $${check.total}`) : "Pay";
 
   return (
-    <div className="enter mx-auto grid max-w-5xl gap-8 pt-2 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] lg:items-start">
+    <div className="enter space-y-6 pt-4">
       <div>
-        <h1 className="text-4xl font-bold">Pay</h1>
+        <h1 className="text-[2rem] leading-tight font-extrabold">Send money</h1>
         <p className="mt-2 text-muted-foreground">
           Anyone, by email or Arc address. Everyone is paid in one transaction, or nobody is.
         </p>
 
-        <div role="tablist" aria-label="Who gets paid" className="mt-6 grid grid-cols-3 rounded-[14px] bg-secondary p-1">
+        <div role="tablist" aria-label="Who gets paid" className="mt-6 grid grid-cols-3 rounded-full bg-white/60 p-1 ring-1 ring-white">
           {TABS.map((tab) => (
             <button
               key={tab.mode}
@@ -163,14 +163,14 @@ function Pay() {
                 setError(null);
               }}
               className={cn(
-                "relative z-10 min-h-11 rounded-[10px] px-1 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                "relative z-10 min-h-11 rounded-full px-1 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 mode === tab.mode ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {mode === tab.mode && (
                 <motion.span
                   layoutId="pay-mode"
-                  className="absolute inset-0 -z-10 rounded-[10px] bg-primary"
+                  className="absolute inset-0 -z-10 rounded-full bg-primary"
                   transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
@@ -184,7 +184,7 @@ function Pay() {
           <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Coming soon</span>
         </p>
 
-        <div className="surface mt-6 p-6">
+        <div className="surface mt-6 p-5">
           {mode === "saved" ? (
             <SavedSplits splits={splits} />
           ) : (
@@ -193,7 +193,7 @@ function Pay() {
         </div>
       </div>
 
-      <div className="space-y-4 lg:sticky lg:top-6" aria-live="polite">
+      <div className="space-y-4" aria-live="polite">
         {mode !== "saved" && !check && (
           <div className="rounded-[20px] border border-dashed border-border p-6 text-muted-foreground">
             <Ribbon height={10} parts={[1, 1, 1, 1, 1].map((w, i) => ({ label: `Person ${i + 1}`, weight: w }))} />
@@ -204,7 +204,7 @@ function Pay() {
           <>
             <ReviewTable check={check} />
             {check.ready ? (
-              <div className="surface space-y-4 p-6">
+              <div className="surface space-y-4 p-5">
                 <div role="radiogroup" aria-label="Pay from" className="grid grid-cols-2 gap-2">
                   {(["balance", "card"] as const).map((option) => {
                     const disabled = option === "balance" && !canUseBalance;
@@ -217,12 +217,12 @@ function Pay() {
                         disabled={disabled}
                         onClick={() => setFundWith(option)}
                         className={cn(
-                          "min-h-14 rounded-[14px] px-3 text-left text-sm ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-                          fundWith === option ? "bg-primary text-primary-foreground ring-primary" : "bg-card ring-border hover:ring-ring/50",
+                          "min-h-16 rounded-2xl px-4 py-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+                          fundWith === option ? "bg-white ring-2 ring-primary" : "bg-white/60 ring-1 ring-white hover:bg-white",
                         )}
                       >
                         <span className="block font-semibold">{option === "balance" ? "Balance" : "Demo card"}</span>
-                        <span className={cn("block", fundWith === option ? "text-white/75" : "text-muted-foreground")}>
+                        <span className={cn("block", "text-muted-foreground")}>
                           {option === "balance" ? (disabled ? `$${balance}, add money first` : `$${balance}`) : "Simulated card, small daily limit"}
                         </span>
                       </button>
@@ -276,7 +276,7 @@ function Pay() {
 }
 
 function SavedSplits({ splits }: { splits: SplitView[] | null }) {
-  if (!splits) return <div aria-busy="true" aria-label="Loading splits" className="h-32 rounded-[14px] bg-muted motion-safe:animate-pulse" />;
+  if (!splits) return <div aria-busy="true" aria-label="Loading splits" className="h-32 rounded-2xl bg-white/60 motion-safe:animate-pulse" />;
   const ready = splits.filter((s) => !s.automatic && s.status === "active");
   if (ready.length === 0) {
     return (
@@ -284,7 +284,7 @@ function SavedSplits({ splits }: { splits: SplitView[] | null }) {
         <p className="text-muted-foreground">A saved split pays the same people the same way every time, like rent, school fees and upkeep.</p>
         <Link
           href="/splits/new"
-          className="inline-flex min-h-12 w-full items-center justify-center rounded-[14px] bg-primary px-5 text-[15px] font-semibold text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           Create a split
         </Link>
@@ -297,7 +297,7 @@ function SavedSplits({ splits }: { splits: SplitView[] | null }) {
         <li key={s.id}>
           <Link
             href={`/send/${s.id}`}
-            className="flex min-h-16 items-center gap-4 rounded-[14px] p-3 ring-1 ring-border transition-colors hover:bg-secondary/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex min-h-16 items-center gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-white transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{s.name}</span>

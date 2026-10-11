@@ -66,11 +66,11 @@ function NewRule() {
   }
 
   return (
-    <div className="enter mx-auto max-w-lg pt-2">
+    <div className="enter pt-4">
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-4xl font-bold">Split money you receive</h1>
+      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">Split money you receive</h1>
       <form onSubmit={review} className="surface mt-6 space-y-6 p-6">
         <div>
           <p className="figure text-7xl">{percent}%</p>

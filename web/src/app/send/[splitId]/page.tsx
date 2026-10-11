@@ -106,14 +106,15 @@ function Send() {
 
 
   return (
-    <div className="enter mx-auto max-w-lg pt-2">
+    <div className="enter pt-4">
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-4xl font-bold">Send through {split.name}</h1>
+      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">How much are you sending?</h1>
+      <p className="mt-2 inline-flex rounded-full bg-white/70 px-3 py-1 text-sm font-semibold ring-1 ring-white">Through {split.name}</p>
 
-      <div className="surface mt-6 p-6">
-        <div role="radiogroup" aria-label="Pay with" className="relative grid grid-cols-2 rounded-[14px] bg-secondary p-1">
+      <div className="surface mt-6 p-5">
+        <div role="radiogroup" aria-label="Pay with" className="relative grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
           {(["card", "balance"] as const).map((option) => (
             <button
               key={option}
@@ -125,14 +126,14 @@ function Send() {
                 setValue("");
               }}
               className={cn(
-                "relative z-10 min-h-11 rounded-[10px] text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                "relative z-10 min-h-11 rounded-full text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                 fundWith === option ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               )}
             >
               {fundWith === option && (
                 <motion.span
                   layoutId="fund-with"
-                  className="absolute inset-0 -z-10 rounded-[10px] bg-primary"
+                  className="absolute inset-0 -z-10 rounded-full bg-primary"
                   transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
@@ -178,17 +179,17 @@ function Send() {
           </p>
         )}
 
-        <div className="mt-6 rounded-2xl bg-secondary/70 p-5" aria-live="polite">
+        <div className="mt-6 rounded-2xl bg-white/60 p-5 ring-1 ring-white" aria-live="polite">
           {preview ? (
             <>
               <div className="flex items-baseline justify-between gap-4">
                 <span className="text-sm text-muted-foreground">They receive</span>
-                <span className="figure text-3xl">
+                <span className="figure text-3xl text-primary">
                   <CountUp value={preview.amount} />
                 </span>
               </div>
               {preview.rate && <p className="text-right text-xs text-muted-foreground">1 {currency} = {preview.rate} USDC</p>}
-              <Ribbon className="mt-4" height={14} parts={preview.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
+              <Ribbon className="mt-4" height={8} parts={preview.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
               <ul className="mt-4 space-y-2.5">
                 {preview.legs.map((leg, i) => (
                   <li key={i} className="flex items-center justify-between gap-4">
@@ -206,7 +207,7 @@ function Send() {
             <p className="text-sm text-destructive">{previewError}</p>
           ) : (
             <>
-              <Ribbon height={14} parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))} />
+              <Ribbon height={8} parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))} />
               <p className="mt-3 text-sm text-muted-foreground">Enter an amount to see exactly what each person gets.</p>
             </>
           )}

@@ -9,7 +9,7 @@ import { Notice } from "@/components/ui/field";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 
-/** A QR code for the wallet address, drawn in the brand indigo. */
+/** A QR code for the wallet address, drawn in ink. */
 export function AddressQr({ address, size = 184 }: { address: string; size?: number }) {
   const [svg, setSvg] = React.useState<string | null>(null);
 
@@ -17,7 +17,7 @@ export function AddressQr({ address, size = 184 }: { address: string; size?: num
     let live = true;
     // Only ever our own, validated address goes in, so the SVG string is safe to render.
     if (!ADDRESS.test(address)) return;
-    void QRCode.toString(address, { type: "svg", margin: 1, color: { dark: "#1F1B4D", light: "#FFFFFF" } }).then((out) => {
+    void QRCode.toString(address, { type: "svg", margin: 1, color: { dark: "#0E1C2B", light: "#FFFFFF" } }).then((out) => {
       if (live) setSvg(out);
     });
     return () => {
@@ -41,11 +41,13 @@ export function AddressQr({ address, size = 184 }: { address: string; size?: num
  * (simulated card, real USDC from the app's float). Rises from the bottom on a phone.
  */
 export function AddMoney({
+  title = "Add money",
   address,
   network,
   open,
   onClose,
 }: {
+  title?: string;
   address: string;
   network: "arc" | "arc-testnet";
   open: boolean;
@@ -65,12 +67,12 @@ export function AddMoney({
       ref={ref}
       onClose={onClose}
       aria-labelledby="add-money-title"
-      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(31_27_77/0.45)] backdrop:bg-primary/45 backdrop:backdrop-blur-[3px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px] sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
+      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px] sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
     >
       <div className="p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-start justify-between gap-4">
           <h2 id="add-money-title" className="text-2xl font-bold">
-            Add money
+            {title}
           </h2>
           <button
             type="button"
@@ -84,8 +86,11 @@ export function AddMoney({
 
         <section aria-labelledby="deposit-heading" className="mt-5">
           <h3 id="deposit-heading" className="font-semibold">
-            Send USDC to your address
+            Your Splits address
           </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Share it, or your email if they use Splits. USDC sent here lands in your balance.
+          </p>
           <div className="mt-3 flex items-center gap-4">
             <AddressQr address={address} size={128} />
             <div className="min-w-0 space-y-2">
@@ -118,7 +123,7 @@ export function AddMoney({
           </p>
           <Link
             href="/pay?fund=card"
-            className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-[14px] bg-card px-5 text-[15px] font-semibold text-foreground ring-1 ring-border hover:ring-ring/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="mt-3 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white/70 px-6 text-[15px] font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <CreditCard className="h-4 w-4" aria-hidden="true" />
             Pay with the demo card

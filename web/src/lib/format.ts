@@ -53,3 +53,9 @@ export function percentToBps(value: string): number | null {
   const bps = Math.round(Number(value) * 100);
   return bps > 0 && bps <= 10_000 ? bps : null;
 }
+
+/** "ada.obi@example.com" -> "Ada". Accounts have no names yet, so the greeting uses the email. */
+export function greetingName(email: string): string {
+  const word = (email.split("@")[0] ?? "").split(/[._+\-\d]+/).find(Boolean) ?? "there";
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}

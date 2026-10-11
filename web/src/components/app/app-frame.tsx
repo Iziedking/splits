@@ -5,20 +5,34 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
+import { Backdrop } from "@/components/app/backdrop";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
+import { cn } from "@/lib/utils";
 
 type MeState = { me: Me; refresh: () => Promise<void> };
 const MeContext = React.createContext<MeState | null>(null);
 
 const NAV = [
   { href: "/home", label: "Home", icon: Home },
-  { href: "/pay", label: "Pay", icon: Send },
+  { href: "/pay", label: "Send", icon: Send },
   { href: "/profile", label: "Profile", icon: UserRound },
 ] as const;
 
 /** "/pay" is current on /pay and /pay/..., but not on /payments. */
 const isCurrent = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+type Tone = "day" | "night";
+const ToneContext = React.createContext<(tone: Tone) => void>(() => undefined);
+
+/** Lets a screen (the live settlement screen) switch the whole frame to the night backdrop. */
+export function useFrameTone(tone: Tone) {
+  const setTone = React.useContext(ToneContext);
+  React.useEffect(() => {
+    setTone(tone);
+    return () => setTone("day");
+  }, [tone, setTone]);
+}
 
 export function useMe(): MeState {
   const value = React.useContext(MeContext);
@@ -35,6 +49,8 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
   const pathname = usePathname();
   const [me, setMe] = React.useState<Me | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [tone, setTone] = React.useState<Tone>("day");
+  const night = tone === "night";
 
   const refresh = React.useCallback(async () => {
     try {
@@ -52,59 +68,30 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
     void refresh();
   }, [refresh]);
 
-  async function signOut() {
-    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="mx-auto flex max-w-[75rem] items-center justify-between gap-3 px-4 py-4 sm:px-6">
+    <div className={cn("min-h-screen transition-colors duration-500", night && "text-white")}>
+      <Backdrop tone={tone} />
+      {/* Mobile composition at every width until the designer's PC view lands (UI_BRIEF.md v4). */}
+      <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2">
         <Link
           href="/home"
-          className="inline-flex min-h-11 items-center rounded-lg display-face text-xl font-bold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Splits
         </Link>
-        {me && pathname !== "/setup" && (
-          <nav aria-label="Main" className="hidden items-center gap-1 rounded-full bg-card p-1 ring-1 ring-border sm:flex">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
-                className="inline-flex min-h-10 items-center rounded-full px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+        {me && (me.mode === "preview" || me.network === "arc-testnet") && (
+          <span
+            className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
+            title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
+          >
+            {me.mode === "preview" ? "Preview" : "Testnet"}
+          </span>
         )}
-        <div className="flex items-center gap-2">
-          {me && (me.mode === "preview" || me.network === "arc-testnet") && (
-            <span
-              className="rounded-full bg-purpose-1 px-3 py-1 text-xs font-bold text-primary"
-              title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
-            >
-              {me.mode === "preview" ? "Preview" : "Testnet"}
-            </span>
-          )}
-          {me && (
-            <span className="hidden max-w-48 truncate text-sm text-muted-foreground lg:inline" title={me.user.email}>
-              {me.user.email}
-            </span>
-          )}
-          {me && pathname !== "/setup" && (
-            <Button variant="ghost" onClick={signOut} className="hidden px-3 sm:inline-flex">
-              Sign out
-            </Button>
-          )}
-        </div>
       </header>
 
-      <main className="mx-auto max-w-[75rem] px-4 pb-28 sm:px-6 sm:pb-20">
+      <main className="mx-auto max-w-md px-5 pb-32">
         {error && !me && (
-          <div className="mx-auto mt-16 max-w-sm space-y-4">
+          <div className="mt-16 space-y-4">
             <Notice tone="error">{error}</Notice>
             <Button variant="secondary" onClick={() => void refresh()} className="w-full">
               Try again
@@ -112,21 +99,31 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
           </div>
         )}
         {!me && !error && <FrameSkeleton />}
-        {me && <MeContext.Provider value={{ me, refresh }}>{children}</MeContext.Provider>}
+        {me && (
+          <ToneContext.Provider value={setTone}>
+            <MeContext.Provider value={{ me, refresh }}>{children}</MeContext.Provider>
+          </ToneContext.Provider>
+        )}
       </main>
       {me && pathname !== "/setup" && (
         <nav
           aria-label="Main"
-          className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-3 border-t border-border bg-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-[not(backdrop-filter:blur(0))]:bg-card sm:hidden"
+          className={cn(
+            "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 grid w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 grid-cols-3 rounded-full p-1",
+            night ? "surface-night" : "surface",
+          )}
         >
           {NAV.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
               aria-current={isCurrent(pathname, href) ? "page" : undefined}
-              className="flex min-h-14 flex-col items-center justify-center gap-0.5 text-xs font-semibold text-muted-foreground focus-visible:bg-secondary focus-visible:outline-none aria-[current=page]:text-primary"
+              className={cn(
+                "flex min-h-12 items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground",
+                night ? "text-white/70" : "text-muted-foreground",
+              )}
             >
-              <Icon className="h-5 w-5" aria-hidden="true" />
+              <Icon className="h-4 w-4" aria-hidden="true" />
               {label}
             </Link>
           ))}
@@ -138,13 +135,10 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
 
 function FrameSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading" className="mt-4 space-y-6">
-      <div className="h-44 rounded-[28px] bg-primary/15 motion-safe:animate-pulse" />
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {[0, 1].map((i) => (
-          <div key={i} className="h-72 rounded-[20px] bg-muted motion-safe:animate-pulse" />
-        ))}
-      </div>
+    <div aria-busy="true" aria-label="Loading" className="mt-6 space-y-5">
+      <div className="h-10 w-40 rounded-full bg-white/60 motion-safe:animate-pulse" />
+      <div className="surface h-36 motion-safe:animate-pulse" />
+      <div className="surface h-24 motion-safe:animate-pulse" />
     </div>
   );
 }

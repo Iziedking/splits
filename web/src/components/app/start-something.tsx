@@ -41,7 +41,7 @@ export function StartSomething() {
           <li key={s.href}>
             <Link
               href={s.href}
-              className="surface block p-4 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_10px_24px_-14px_rgb(31_27_77/0.45)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+              className="surface block p-4 transition-[box-shadow,transform] hover:-translate-y-0.5  focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:translate-y-0"
             >
               <Ribbon parts={[...s.parts]} height={8} />
               <span className="mt-3 block font-semibold">{s.title}</span>

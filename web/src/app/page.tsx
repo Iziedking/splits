@@ -1,22 +1,23 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { SplitStream } from "@/components/app/split-stream";
+import { Backdrop } from "@/components/app/backdrop";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type Me, type UserView } from "@/lib/api";
 
-const HERO = [
-  { label: "Rent", weight: 40 },
-  { label: "School fees", weight: 35 },
-  { label: "Upkeep", weight: 25 },
-];
+type Step = "welcome" | "email" | "code";
 
-/** Sign in with an email code. The email is the account and the wallet; there is nothing else to set up. */
+/**
+ * Welcome, then sign in with an email code (UI_BRIEF.md v4, frames "Welcome Page" and "Email/Sign
+ * up"). The email is the account and the wallet, so new and returning people take the same path.
+ */
 export default function SignIn() {
   const router = useRouter();
-  const [step, setStep] = React.useState<"email" | "code">("email");
+  const [step, setStep] = React.useState<Step>("welcome");
+  const [returning, setReturning] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [code, setCode] = React.useState("");
   const [previewCode, setPreviewCode] = React.useState<string | null>(null);
@@ -28,6 +29,12 @@ export default function SignIn() {
       .then((me) => router.replace(me.user.hasPin ? "/home" : "/setup"))
       .catch(() => undefined);
   }, [router]);
+
+  function start(existing: boolean) {
+    setReturning(existing);
+    setError(null);
+    setStep("email");
+  }
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -58,46 +65,81 @@ export default function SignIn() {
   }
 
   return (
-    <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-5 py-10 lg:grid-cols-[1.15fr_1fr] lg:gap-16 lg:px-8">
-      <section>
-        <p className="display-face text-2xl font-bold tracking-tight">Splits</p>
-        <h1 className="mt-8 max-w-xl text-[2.6rem] leading-[1.02] font-bold sm:text-6xl">Split any payment, to anyone.</h1>
-        <p className="mt-5 max-w-md text-lg leading-relaxed text-muted-foreground">
-          Send money home already divided into rent, school fees and upkeep. Pay twenty giveaway winners in one go.
-          Everyone gets their exact share, with a receipt that says what it was for.
-        </p>
-        <SplitStream branches={HERO} stage="done" intro className="mt-8 w-full max-w-lg text-foreground" />
-      </section>
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+      <Backdrop />
+      <p className="text-xl font-extrabold tracking-tight">Splits</p>
 
-      <section className="surface w-full max-w-md justify-self-center p-7 lg:justify-self-end">
-        {step === "email" ? (
-          <form onSubmit={sendCode} className="space-y-5">
-            <h2 className="text-2xl font-bold">Sign in or create an account</h2>
+      {step === "welcome" && (
+        <section className="enter mt-auto">
+          <h1 className="text-[2.6rem] leading-[1.08] font-extrabold">
+            Send once.
+            <br />
+            It lands divided.
+          </h1>
+          <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+            One payment from the UK or US to Nigeria, split to everyone it is meant for.
+          </p>
+          <div className="mt-10 space-y-3">
+            <Button className="w-full" onClick={() => start(false)}>
+              Get started
+            </Button>
+            <Button variant="secondary" className="w-full" onClick={() => start(true)}>
+              I already have an account
+            </Button>
+          </div>
+        </section>
+      )}
+
+      {step === "email" && (
+        <form onSubmit={sendCode} className="enter mt-10 flex flex-1 flex-col">
+          <BackButton onClick={() => setStep("welcome")} />
+          <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">{returning ? "Welcome back" : "Create an account"}</h1>
+          <p className="mt-2 text-muted-foreground">
+            {returning ? "Sign in with the email you used before." : "Your email is your account and your wallet. No password to remember."}
+          </p>
+          <div className="surface mt-6 p-5">
             <Field
               label="Email"
               type="email"
               autoComplete="email"
               required
+              autoFocus
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              hint="We'll email you a 6-digit code. Your email is your account and your wallet."
+              hint="We'll email you a 6-digit code."
             />
-            {error && <Notice tone="error">{error}</Notice>}
+          </div>
+          {error && <Notice tone="error" className="mt-4">{error}</Notice>}
+          <div className="mt-auto space-y-3 pt-8">
             <Button type="submit" className="w-full" busy={busy}>
-              Email me a code
+              Continue
             </Button>
-          </form>
-        ) : (
-          <form onSubmit={verify} className="space-y-5">
-            <h2 className="text-2xl font-bold">Check your email</h2>
-            <p className="text-muted-foreground">
-              We sent a code to <span className="font-semibold text-foreground">{email}</span>.
-            </p>
-            {previewCode && (
-              <Notice>
-                This server doesn't send email. Your code is <strong className="text-foreground">{previewCode}</strong>.
-              </Notice>
-            )}
+            <Button type="button" variant="secondary" className="w-full" onClick={() => setReturning(!returning)}>
+              {returning ? "New here? Create an account" : "Have an account? Sign in"}
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {step === "code" && (
+        <form onSubmit={verify} className="enter mt-10 flex flex-1 flex-col">
+          <BackButton
+            onClick={() => {
+              setStep("email");
+              setCode("");
+              setError(null);
+            }}
+          />
+          <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">Check your email</h1>
+          <p className="mt-2 text-muted-foreground">
+            We sent a code to <span className="font-semibold text-foreground">{email}</span>.
+          </p>
+          {previewCode && (
+            <Notice className="mt-4">
+              This server doesn&apos;t send email. Your code is <strong className="text-foreground">{previewCode}</strong>.
+            </Notice>
+          )}
+          <div className="surface mt-6 p-5">
             <Field
               label="6-digit code"
               inputMode="numeric"
@@ -110,25 +152,28 @@ export default function SignIn() {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
               className="[&_input]:text-center [&_input]:text-2xl [&_input]:tracking-[0.4em]"
             />
-            {error && <Notice tone="error">{error}</Notice>}
+          </div>
+          {error && <Notice tone="error" className="mt-4">{error}</Notice>}
+          <div className="mt-auto pt-8">
             <Button type="submit" className="w-full" busy={busy} disabled={code.length !== 6}>
               Continue
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full"
-              onClick={() => {
-                setStep("email");
-                setCode("");
-                setError(null);
-              }}
-            >
-              Use a different email
-            </Button>
-          </form>
-        )}
-      </section>
+          </div>
+        </form>
+      )}
     </main>
+  );
+}
+
+function BackButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="-ml-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+    >
+      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+      Back
+    </button>
   );
 }

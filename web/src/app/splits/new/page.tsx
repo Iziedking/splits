@@ -11,8 +11,8 @@ import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView } from "@/lib/api";
-import { initials, percentToBps } from "@/lib/format";
-import { purposeFill, textOnPurpose } from "@/lib/palette";
+import { percentToBps } from "@/lib/format";
+import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function NewSplitPage() {
@@ -107,11 +107,11 @@ function NewSplit() {
   }
 
   return (
-    <div className="enter mx-auto max-w-2xl pt-4">
+    <div className="enter pt-4">
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-4xl font-bold">New split</h1>
+      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">Build the split</h1>
       <p className="mt-2 text-lg text-muted-foreground">
         Who gets paid, and what for. Recipients don't need an app: their email becomes their wallet.
       </p>
@@ -120,7 +120,7 @@ function NewSplit() {
         <Field label="Split name" placeholder="Family in Lagos" value={name} onChange={(e) => setName(e.target.value)} maxLength={60} required />
 
         <div className="surface sticky top-3 z-10 p-4">
-          <Ribbon height={16} parts={legs.map((l) => ({ label: l.name || `Recipient ${legs.indexOf(l) + 1}`, weight: legWeight(l) }))} />
+          <Ribbon height={8} parts={legs.map((l) => ({ label: l.name || `Recipient ${legs.indexOf(l) + 1}`, weight: legWeight(l) }))} />
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-hidden="true">
             {legs.map((l, i) => (
               <li key={l.key} className="flex items-center gap-1.5">
@@ -146,15 +146,14 @@ function NewSplit() {
               className="surface p-5"
             >
               <div className="mb-4 flex items-center justify-between">
-                <legend className="float-left flex items-center gap-2.5 text-[15px] font-semibold">
-                  <span
-                    aria-hidden="true"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
-                    style={{ backgroundColor: purposeFill(i), color: textOnPurpose(i) }}
-                  >
-                    {leg.name ? initials(leg.name) : i + 1}
-                  </span>
-                  Recipient {i + 1}
+                <legend className="float-left flex min-w-0 items-center gap-2.5 text-[15px] font-bold">
+                  <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                  <span className="truncate">{leg.name || `Recipient ${i + 1}`}</span>
+                  {leg.value && (
+                    <span className="ml-1 text-lg font-extrabold tabular-nums">
+                      {leg.kind === "percent" ? `${leg.value}%` : `$${leg.value}`}
+                    </span>
+                  )}
                 </legend>
                 {legs.length > 1 && (
                   <button
@@ -167,7 +166,7 @@ function NewSplit() {
                   </button>
                 )}
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3">
                 <Field label="Name" placeholder={EXAMPLES[i % EXAMPLES.length]!.name} value={leg.name} onChange={(e) => update(leg.key, { name: e.target.value })} maxLength={40} />
                 <Field label="Email" type="email" placeholder={EXAMPLES[i % EXAMPLES.length]!.email} value={leg.email} onChange={(e) => update(leg.key, { email: e.target.value })} />
                 <Field label="What it's for" placeholder={EXAMPLES[i % EXAMPLES.length]!.purpose} value={leg.purpose} onChange={(e) => update(leg.key, { purpose: e.target.value })} maxLength={31} hint="Saved with every payment as its receipt" />
@@ -176,7 +175,7 @@ function NewSplit() {
                     Amount
                   </span>
                   <div className="flex gap-2">
-                    <div role="radiogroup" aria-labelledby={`amount-${leg.key}`} className="flex shrink-0 rounded-[14px] bg-secondary p-1">
+                    <div role="radiogroup" aria-labelledby={`amount-${leg.key}`} className="flex shrink-0 rounded-full bg-white/60 p-1 ring-1 ring-white">
                       {(["percent", "fixed"] as const).map((kind) => (
                         <button
                           key={kind}
@@ -185,7 +184,7 @@ function NewSplit() {
                           aria-checked={leg.kind === kind}
                           onClick={() => update(leg.key, { kind, value: "" })}
                           className={cn(
-                            "min-h-10 min-w-10 rounded-[10px] px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                            "min-h-10 min-w-10 rounded-full px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                             leg.kind === kind ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                           )}
                         >
@@ -207,7 +206,7 @@ function NewSplit() {
             </motion.fieldset>
           ))}
           {legs.length < MAX_SPLIT_LEGS && (
-            <Button type="button" variant="secondary" onClick={() => setLegs((current) => [...current, blankLeg()])}>
+            <Button type="button" variant="secondary" className="w-full" onClick={() => setLegs((current) => [...current, blankLeg()])}>
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add recipient
             </Button>
@@ -215,15 +214,15 @@ function NewSplit() {
         </fieldset>
 
         {percentLegs.length > 0 && (
-          <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-success" : "text-muted-foreground")}>
-            {sharesOk ? "Percentages make 100%." : `Percentages make ${totalBps / 100}% of 100%.`}
+          <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-primary" : "text-muted-foreground")}>
+            {sharesOk ? "100% allocated." : `${totalBps / 100}% allocated, ${(10_000 - totalBps) / 100}% left.`}
             {legs.some((l) => l.kind === "fixed") && " Fixed amounts are paid first; percentages share the rest."}
           </p>
         )}
 
         {error && <Notice tone="error">{error}</Notice>}
-        <Button type="submit" className="w-full sm:w-auto" busy={busy} disabled={!complete}>
-          Review and approve
+        <Button type="submit" className="w-full" busy={busy} disabled={!complete}>
+          Review
         </Button>
       </form>
 

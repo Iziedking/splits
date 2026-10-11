@@ -89,7 +89,7 @@ export function ConfirmDialog({ actionId, title, hasPasskey, children, onConfirm
       ref={ref}
       onClose={onClose}
       aria-labelledby="confirm-title"
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(31_27_77/0.45)] backdrop:bg-primary/45 backdrop:backdrop-blur-[3px] open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
+      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
     >
       <div className="p-6">
         <div className="flex items-start justify-between gap-4">

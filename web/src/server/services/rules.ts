@@ -89,9 +89,12 @@ export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]
   return created;
 }
 
-/** Advance a payment and, once it settles, start and advance any automatic splits it feeds. */
-export async function advanceWithRules(ctx: Ctx, transferId: string): Promise<Transfer> {
-  const t = await advanceTransfer(ctx, transferId);
+/**
+ * Advance a payment and, once it settles, start and advance any automatic splits it feeds.
+ * `budgetMs` bounds how long this call works before answering; the sweeper carries on after it.
+ */
+export async function advanceWithRules(ctx: Ctx, transferId: string, budgetMs?: number): Promise<Transfer> {
+  const t = await advanceTransfer(ctx, transferId, budgetMs);
   if (t.status === "settled") {
     await queueNotices(ctx, t);
     for (const childId of await triggerRules(ctx, t)) {

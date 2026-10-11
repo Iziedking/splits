@@ -41,13 +41,13 @@ function Profile() {
   }
 
   return (
-    <div className="enter grid gap-6 pt-2 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start">
+    <div className="enter space-y-6 pt-4">
       <div className="space-y-6">
-        <h1 className="text-4xl font-bold">Profile</h1>
+        <h1 className="text-[2rem] leading-tight font-extrabold">Profile</h1>
 
         {main && (
           <section aria-labelledby="address-heading" className="surface p-6">
-            <h2 id="address-heading" className="text-xl font-bold">
+            <h2 id="address-heading" className="text-lg font-extrabold">
               Your wallet address
             </h2>
             <p className="mt-1 text-muted-foreground">
@@ -82,7 +82,7 @@ function Profile() {
         )}
 
         <section aria-labelledby="auto-heading" className="surface p-6">
-          <h2 id="auto-heading" className="text-xl font-bold">
+          <h2 id="auto-heading" className="text-lg font-extrabold">
             Automatic split
           </h2>
           {rule === undefined ? (
@@ -97,7 +97,7 @@ function Profile() {
               <p className="mt-1 text-muted-foreground">Put part of every payment you receive into savings, automatically.</p>
               <Link
                 href="/rules/new"
-                className="mt-4 inline-flex min-h-11 items-center rounded-[14px] px-4 text-sm font-semibold ring-1 ring-border hover:ring-ring/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 Set it up
               </Link>
@@ -106,9 +106,9 @@ function Profile() {
         </section>
       </div>
 
-      <div className="space-y-6 lg:pt-14">
+      <div className="space-y-6">
         <section aria-labelledby="account-heading" className="surface p-6">
-          <h2 id="account-heading" className="text-xl font-bold">
+          <h2 id="account-heading" className="text-lg font-extrabold">
             Account
           </h2>
           <dl className="mt-3 space-y-2 text-sm">
@@ -162,7 +162,7 @@ function ChangePin() {
 
   return (
     <section aria-labelledby="pin-heading" className="surface p-6">
-      <h2 id="pin-heading" className="text-xl font-bold">
+      <h2 id="pin-heading" className="text-lg font-extrabold">
         Change PIN
       </h2>
       <form onSubmit={submit} className="mt-4 space-y-4">
@@ -215,7 +215,7 @@ function Passkey({ hasPasskey, onAdded }: { hasPasskey: boolean; onAdded: () => 
 
   return (
     <section aria-labelledby="passkey-heading" className="surface p-6">
-      <h2 id="passkey-heading" className="text-xl font-bold">
+      <h2 id="passkey-heading" className="text-lg font-extrabold">
         Face ID or fingerprint
       </h2>
       {hasPasskey ? (

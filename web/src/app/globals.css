@@ -2,36 +2,37 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* "Adire and colour blocks" (UI_BRIEF.md v2). shadcn token names, Splits values. */
+/* "Glass and teal" (UI_BRIEF.md v4), from the design team's Figma. shadcn token names. */
 :root {
-  --radius: 0.875rem;
-  --background: #eff1f7;
-  --foreground: #17163a;
+  --radius: 1.125rem;
+  --background: #f3f7f8;
+  --foreground: #0e1c2b;
   --card: #ffffff;
-  --card-foreground: #17163a;
+  --card-foreground: #0e1c2b;
   --popover: #ffffff;
-  --popover-foreground: #17163a;
-  --primary: #1f1b4d;
+  --popover-foreground: #0e1c2b;
+  --primary: #0fa39a;
   --primary-foreground: #ffffff;
-  --secondary: #e6e8f3;
-  --secondary-foreground: #1f1b4d;
-  --muted: #e9ebf4;
-  --muted-foreground: #565a78;
-  --accent: #dcd9ff;
-  --accent-foreground: #1f1b4d;
-  --destructive: #c8233c;
-  --border: #dcdfeb;
-  --input: #cfd3e3;
-  --ring: #6d63f2;
-  --success: #0e8a5a;
+  --primary-deep: #0b8780;
+  --secondary: #e7f1f1;
+  --secondary-foreground: #0e1c2b;
+  --muted: #e8eef0;
+  --muted-foreground: #5b6b78;
+  --accent: #d9f2ef;
+  --accent-foreground: #0e1c2b;
+  --destructive: #d2344a;
+  --border: #dde6e9;
+  --input: #d3dde1;
+  --ring: #0fa39a;
+  --success: #0f9a72;
 
-  /* One flat fill per purpose, in split order. */
-  --purpose-1: #f4b400;
-  --purpose-2: #12a26b;
-  --purpose-3: #e2367f;
-  --purpose-4: #2f7cf6;
-  --purpose-5: #9a7cf6;
-  --purpose-6: #a9c934;
+  /* One fill per part of a split, in order. */
+  --purpose-1: #2bc4ba;
+  --purpose-2: #9b8cf2;
+  --purpose-3: #f2896d;
+  --purpose-4: #f5b83d;
+  --purpose-5: #5aa9f5;
+  --purpose-6: #8fcb5a;
 }
 
 .dark {
@@ -57,7 +58,8 @@
 
 @theme inline {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-heading), var(--font-body), ui-sans-serif, sans-serif;
+  --font-display: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --color-primary-deep: var(--primary-deep);
   --color-success: var(--success);
   --color-purpose-1: var(--purpose-1);
   --color-purpose-2: var(--purpose-2);
@@ -142,6 +144,7 @@
   h3 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+    font-weight: 800;
   }
 }
 
@@ -158,11 +161,27 @@
   font-weight: 700;
 }
 
-/* Surfaces: a tinted ring instead of a grey drop shadow; lift only where it's actionable. */
+/* Frosted glass cards (v4). Solid white where backdrop-filter isn't supported. */
 @utility surface {
-  background: var(--card);
-  border-radius: 20px;
-  box-shadow:
-    0 0 0 1px rgb(31 27 77 / 0.07),
-    0 1px 2px rgb(31 27 77 / 0.04);
+  background: rgb(255 255 255 / 0.66);
+  border: 1px solid rgb(255 255 255 / 0.85);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px -14px rgb(14 28 43 / 0.22);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: #ffffff;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: #ffffff;
+  }
+}
+
+/* Glass on the dark settlement screen. */
+@utility surface-night {
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 18px;
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
 }

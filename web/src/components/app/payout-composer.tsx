@@ -87,7 +87,7 @@ export function PayoutComposer({
         </>
       ) : (
         <>
-          <div role="radiogroup" aria-label="How to share it" className="grid grid-cols-2 rounded-[14px] bg-secondary p-1">
+          <div role="radiogroup" aria-label="How to share it" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
             {(
               [
                 ["equal", "Split a pot equally"],
@@ -101,7 +101,7 @@ export function PayoutComposer({
                 aria-checked={split === value}
                 onClick={() => edit(setSplit)(value)}
                 className={cn(
-                  "min-h-11 rounded-[10px] px-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  "min-h-11 rounded-full px-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                   split === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TransferView } from "./api";
-import { addUsdc, initials, percentToBps, sentThisMonth } from "./format";
+import { addUsdc, greetingName, initials, percentToBps, sentThisMonth } from "./format";
 
 describe("client formatting", () => {
   it("makes initials from names", () => {
@@ -29,5 +29,14 @@ describe("client formatting", () => {
     expect(percentToBps("101")).toBeNull();
     expect(percentToBps("33.333")).toBeNull();
     expect(percentToBps("abc")).toBeNull();
+  });
+});
+
+describe("greetingName", () => {
+  it("turns the email into a first name", () => {
+    expect(greetingName("ada.obi@example.com")).toBe("Ada");
+    expect(greetingName("noble+test@x.io")).toBe("Noble");
+    expect(greetingName("giveaway-host@example.com")).toBe("Giveaway");
+    expect(greetingName("123@example.com")).toBe("There");
   });
 });
