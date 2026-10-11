@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { encodeFunctionData, getAddress, isAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 import { splitsRouterAbi } from "../chain/abi";
@@ -227,8 +227,17 @@ export async function getSplit(ctx: Ctx, splitId: string): Promise<Split> {
   return split;
 }
 
+/** The user's splits, leaving out drafts they never approved. */
 export async function splitsFor(ctx: Ctx, userId: string): Promise<Split[]> {
-  return ctx.db.select().from(splits).where(eq(splits.ownerUserId, userId)).orderBy(desc(splits.createdAt));
+  const approved = ctx.db
+    .select({ id: actions.subjectId })
+    .from(actions)
+    .where(and(eq(actions.type, "create_split"), eq(actions.status, "confirmed")));
+  return ctx.db
+    .select()
+    .from(splits)
+    .where(and(eq(splits.ownerUserId, userId), or(ne(splits.status, "pending"), inArray(splits.id, approved))))
+    .orderBy(desc(splits.createdAt));
 }
 
 export async function splitCreationTx(ctx: Ctx, splitId: string) {

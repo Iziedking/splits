@@ -37,6 +37,49 @@ export async function quoteTransfer(
   user: User,
   input: TransferInput,
 ): Promise<{ transfer: Transfer; action: Action }> {
+  const { split, wallet, amount, quoteData, topUp, expected } = await priceTransfer(ctx, user, input);
+  const id = randomUUID();
+  const [transfer] = await ctx.db
+    .insert(transfers)
+    .values({
+      id,
+      payerUserId: user.id,
+      payerWalletId: wallet.id,
+      kind: "send",
+      splitId: split.id,
+      splitVersion: split.version,
+      amount: amount.toString(),
+      quote: quoteData,
+      topUp: topUp.toString(),
+      expected,
+      ref: transferRef(id),
+      status: "awaiting_confirmation",
+      createdAt: ctx.now(),
+      updatedAt: ctx.now(),
+    })
+    .returning();
+
+  const action = await createAction(ctx, user.id, "transfer", id, {
+    split: split.name,
+    amount: amount.toString(),
+    quote: quoteData,
+    legs: expected,
+  });
+  return { transfer: transfer!, action };
+}
+
+/** The exact breakdown a payment would have, without creating anything. */
+export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput) {
+  const { amount, quoteData, expected } = await priceTransfer(ctx, user, input);
+  return {
+    amount: formatUsdc(amount),
+    rate: quoteData ? formatUsdc(BigInt(quoteData.rate as string)) : null,
+    simulatedCard: quoteData !== null,
+    legs: expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
+  };
+}
+
+async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
   const split = await getSplit(ctx, input.splitId);
   if (split.ownerUserId !== user.id) throw notFound("Split not found");
   if (split.status !== "active" || split.onchainId === null) {
@@ -70,34 +113,7 @@ export async function quoteTransfer(
   }
 
   const expected: ExpectedLeg[] = expectedAmounts(split, amount).map((l) => ({ ...l, amount: l.amount.toString() }));
-  const id = randomUUID();
-  const [transfer] = await ctx.db
-    .insert(transfers)
-    .values({
-      id,
-      payerUserId: user.id,
-      payerWalletId: wallet.id,
-      kind: "send",
-      splitId: split.id,
-      splitVersion: split.version,
-      amount: amount.toString(),
-      quote: quoteData,
-      topUp: topUp.toString(),
-      expected,
-      ref: transferRef(id),
-      status: "awaiting_confirmation",
-      createdAt: ctx.now(),
-      updatedAt: ctx.now(),
-    })
-    .returning();
-
-  const action = await createAction(ctx, user.id, "transfer", id, {
-    split: split.name,
-    amount: amount.toString(),
-    quote: quoteData,
-    legs: expected,
-  });
-  return { transfer: transfer!, action };
+  return { split, wallet, amount, quoteData, topUp, expected };
 }
 
 /** PIN or passkey moves the payment to confirmed. The caller then drives it with advanceWithRules. */

@@ -7,9 +7,16 @@ import { AppError } from "../errors";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
 import { advanceWithRules } from "./rules";
-import { advanceSplit, confirmSplit, draftSplit, type SplitInput } from "./splits";
+import { advanceSplit, confirmSplit, draftSplit, splitsFor, type SplitInput } from "./splits";
 import { sweep } from "./sweeper";
-import { activeTransferIds, advanceTransfer, confirmTransfer, getTransfer, quoteTransfer } from "./transfers";
+import {
+  activeTransferIds,
+  advanceTransfer,
+  confirmTransfer,
+  getTransfer,
+  previewTransfer,
+  quoteTransfer,
+} from "./transfers";
 import { createPocket, mainWallet, type User } from "./users";
 
 const familySplit: SplitInput = {
@@ -110,6 +117,25 @@ describe("sending money home through a split", () => {
     const { action } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 500 });
     await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
     expect(await code(confirmTransfer(ctx, user, action.id, { pin: TEST_PIN }))).toBe("ALREADY_CONFIRMED");
+  });
+
+  it("leaves drafts the user never approved out of their list", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    await draftSplit(ctx, user, familySplit); // approval dialog cancelled
+    const approved = await activeSplit(ctx, user, { ...familySplit, name: "Approved one" });
+    expect((await splitsFor(ctx, user.id)).map((s) => s.id)).toEqual([approved.id]);
+  });
+
+  it("previews the exact breakdown without creating a payment", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const preview = await previewTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1000 });
+    expect(preview.amount).toBe("12.70");
+    expect(preview.rate).toBe("1.27");
+    expect(preview.legs.map((l) => l.amount)).toEqual(["5.08", "4.445", "3.175"]);
+    expect(await ctx.db.select().from(transfers)).toHaveLength(0);
   });
 
   it("hides one user's splits from another", async () => {

@@ -72,6 +72,25 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* One easing family. Entry: short upward settle. Reduced motion turns it off (see UI_BRIEF.md). */
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility enter {
+  animation: settle 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

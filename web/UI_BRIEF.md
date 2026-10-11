@@ -52,11 +52,33 @@ shadcn neutral palette on Tailwind v4 CSS variables, light first, with a dark se
 cards, `rounded-xl` for nested panels, full for avatars and icon buttons). System UI font stack,
 matching the reference.
 
-## States still to design with the app screens
+## Screens and states (v1, 2026-10-11)
 
-Loading (skeleton figure and avatar circles), empty (no splits yet: one action, "Create your first
-split"), error (keep the card and say what failed), unauthorized (redirect to sign-in), and
-pending onchain (the split card shows "Setting up" until the contract confirms it).
+| Screen | Route | States covered |
+| --- | --- | --- |
+| Sign in | `/` | email, code, wrong or expired code, preview code shown, already signed in |
+| Security | `/setup` | PIN create and repeat, trivial PIN refused, passkey offer, browser without passkeys |
+| Home | `/home` | loading skeleton, empty ("Create your first split"), split setting up, split failed, payments in flight (pulsing dot), error with retry |
+| New split | `/splits/new` | live 100% check, fixed plus percent, approval dialog, unapproved drafts hidden |
+| Send | `/send/[id]` | card (simulated) or wallet balance, server-priced breakdown, limit and balance errors |
+| Payment | `/payments/[id]` | live steps from server state, delivered, failed with the reason, receipt (simulated label in preview, explorer link live) |
+| Automatic split | `/rules/new` | percent slider, pocket name, approval |
+
+Approval dialog: native `<dialog>`, focus goes to the PIN, 6 digits auto-submit, wrong-PIN count,
+lockout, expiry, and Face ID / fingerprint when a passkey exists.
+
+Checked in a browser (2026-10-11, preview build served from the VPS): the full loop, from sign-in
+and PIN through creating a split and paying £10 and £15 by simulated card to "Delivered". Also
+checked at 375px with no horizontal scroll, touch targets of at least 44px, and the keyboard path
+on the card and dialog.
+
+Fixed from that pass: the PIN field wasn't focused when the dialog opened; there was a silent
+3-second wait after approving (approval now answers at once and the tracker shows progress); each
+recipient is now a labelled group for screen readers; placeholders differ per recipient; back
+links and the logo were under 44px.
+
+Not yet verified: Face ID / fingerprint on a real phone (the browser pane has no authenticator),
+and the dark theme (tokens exist, not switched on).
 
 ## Rejected alternatives
 
