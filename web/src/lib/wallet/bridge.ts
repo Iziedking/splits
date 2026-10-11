@@ -1,5 +1,6 @@
 import type { Address, Hex } from "viem";
 import type { ContractLeg, VisitorConfig } from "@/lib/api";
+import { waitForAccount } from "@/lib/wallet/flow";
 
 /** The SplitsRouter `pay` and USDC `approve` fragments the visitor's wallet signs. */
 const routerPayAbi = [
@@ -57,7 +58,10 @@ let loaded: Promise<WalletBridge> | null = null;
  * pay page needs. Called once per page; later calls get the same bridge.
  */
 export function loadWalletBridge(config: VisitorConfig, projectId: string): Promise<WalletBridge> {
-  loaded ??= build(config, projectId);
+  loaded ??= build(config, projectId).catch((err) => {
+    loaded = null; // a failed download can be retried on the next tap
+    throw err;
+  });
   return loaded;
 }
 
@@ -100,30 +104,22 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
     },
   });
 
+  let sheetOpen = false;
+  modal.subscribeState((state) => {
+    sheetOpen = state.open;
+  });
+
   return {
-    async connect() {
-      const now = core.getAccount(wagmi);
-      if (now.address) return now.address;
-      await modal.open();
-      return new Promise<Address>((resolve, reject) => {
-        const stopAccount = core.watchAccount(wagmi, {
-          onChange(account) {
-            if (account.address) {
-              stopAccount();
-              stopModal();
-              resolve(account.address);
-            }
-          },
-        });
-        const stopModal = modal.subscribeState((state) => {
-          if (!state.open && !core.getAccount(wagmi).address) {
-            stopAccount();
-            stopModal();
-            reject(new Error("closed"));
-          }
-        });
-      });
-    },
+    connect: () =>
+      waitForAccount({
+        current: () => core.getAccount(wagmi).address,
+        watchAccount: (cb) => core.watchAccount(wagmi, { onChange: (account) => cb(account.address) }),
+        watchOpen: (cb) => modal.subscribeState((state) => cb(state.open)),
+        isOpen: () => sheetOpen,
+        open: async () => {
+          await modal.open();
+        },
+      }),
     account: () => core.getAccount(wagmi).address,
     async ensureArc() {
       if (core.getAccount(wagmi).chainId !== config.chainId) await core.switchChain(wagmi, { chainId: config.chainId });

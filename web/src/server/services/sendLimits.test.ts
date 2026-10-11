@@ -49,7 +49,7 @@ describe("send limit", () => {
     const { ctx } = await testCtx();
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 500n * USDC))).toBe("OK");
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 500n * USDC + 1n))).toBe(
-      "SEND_LIMIT: Payments over 500.00 USDC need identity verification, which is coming soon. Lower the total to continue.",
+      "SEND_LIMIT: Payments over 500.00 USDC, including the Splits fee, need identity verification, which is coming soon. Lower the total to continue.",
     );
     expect(await code(checkSendLimit(ctx.db, ctx, { userId: randomUUID() }, "account", 501n * USDC))).toMatch(/^SEND_LIMIT/);
   });
@@ -64,7 +64,8 @@ describe("send limit", () => {
     await past(ctx, { amount: 400n * USDC, kind: "auto" }); // receiver rules never count
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 100n * USDC))).toBe("OK");
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 100n * USDC + 1n))).toMatch(
-      /^SEND_LIMIT: You can send \$100\.00 more today\. Your limit resets at \d\d:\d\d UTC\.$/,
+      // The reservation (expires in 10 minutes) frees up before the 23-hour-old payment (in 1 hour).
+      "SEND_LIMIT: You can send $100.00 more today, including the Splits fee. More frees up at 09:10 UTC.",
     );
   });
 

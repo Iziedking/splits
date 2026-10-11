@@ -53,7 +53,7 @@ export async function checkSendLimit(db: Ctx["db"] | Tx, ctx: Ctx, sender: Sende
   if (amount > perPayment) {
     throw forbidden(
       "SEND_LIMIT",
-      `Payments over ${formatUsdc(perPayment)} USDC need identity verification, which is coming soon. Lower the total to continue.`,
+      `Payments over ${formatUsdc(perPayment)} USDC, including the Splits fee, need identity verification, which is coming soon. Lower the total to continue.`,
     );
   }
   const now = ctx.now();
@@ -62,7 +62,9 @@ export async function checkSendLimit(db: Ctx["db"] | Tx, ctx: Ctx, sender: Sende
     const [row] = await db
       .select({
         total: sql<string>`coalesce(sum(${transfers.amount}::numeric + ${transfers.feeAmount}::numeric), 0)::text`,
-        oldest: sql<string | null>`min(${transfers.createdAt})::text`,
+        // When the first counted payment stops counting: a day after it was made, or sooner for a
+        // reservation that expires first. Epoch seconds, so no date-string parsing is involved.
+        frees: sql<string | null>`extract(epoch from min(case when ${transfers.status} = 'awaiting_wallet' then least(${transfers.expiresAt}, ${transfers.createdAt} + interval '24 hours') else ${transfers.createdAt} + interval '24 hours' end))::text`,
       })
       .from(transfers)
       .where(
@@ -78,10 +80,10 @@ export async function checkSendLimit(db: Ctx["db"] | Tx, ctx: Ctx, sender: Sende
     const used = BigInt(row?.total ?? "0");
     if (used + amount > daily) {
       const left = daily > used ? daily - used : 0n;
-      const resets = new Date(new Date(row?.oldest ?? now.toISOString()).getTime() + DAY_MS);
+      const frees = row?.frees ? new Date(Math.round(Number(row.frees) * 1000)) : new Date(now.getTime() + DAY_MS);
       throw forbidden(
         "SEND_LIMIT",
-        `You can send $${formatUsdc(left)} more today. Your limit resets at ${resets.toISOString().slice(11, 16)} UTC.`,
+        `You can send $${formatUsdc(left)} more today, including the Splits fee. More frees up at ${frees.toISOString().slice(11, 16)} UTC.`,
       );
     }
   }

@@ -274,7 +274,10 @@ describe("paying from your own wallet", () => {
     await drive(ctx, p.transfer.id);
     await emailVisitorReceipt(ctx, p.transfer.visitorToken!, "Me@Example.com");
     expect(ctx.previewEmail!.receipts).toEqual([{ to: "me@example.com", amount: "2.00", url: `${ctx.appUrl}/p/${p.transfer.visitorToken}` }]);
-    expect((await visitorPaymentByToken(ctx, p.transfer.visitorToken!)).visitorEmail).toBe("me@example.com");
+    // Anyone holding the link can ask for the email; it never changes who the payment is from.
+    expect((await visitorPaymentByToken(ctx, p.transfer.visitorToken!)).visitorEmail).toBeNull();
+    const links = await receiptLinks(ctx, await visitorPaymentByToken(ctx, p.transfer.visitorToken!));
+    expect((await receiptByToken(ctx, links![0]!)).from).toMatch(/^0x0000…00e1$/i);
     expect(await ctx.db.select().from(users)).toHaveLength(0);
   });
 

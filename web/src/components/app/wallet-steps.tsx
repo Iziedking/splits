@@ -6,16 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import type { ContractLeg, VisitorConfig, VisitorPaymentView } from "@/lib/api";
 import { loadWalletBridge, type WalletBridge } from "@/lib/wallet/bridge";
+import { toUnits, unitsToUsd, walletError } from "@/lib/wallet/flow";
 
 type Prepared = { payment: VisitorPaymentView; legs: ContractLeg[]; balance: string; allowance: string };
 type Phase = "approve" | "approving" | "send" | "sending";
-
-const usd = (units: bigint) => `${units / 1_000_000n}.${((units % 1_000_000n) / 10_000n).toString().padStart(2, "0")}`;
-/** "12.5" -> 12_500_000n, exactly. */
-const toUnits = (amount: string) => {
-  const [whole = "0", fraction = ""] = amount.split(".");
-  return BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0").slice(0, 6));
-};
 
 /**
  * The two signatures, in order. Step 1 is skipped when the wallet already allows enough. Once the
@@ -47,7 +41,7 @@ export function WalletSteps({ config, prepared, onSent }: { config: VisitorConfi
       setPhase("send");
     } catch (err) {
       setPhase("approve");
-      setError(walletError(err));
+      setError(walletError(err, config));
     }
   }
 
@@ -64,14 +58,14 @@ export function WalletSteps({ config, prepared, onSent }: { config: VisitorConfi
       // A retry is safe: the server settles on whichever send of this reservation reached Arc.
       sending.current = false;
       setPhase("send");
-      setError(walletError(err));
+      setError(walletError(err, config));
     }
   }
 
   if (short > 0n) {
     return (
       <Notice tone="error">
-        This wallet needs ${usd(short)} more USDC on {config.network === "arc" ? "Arc" : "Arc Testnet"}.
+        This wallet needs ${unitsToUsd(short)} more USDC on {config.network === "arc" ? "Arc" : "Arc Testnet"}.
         {config.network === "arc-testnet" && (
           <>
             {" "}
@@ -104,16 +98,4 @@ export function WalletSteps({ config, prepared, onSent }: { config: VisitorConfi
       {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
-}
-
-function walletError(err: unknown): string {
-  const text = err instanceof Error ? err.message : String(err);
-  if (text.startsWith("wrong-account:")) {
-    const want = text.slice("wrong-account:".length);
-    return `Switch your wallet back to ${want.slice(0, 6)}…${want.slice(-4)}, the account this payment was set up for. Nothing moved.`;
-  }
-  if (/rejected|denied|User rejected/i.test(text)) return "You declined in your wallet. Nothing moved. Try again when you're ready.";
-  if (/chain|network/i.test(text)) return "Your wallet didn't switch to Arc. Add Arc in your wallet's network settings, then try again.";
-  if (text === "reverted") return "Arc rejected the approval. Nothing moved. Try again.";
-  return "Your wallet couldn't finish this step. Nothing moved. Try again.";
 }

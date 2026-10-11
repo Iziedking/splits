@@ -78,6 +78,7 @@ export function ActivityList({
                     <span className="min-w-0 flex-1">
                       <span className={cn("block truncate font-bold tabular-nums", failed && "text-muted-foreground line-through")}>
                         {t.quote && t.quote.currency !== "USD" ? `${SYMBOL[t.quote.currency] ?? ""}${t.quote.fiat} → $${t.amount}` : `$${t.amount}`}
+                        {t.fee !== "0.00" && <span className="font-medium text-muted-foreground"> · ${t.total} charged</span>}
                       </span>
                       <span className="mt-0.5 block truncate text-sm text-muted-foreground">
                         {day(row.at)} · {who}

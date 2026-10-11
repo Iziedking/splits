@@ -195,6 +195,8 @@ export const transfers = pgTable(
   (t) => [
     index("transfers_payer").on(t.payerUserId, t.createdAt),
     index("transfers_payer_address").on(t.payerAddress, t.createdAt),
+    // The send limit matches addresses case-insensitively.
+    index("transfers_payer_address_lower").on(sql`lower(${t.payerAddress})`, t.createdAt),
     // One automatic split per parent payment and wallet, so a replayed trigger can't run it twice.
     uniqueIndex("transfers_one_auto_per_parent").on(t.parentTransferId, t.payerWalletId),
   ],

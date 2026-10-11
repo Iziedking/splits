@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { actions, splits } from "../db/schema";
+import { pruneStale } from "./housekeeping";
 import { sendDueNotices } from "./notices";
 import { advanceWithRules } from "./rules";
 import { advanceSplit } from "./splits";
@@ -8,6 +9,10 @@ import { activeTransferIds, openReservationIds } from "./transfers";
 import { findLatePayments } from "./visitorPayments";
 
 export type SweepResult = { transfers: number; splits: number; errors: number };
+
+/** Clean-up of old counters and unused visitor lists runs at most this often per server. */
+const PRUNE_EVERY_MS = 60 * 60_000;
+let lastPrune = 0;
 
 /**
  * Pushes forward every payment and split that still has work to do, so nothing stalls when the
@@ -60,6 +65,16 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
     } catch (err) {
       result.errors++;
       console.error(`[sweep] split ${id}`, err);
+    }
+  }
+
+  if (ctx.now().getTime() - lastPrune >= PRUNE_EVERY_MS) {
+    lastPrune = ctx.now().getTime();
+    try {
+      await pruneStale(ctx);
+    } catch (err) {
+      result.errors++;
+      console.error("[sweep] housekeeping", err);
     }
   }
 

@@ -7,6 +7,7 @@ import { AppError } from "../errors";
 import { formatUsdc } from "../domain/money";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
+import { transferView } from "../views";
 import { activityFor } from "./activity";
 import { checkPayout } from "./payouts";
 import { receiptByToken, receiptLinks } from "./receipts";
@@ -704,6 +705,16 @@ describe("the Splits fee", () => {
     const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "4");
     const { transfer } = await quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" });
     expect(transfer.topUp).toBe("4060000");
+  });
+
+  it("says what a saved-split card payment charged, fee included", async () => {
+    const { ctx } = await testCtx(fees);
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const { transfer } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1_000 });
+    const view = transferView(ctx, transfer);
+    expect(view.quote).toMatchObject({ currency: "GBP", fiat: "10.00", charged: view.total });
+    expect(view.total).toBe("12.89");
   });
 
   it("refuses a balance payment that covers the amount but not the fee", async () => {

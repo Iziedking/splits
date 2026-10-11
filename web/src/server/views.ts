@@ -75,6 +75,8 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [],
           currency: quote.currency,
           fiat: ((quote.fiatMinor ?? 0) / 100).toFixed(2),
           rate: formatUsdc(BigInt(quote.rate ?? "0")),
+          /** What the (simulated) card was charged in USDC: the recipients' total plus the fee. */
+          charged: formatUsdc(BigInt(t.amount) + BigInt(t.feeAmount)),
           simulated: true,
         }
       : null,

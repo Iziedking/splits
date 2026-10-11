@@ -192,6 +192,11 @@ try {
   step("visitor routes refuse cross-site posts");
   cookie = session;
 
+  const signedIn = await call("POST", "/api/visitor/check", { mode: "each", text: "0x00000000000000000000000000000000000000f1, 1", label: "gift" });
+  assert.equal(signedIn.status, 409, JSON.stringify(signedIn.data));
+  assert.equal(signedIn.data.error.code, "SIGNED_IN");
+  step("signed-in people are sent to their account's limits, not visitor ones");
+
   console.log("api smoke: all checks passed");
 } catch (err) {
   console.error(err);

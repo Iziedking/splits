@@ -45,4 +45,15 @@ describe("migration 0004", () => {
       rmSync(early, { recursive: true, force: true });
     }
   });
+
+  it("indexes payer addresses case-insensitively, so the send limit can use it", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const { drizzle } = await import("drizzle-orm/pglite");
+    const { migrate } = await import("drizzle-orm/pglite/migrator");
+    const client = new PGlite();
+    await migrate(drizzle(client), { migrationsFolder: path.join(process.cwd(), "drizzle") });
+    const { rows } = await client.query<{ indexdef: string }>("select indexdef from pg_indexes where tablename = 'transfers'");
+    expect(rows.some((r) => /lower\(payer_address\)/.test(r.indexdef))).toBe(true);
+    await client.close();
+  });
 });

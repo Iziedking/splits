@@ -10,7 +10,7 @@ import { VisitorHeader } from "@/components/app/visitor-header";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type VisitorPaymentView } from "@/lib/api";
-import { isFinal } from "@/lib/format";
+import { nextPoll } from "@/lib/wallet/flow";
 import { cn } from "@/lib/utils";
 
 const STEPS = [
@@ -34,7 +34,10 @@ export default function VisitorPayment() {
         if (stopped) return;
         setP(res.payment);
         setError(null);
-        if (isFinal(res.payment.status)) return;
+        const wait = nextPoll(res.payment.status, res.payment.createdAt);
+        if (wait === null) return;
+        timer = setTimeout(poll, wait);
+        return;
       } catch (err) {
         if (!stopped) setError(errorMessage(err));
       }
@@ -109,8 +112,12 @@ export default function VisitorPayment() {
             <div className="enter space-y-3 pt-6">
               <h1 className="text-[2rem] leading-tight font-extrabold">Waiting for your wallet</h1>
               <p className="text-muted-foreground">
-                Approve and send in your wallet. This page updates by itself, and this link keeps working if you close it.
+                Finish both steps on the page where you started. This page updates by itself as soon as the payment reaches Arc,
+                and this link keeps working if you close it.
               </p>
+              <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
+                Closed that page? Start again
+              </Link>
             </div>
           )
         ) : p.status === "cancelled" && !p.txHash ? (
@@ -138,7 +145,10 @@ function Expired() {
   return (
     <div className="enter space-y-3 pt-6">
       <h1 className="text-[2rem] leading-tight font-extrabold">This took longer than 30 minutes</h1>
-      <p className="text-muted-foreground">Nothing moved from your wallet. Check the list again to pay.</p>
+      <p className="text-muted-foreground">
+        No payment has reached Arc for this link yet. If you did send it, this page will show it as soon as it lands; otherwise,
+        check the list again to pay.
+      </p>
       <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
         Check the list again
       </Link>

@@ -140,7 +140,6 @@ export async function emailVisitorReceipt(ctx: Ctx, token: string, rawEmail: str
   if (!(await hitRateLimit(ctx, `receipt:${t.id}`, 3, 24 * HOUR))) {
     throw tooMany("TOO_MANY_RECEIPTS", "This receipt was already emailed three times today");
   }
-  if (!t.visitorEmail) await ctx.db.update(transfers).set({ visitorEmail: email }).where(eq(transfers.id, t.id));
   await ctx.email.sendReceiptLink(email, { amount: formatUsdc(chargeOf(t)), url: `${ctx.appUrl}/p/${t.visitorToken}` });
 }
 

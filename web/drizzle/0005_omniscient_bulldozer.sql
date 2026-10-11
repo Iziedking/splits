@@ -1,0 +1,1 @@
+CREATE INDEX "transfers_payer_address_lower" ON "transfers" USING btree (lower("payer_address"),"created_at");
