@@ -57,12 +57,12 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
           Splits
         </Link>
         <div className="flex items-center gap-2">
-          {me?.mode === "preview" && (
+          {me && (me.mode === "preview" || me.network === "arc-testnet") && (
             <span
               className="rounded-full bg-purpose-1 px-3 py-1 text-xs font-bold text-primary"
-              title="Money on this server is simulated"
+              title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
             >
-              Preview
+              {me.mode === "preview" ? "Preview" : "Testnet"}
             </span>
           )}
           {me && (

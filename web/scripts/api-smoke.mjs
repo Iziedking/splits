@@ -91,7 +91,7 @@ try {
   const quote = await call("POST", "/api/transfers", { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1000 });
   assert.equal(quote.status, 201, JSON.stringify(quote.data));
   assert.equal(quote.data.transfer.amount, "12.70");
-  assert.deepEqual(quote.data.transfer.legs.map((l) => l.amount), ["5.08", "4.445", "3.175"]);
+  assert.deepEqual(quote.data.transfer.legs.map((l) => l.amount), ["5.08", "4.44", "3.18"]);
   const pay = await call("POST", "/api/transfers/confirm", { actionId: quote.data.action.id, pin: "482913" });
   assert.equal(pay.status, 200, JSON.stringify(pay.data));
   let transfer = pay.data.transfer;
@@ -101,7 +101,7 @@ try {
   }
   assert.equal(transfer.status, "settled", JSON.stringify(transfer));
   assert.deepEqual(transfer.steps.map((s) => s.status), ["complete", "complete", "complete"]);
-  step("£10 paid by (simulated) card, split 5.08 / 4.445 / 3.175 USDC and verified");
+  step("£10 paid by (simulated) card, split 5.08 / 4.44 / 3.18 USDC and verified");
 
   const replay = await call("POST", "/api/transfers/confirm", { actionId: quote.data.action.id, pin: "482913" });
   assert.equal(replay.status, 409);

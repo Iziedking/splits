@@ -3,6 +3,7 @@ import { and, eq } from "drizzle-orm";
 import type { Address } from "viem";
 import type { Ctx } from "../context";
 import { splits, transfers } from "../db/schema";
+import { CENT } from "../domain/allocation";
 import { transferRef } from "../domain/ids";
 import { expectedAmounts } from "./splits";
 import { advanceTransfer, type Transfer } from "./transfers";
@@ -21,7 +22,9 @@ export async function createAutoTransfer(
   amount: bigint,
   parentTransferId: string,
 ): Promise<string | null> {
-  if (amount < ctx.limits.autoSplitMin) return null;
+  // The router works in whole cents; any fraction of a cent stays in the wallet.
+  amount = (amount / CENT) * CENT;
+  if (amount === 0n || amount < ctx.limits.autoSplitMin) return null;
   const [rule] = await ctx.db
     .select()
     .from(splits)

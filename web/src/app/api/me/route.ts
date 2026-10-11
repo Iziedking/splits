@@ -7,6 +7,7 @@ export const GET = api(async ({ ctx }) => {
   const wallets = await balancesFor(ctx, await walletsFor(ctx, user.id));
   return json({
     mode: ctx.mode,
+    network: ctx.network,
     user: userView(user, await hasPasskey(ctx, user.id)),
     wallets: wallets.map((w) => walletView(ctx, w)),
   });

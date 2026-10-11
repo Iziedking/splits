@@ -23,6 +23,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///      Amounts use the 6-decimal ERC-20 interface of USDC (0x3600...0000 on Arc). Native
 ///      18-decimal value is never read or sent, so the two decimal systems cannot be mixed.
 ///
+///      Everything is in whole cents, because people read money in cents. Fixed amounts and every
+///      payment must be whole cents, and each percentage share is rounded down to a cent, with the
+///      leftover cents going to the last share leg. No recipient is ever paid a fraction of a cent.
+///
 ///      A send is all or nothing. If any leg reverts (for example an Arc-blocklisted recipient or a
 ///      short allowance), no recipient is paid and the payer's `ref` stays unused.
 contract SplitsRouter is ReentrancyGuard {
@@ -32,6 +36,8 @@ contract SplitsRouter is ReentrancyGuard {
 
     uint256 public constant BPS_DENOMINATOR = 10_000;
     uint256 public constant MAX_LEGS = 10;
+    /// @notice One cent in USDC base units (6 decimals).
+    uint256 public constant CENT = 10_000;
 
     // ------------------------------------------------------------------ types
 
@@ -92,6 +98,8 @@ contract SplitsRouter is ReentrancyGuard {
     error RefAlreadyUsed(address payer, bytes32 ref);
     error AmountBelowFixed(uint256 amount, uint256 fixedTotal);
     error AmountMustEqualFixed(uint256 amount, uint256 fixedTotal);
+    error FixedAmountNotCents(uint256 index, uint256 fixedAmount);
+    error AmountNotCents(uint256 amount);
 
     // ------------------------------------------------------------------ setup
 
@@ -199,6 +207,7 @@ contract SplitsRouter is ReentrancyGuard {
             bool hasFixed = legs[i].fixedAmount != 0;
             bool hasShare = legs[i].shareBps != 0;
             if (hasFixed == hasShare) revert LegNeedsExactlyOneRule(i);
+            if (legs[i].fixedAmount % CENT != 0) revert FixedAmountNotCents(i, legs[i].fixedAmount);
             totalBps += legs[i].shareBps;
         }
         if (totalBps != 0 && totalBps != BPS_DENOMINATOR) revert SharesMustTotal(totalBps);
@@ -212,9 +221,11 @@ contract SplitsRouter is ReentrancyGuard {
         }
     }
 
-    /// @dev Fixed legs are paid first. The rest is shared by bps, and the last share leg takes the
-    ///      rounding remainder, so the amounts always sum to exactly `amount`.
+    /// @dev Fixed legs are paid first. The rest is shared by bps, each share rounded down to a whole
+    ///      cent, and the last share leg takes the leftover cents, so the amounts always sum to
+    ///      exactly `amount` and every amount is whole cents.
     function _allocate(Leg[] storage legs, uint256 amount) private view returns (uint256[] memory amounts) {
+        if (amount % CENT != 0) revert AmountNotCents(amount);
         uint256 count = legs.length;
         amounts = new uint256[](count);
 
@@ -236,7 +247,7 @@ contract SplitsRouter is ReentrancyGuard {
             } else if (i == lastShare) {
                 amounts[i] = remainder - shared;
             } else {
-                uint256 part = remainder * legs[i].shareBps / BPS_DENOMINATOR;
+                uint256 part = remainder * legs[i].shareBps / BPS_DENOMINATOR / CENT * CENT;
                 amounts[i] = part;
                 shared += part;
             }

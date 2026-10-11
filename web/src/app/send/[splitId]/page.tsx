@@ -60,7 +60,8 @@ function Send() {
       const fiatMinor = toMinor(value);
       return fiatMinor ? { splitId, fundWith, currency, fiatMinor } : null;
     }
-    return /^\d+(\.\d{1,6})?$/.test(value) && Number(value) > 0 ? { splitId, fundWith, usdc: value } : null;
+    // Whole cents only: the split contract never pays fractions of a cent.
+    return /^\d+(\.\d{1,2})?$/.test(value) && Number(value) > 0 ? { splitId, fundWith, usdc: value } : null;
   }, [splitId, fundWith, currency, value]);
 
   // Ask the server for the exact breakdown a moment after typing stops.
@@ -173,7 +174,7 @@ function Send() {
         </div>
         {fundWith === "card" && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Simulated card: no card is charged. The USDC that arrives is {me.mode === "live" ? "real" : "simulated in preview"}.
+            Simulated card: no card is charged. The USDC that arrives is {me.mode === "preview" ? "simulated in preview" : me.network === "arc-testnet" ? "Arc Testnet USDC" : "real"}.
           </p>
         )}
 

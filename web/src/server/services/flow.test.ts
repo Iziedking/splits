@@ -86,13 +86,13 @@ describe("sending money home through a split", () => {
     expect(t.status).toBe("settled");
     expect(t.amount).toBe("12700000");
     expect(await balanceOf(ctx, "landlord@example.com")).toBe(5_080_000n);
-    expect(await balanceOf(ctx, "school@example.com")).toBe(4_445_000n);
-    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_175_000n);
+    expect(await balanceOf(ctx, "school@example.com")).toBe(4_440_000n);
+    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_180_000n);
     expect(await balanceOf(ctx, "ada@example.com")).toBe(0n);
     expect(treasuryBefore - (await ctx.chain.usdcBalance(arc.walletAddress(PREVIEW_TREASURY_WALLET_ID)!))).toBe(12_700_000n);
 
     const receipt = await ctx.chain.receipt(t.txHash as Hex);
-    expect(receipt?.legPaid.map((l) => l.amount)).toEqual([5_080_000n, 4_445_000n, 3_175_000n]);
+    expect(receipt?.legPaid.map((l) => l.amount)).toEqual([5_080_000n, 4_440_000n, 3_180_000n]);
 
     const steps = await ctx.db.select().from(providerTxs).where(eq(providerTxs.subjectId, t.id));
     expect(steps.map((s) => s.step).sort()).toEqual(["approve", "fund", "send"]);
@@ -107,7 +107,7 @@ describe("sending money home through a split", () => {
     await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN }); // the user closes the app here
     await settleEverything(ctx);
     expect((await getTransfer(ctx, transfer.id)).status).toBe("settled");
-    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_175_000n);
+    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_180_000n);
   });
 
   it("refuses a second confirmation of the same payment", async () => {
@@ -134,7 +134,7 @@ describe("sending money home through a split", () => {
     const preview = await previewTransfer(ctx, user, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1000 });
     expect(preview.amount).toBe("12.70");
     expect(preview.rate).toBe("1.27");
-    expect(preview.legs.map((l) => l.amount)).toEqual(["5.08", "4.445", "3.175"]);
+    expect(preview.legs.map((l) => l.amount)).toEqual(["5.08", "4.44", "3.18"]);
     expect(await ctx.db.select().from(transfers)).toHaveLength(0);
   });
 
@@ -175,8 +175,8 @@ describe("receiver-side automatic splits", () => {
     const autos = await ctx.db.select().from(transfers).where(eq(transfers.parentTransferId, parent.id));
     expect(autos).toHaveLength(1);
     expect(autos[0]!.status).toBe("settled");
-    expect(await ctx.chain.usdcBalance(savings.address as Address)).toBe(952_500n); // 30% of 3.175
-    expect(await ctx.chain.usdcBalance(sisterMain.address as Address)).toBe(2_222_500n);
+    expect(await ctx.chain.usdcBalance(savings.address as Address)).toBe(950_000n); // 30% of 3.18, rounded down to the cent
+    expect(await ctx.chain.usdcBalance(sisterMain.address as Address)).toBe(2_230_000n);
 
     // Driving the parent again must not start a second automatic split.
     await advanceWithRules(ctx, parent.id);
@@ -211,7 +211,7 @@ describe("automatic splits don't chain", () => {
     await settleEverything(ctx);
     const autos = await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"));
     expect(autos).toHaveLength(1);
-    expect(await ctx.chain.usdcBalance(pocket.address as Address)).toBe(952_500n);
+    expect(await ctx.chain.usdcBalance(pocket.address as Address)).toBe(950_000n);
   });
 });
 
@@ -286,7 +286,7 @@ describe("failure is honest and nothing is paid twice", () => {
     expect((await getTransfer(ctx, transfer.id)).status).toBe("settled");
     const rows = await ctx.db.select().from(providerTxs).where(eq(providerTxs.subjectId, transfer.id));
     expect(rows).toHaveLength(3);
-    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_175_000n);
+    expect(await balanceOf(ctx, "sister@example.com")).toBe(3_180_000n);
   });
 
   it("flags a payment whose onchain receipt doesn't match what the user approved", async () => {

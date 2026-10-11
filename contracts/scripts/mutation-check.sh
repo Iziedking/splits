@@ -39,6 +39,9 @@ mutate "no-owner-check" "if (s.owner != msg.sender) revert NotSplitOwner(splitId
 mutate "no-version-check" "if (s.version != expectedVersion)" "if (false)" "test_UpdateSplit_StaleQuoteReverts_NewVersionPaysNewLegs"
 mutate "bps-total-unchecked" "if (totalBps != 0 && totalBps != BPS_DENOMINATOR)" "if (false)" "test_RevertWhen_SharesDoNotTotal10000"
 mutate "token-as-recipient" "|| r == address(usdc)" "" "test_RevertWhen_RecipientIsZeroRouterOrToken"
+mutate "no-cent-rounding" "/ BPS_DENOMINATOR / CENT * CENT;" "/ BPS_DENOMINATOR;" "test_Send_FamilyExampleIsAllCents"
+mutate "sub-cent-amount-allowed" "if (amount % CENT != 0) revert AmountNotCents(amount);" "" "test_RevertWhen_AmountNotWholeCents"
+mutate "sub-cent-fixed-allowed" "if (legs[i].fixedAmount % CENT != 0)" "if (false)" "test_RevertWhen_FixedAmountNotWholeCents"
 mutate "fixed-only-overpay" "if (lastShare == type(uint256).max && remainder != 0)" "if (false)" "test_Send_FixedOnlyNeedsExactTotal"
 
 if [ "$failures" -ne 0 ]; then

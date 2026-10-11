@@ -43,8 +43,15 @@ describe("allocation mirrors SplitsRouter", () => {
     ]);
   });
 
-  it("gives rounding dust to the last share leg", () => {
-    expect(allocate([share(3333), share(3333), share(3334)], 1_000_001n)).toEqual([333_300n, 333_300n, 333_401n]);
+  it("rounds shares down to whole cents and gives the leftover to the last share leg", () => {
+    expect(allocate([share(3333), share(3333), share(3334)], 1_000_000n)).toEqual([330_000n, 330_000n, 340_000n]);
+    // $12.70 at 40/35/25: 35% would be $4.445.
+    expect(allocate([share(4000), share(3500), share(2500)], 12_700_000n)).toEqual([5_080_000n, 4_440_000n, 3_180_000n]);
+  });
+
+  it("refuses amounts and fixed legs that aren't whole cents", () => {
+    expect(() => allocate([share(10_000)], 1_000_001n)).toThrow(/whole cents/);
+    expect(() => validateLegs([{ recipient: A, ...fixed(1_000_001n) }], [])).toThrow(/whole cents/);
   });
 
   it("pays fixed legs first, then shares the rest", () => {
@@ -56,19 +63,20 @@ describe("allocation mirrors SplitsRouter", () => {
   });
 
   it("needs exactly the fixed total when there are no share legs", () => {
-    const legs = [fixed(100n), fixed(50n)];
-    expect(allocate(legs, 150n)).toEqual([100n, 50n]);
-    expect(() => allocate(legs, 151n)).toThrow(SplitRuleError);
-    expect(() => allocate(legs, 149n)).toThrow(SplitRuleError);
+    const legs = [fixed(1_000_000n), fixed(500_000n)];
+    expect(allocate(legs, 1_500_000n)).toEqual([1_000_000n, 500_000n]);
+    expect(() => allocate(legs, 1_510_000n)).toThrow(SplitRuleError);
+    expect(() => allocate(legs, 1_490_000n)).toThrow(SplitRuleError);
   });
 
   it("always conserves the amount", () => {
     for (let i = 0; i < 2000; i++) {
       const a = 1 + Math.floor(Math.random() * 9998);
       const b = 1 + Math.floor(Math.random() * (9999 - a));
-      const amount = 1n + BigInt(Math.floor(Math.random() * 1e12));
+      const amount = (1n + BigInt(Math.floor(Math.random() * 1e8))) * 10_000n;
       const out = allocate([share(a), share(b), share(10_000 - a - b)], amount);
       expect(out.reduce((s, x) => s + x, 0n)).toBe(amount);
+      for (const part of out) expect(part % 10_000n).toBe(0n);
     }
   });
 
@@ -84,7 +92,7 @@ describe("allocation mirrors SplitsRouter", () => {
     expect(() => validateLegs([{ recipient: A, ...share(9999) }], [])).toThrow(/99.99%/);
     expect(() =>
       validateLegs(
-        Array.from({ length: 11 }, () => ({ recipient: A, ...fixed(1n) })),
+        Array.from({ length: 11 }, () => ({ recipient: A, ...fixed(10_000n) })),
         [],
       ),
     ).toThrow(/at most 10/);
@@ -93,9 +101,10 @@ describe("allocation mirrors SplitsRouter", () => {
 
 describe("fx quote (simulated)", () => {
   const rates = { GBP: 1_270_000n, EUR: 1_090_000n, USD: 1_000_000n };
-  it("converts pence to USDC and rounds down", () => {
+  it("converts pence to USDC and rounds down to whole cents", () => {
     expect(quote("GBP", 10_000, rates).usdcAmount).toBe(127_000_000n);
-    expect(quote("GBP", 1, rates).usdcAmount).toBe(12_700n);
+    expect(quote("GBP", 1, rates).usdcAmount).toBe(10_000n); // 1.27 cents -> 1 cent
+    expect(quote("GBP", 1250, rates).usdcAmount).toBe(15_870_000n); // $15.875 -> $15.87
     expect(quote("GBP", 10_000, rates).simulated).toBe(true);
   });
   it("refuses zero, negative and oversized amounts", () => {

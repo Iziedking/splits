@@ -95,7 +95,7 @@ export default function SignIn() {
             </p>
             {previewCode && (
               <Notice>
-                Preview mode sends no email. Your code is <strong className="text-foreground">{previewCode}</strong>.
+                This server doesn't send email. Your code is <strong className="text-foreground">{previewCode}</strong>.
               </Notice>
             )}
             <Field

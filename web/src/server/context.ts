@@ -33,6 +33,9 @@ export type Ctx = {
   limits: Limits;
   rp: RelyingParty;
   explorerUrl: string;
+  network: "arc" | "arc-testnet";
+  /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
+  showCodes: boolean;
   now: () => Date;
   /** Base64 SPKI public key for a Circle webhook key id. */
   webhookKey: (keyId: string) => Promise<string>;
@@ -51,6 +54,10 @@ export function limitsFromConfig(config: Config): Limits {
   };
 }
 
+function networkOf(config: Config): Ctx["network"] {
+  return config.CIRCLE_BLOCKCHAIN === "ARC-TESTNET" ? "arc-testnet" : "arc";
+}
+
 export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx {
   const email = new PreviewEmail();
   return {
@@ -66,6 +73,8 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     limits: limitsFromConfig(config),
     rp: { rpId: config.rpId, rpName: config.WEBAUTHN_RP_NAME, origin: config.origin },
     explorerUrl: config.ARC_EXPLORER_URL,
+    network: networkOf(config),
+    showCodes: true,
     now: () => new Date(),
     webhookKey: async () => {
       throw new Error("Webhooks are not used in preview mode");
@@ -79,11 +88,13 @@ async function buildCtx(config: Config): Promise<Ctx> {
   if (config.SPLITS_MODE === "preview") {
     return previewCtx(await createPgliteDb(config.PGLITE_DIR), config);
   }
-  // parseConfig has already refused to start live mode without these.
+  // parseConfig has already refused to start live mode without these, and has limited the
+  // PGlite and on-screen-code shortcuts to testnet.
   const router = config.SPLITS_ROUTER_ADDRESS!;
+  const screenCodes = config.EMAIL_PROVIDER === "screen";
   return {
     mode: "live",
-    db: await createPostgresDb(config.DATABASE_URL!),
+    db: config.DATABASE_URL ? await createPostgresDb(config.DATABASE_URL) : await createPgliteDb(config.PGLITE_DIR),
     wallets: createCircleWallets({
       apiKey: config.CIRCLE_API_KEY!,
       entitySecret: config.CIRCLE_ENTITY_SECRET!,
@@ -98,7 +109,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
       router,
       usdc: config.USDC_ADDRESS,
     }),
-    email: createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM),
+    email: screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM),
     router,
     usdc: config.USDC_ADDRESS,
     treasuryWalletId: config.CIRCLE_TREASURY_WALLET_ID!,
@@ -106,6 +117,8 @@ async function buildCtx(config: Config): Promise<Ctx> {
     limits: limitsFromConfig(config),
     rp: { rpId: config.rpId, rpName: config.WEBAUTHN_RP_NAME, origin: config.origin },
     explorerUrl: config.ARC_EXPLORER_URL,
+    network: networkOf(config),
+    showCodes: screenCodes,
     now: () => new Date(),
     webhookKey: (keyId) => fetchCircleWebhookKey(config.CIRCLE_API_KEY!, keyId),
   };

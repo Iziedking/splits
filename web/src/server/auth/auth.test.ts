@@ -48,9 +48,9 @@ describe("email sign-in", () => {
     expect(second.wallet.address).toBe(first.wallet.address);
   });
 
-  it("live mode never returns the code", async () => {
+  it("never returns the code when codes are emailed", async () => {
     const { ctx } = await testCtx();
-    const live = { ...ctx, mode: "live" as const };
+    const live = { ...ctx, mode: "live" as const, showCodes: false };
     expect(await startSignIn(live, "ada@example.com")).toEqual({});
   });
 });

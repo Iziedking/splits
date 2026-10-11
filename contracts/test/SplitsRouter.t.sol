@@ -169,18 +169,43 @@ contract SplitsRouterTest is Test {
         _send(sender, id, 1, 100 * USDC, ref);
     }
 
-    function test_Send_RoundingDustGoesToLastShareLeg() public {
+    function test_Send_SharesRoundDownToCents_LeftoverToLastShareLeg() public {
         SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](3);
         legs[0] = _leg(landlord, 0, 3333, "a");
         legs[1] = _leg(school, 0, 3333, "b");
         legs[2] = _leg(sister, 0, 3334, "c");
         uint256 id = _create(sender, legs);
 
-        uint256[] memory amounts = _send(sender, id, 1, 1_000_001, keccak256("dust"));
-        assertEq(amounts[0], 333_300);
-        assertEq(amounts[1], 333_300);
-        assertEq(amounts[2], 333_401);
-        assertEq(amounts[0] + amounts[1] + amounts[2], 1_000_001);
+        // $1.00 three ways: 33.33 cents each would be fractional, so 33 + 33 + 34.
+        uint256[] memory amounts = _send(sender, id, 1, 1_000_000, keccak256("cents"));
+        assertEq(amounts[0], 330_000);
+        assertEq(amounts[1], 330_000);
+        assertEq(amounts[2], 340_000);
+    }
+
+    function test_Send_FamilyExampleIsAllCents() public {
+        uint256 id = _create(sender, _familyLegs());
+        // $12.70 at 40/35/25: 35% would be $4.445, so it pays $4.44 and the sister gets $3.18.
+        uint256[] memory amounts = _send(sender, id, 1, 12_700_000, keccak256("family"));
+        assertEq(amounts[0], 5_080_000);
+        assertEq(amounts[1], 4_440_000);
+        assertEq(amounts[2], 3_180_000);
+    }
+
+    function test_RevertWhen_AmountNotWholeCents() public {
+        uint256 id = _create(sender, _familyLegs());
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.AmountNotCents.selector, 1_000_001));
+        _send(sender, id, 1, 1_000_001, keccak256("x"));
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.AmountNotCents.selector, 5_555));
+        router.previewSend(id, 5_555);
+    }
+
+    function test_RevertWhen_FixedAmountNotWholeCents() public {
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](2);
+        legs[0] = _leg(landlord, uint96(100 * USDC + 1), 0, "rent");
+        legs[1] = _leg(sister, 0, 10_000, "upkeep");
+        vm.expectRevert(abi.encodeWithSelector(SplitsRouter.FixedAmountNotCents.selector, 0, 100 * USDC + 1));
+        _create(sender, legs);
     }
 
     function test_Send_FixedLegsFirstThenShare() public {
@@ -235,8 +260,8 @@ contract SplitsRouterTest is Test {
 
     function test_PreviewMatchesSend() public {
         uint256 id = _create(sender, _familyLegs());
-        uint256[] memory preview = router.previewSend(id, 123_456_789);
-        uint256[] memory paid = _send(sender, id, 1, 123_456_789, keccak256("p"));
+        uint256[] memory preview = router.previewSend(id, 123_450_000);
+        uint256[] memory paid = _send(sender, id, 1, 123_450_000, keccak256("p"));
         assertEq(preview, paid);
     }
 
@@ -425,13 +450,13 @@ contract SplitsRouterTest is Test {
         vm.prank(sender);
         uint256 id = hostileRouter.createSplit(legs);
 
-        hostile.mint(sender, 100);
+        hostile.mint(sender, 10_000);
         vm.prank(sender);
         hostile.approve(address(hostileRouter), type(uint256).max);
         hostile.arm(hostileRouter, id);
 
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        _sendOn(hostileRouter, sender, id, 100, keccak256("outer"));
+        _sendOn(hostileRouter, sender, id, 10_000, keccak256("outer"));
         assertEq(hostile.balanceOf(sister), 0);
     }
 
@@ -455,7 +480,7 @@ contract SplitsRouterTest is Test {
     // ------------------------------------------------------------------ fuzz: conservation
 
     function testFuzz_SharesConserveAmount(uint256 amount, uint16 a, uint16 b) public {
-        amount = bound(amount, 1, 50_000 * USDC);
+        amount = bound(amount, 1, 5_000_000) * 10_000; // whole cents up to $50,000
         a = uint16(bound(a, 1, 9998));
         b = uint16(bound(b, 1, 9999 - a));
         uint16 c = uint16(10_000 - a - b);
@@ -473,15 +498,18 @@ contract SplitsRouterTest is Test {
         assertEq(received, amount);
         assertEq(before - usdc.balanceOf(sender), amount);
         assertEq(usdc.balanceOf(address(router)), 0);
-        // No share leg is paid more than its exact pro-rata amount rounded up by the dust.
+        // Shares before the last are rounded down, never up, and every payout is whole cents.
         assertLe(usdc.balanceOf(landlord), amount * a / 10_000);
         assertLe(usdc.balanceOf(school), amount * b / 10_000);
+        assertEq(usdc.balanceOf(landlord) % 10_000, 0);
+        assertEq(usdc.balanceOf(school) % 10_000, 0);
+        assertEq(usdc.balanceOf(sister) % 10_000, 0);
     }
 
     function testFuzz_FixedPlusShareConserveAmount(uint96 rent, uint96 fees, uint256 extra, uint16 a) public {
-        rent = uint96(bound(rent, 1, 10_000 * USDC));
-        fees = uint96(bound(fees, 1, 10_000 * USDC));
-        extra = bound(extra, 0, 10_000 * USDC);
+        rent = uint96(bound(rent, 1, 1_000_000) * 10_000);
+        fees = uint96(bound(fees, 1, 1_000_000) * 10_000);
+        extra = bound(extra, 0, 1_000_000) * 10_000;
         a = uint16(bound(a, 1, 9999));
 
         SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](4);
@@ -498,6 +526,8 @@ contract SplitsRouterTest is Test {
         assertEq(usdc.balanceOf(landlord), rent);
         assertEq(usdc.balanceOf(school), fees);
         assertEq(usdc.balanceOf(stranger) + usdc.balanceOf(sister), extra);
+        assertEq(usdc.balanceOf(stranger) % 10_000, 0);
+        assertEq(usdc.balanceOf(sister) % 10_000, 0);
         assertEq(preview[0] + preview[1] + preview[2] + preview[3], amount);
         assertEq(usdc.balanceOf(address(router)), 0);
     }

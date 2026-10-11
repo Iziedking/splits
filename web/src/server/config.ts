@@ -31,6 +31,8 @@ const schema = z
     SPLITS_ROUTER_ADDRESS: address.optional(),
     USDC_ADDRESS: address.default(getAddress("0x3600000000000000000000000000000000000000")),
 
+    // "screen" shows the sign-in code in the app instead of emailing it. Testnet only.
+    EMAIL_PROVIDER: z.enum(["resend", "screen"]).default("resend"),
     RESEND_API_KEY: z.string().optional(),
     EMAIL_FROM: z.string().default("Splits <login@splits.local>"),
 
@@ -58,18 +60,31 @@ const schema = z
   })
   .superRefine((env, ctx) => {
     if (env.SPLITS_MODE !== "live") return;
+    const testnet = env.CIRCLE_BLOCKCHAIN === "ARC-TESTNET";
     const required = [
-      "DATABASE_URL",
       "CIRCLE_API_KEY",
       "CIRCLE_ENTITY_SECRET",
       "CIRCLE_WALLET_SET_ID",
       "CIRCLE_TREASURY_WALLET_ID",
       "SPLITS_ROUTER_ADDRESS",
-      "RESEND_API_KEY",
       "CRON_SECRET",
     ] as const;
     for (const key of required) {
       if (!env[key]) ctx.addIssue({ code: "custom", path: [key], message: "required when SPLITS_MODE=live" });
+    }
+    // Testnet runs may use a local PGlite database and on-screen codes. Mainnet never may.
+    if (!env.DATABASE_URL && !(testnet && env.PGLITE_DIR)) {
+      ctx.addIssue({ code: "custom", path: ["DATABASE_URL"], message: "required when SPLITS_MODE=live (PGLITE_DIR is allowed on testnet only)" });
+    }
+    if (env.EMAIL_PROVIDER === "screen" && !testnet) {
+      ctx.addIssue({ code: "custom", path: ["EMAIL_PROVIDER"], message: "screen codes are allowed on testnet only" });
+    }
+    if (env.EMAIL_PROVIDER === "resend" && !env.RESEND_API_KEY) {
+      ctx.addIssue({ code: "custom", path: ["RESEND_API_KEY"], message: "required when EMAIL_PROVIDER=resend" });
+    }
+    const expectedChain = testnet ? 5042002 : 5042;
+    if (env.ARC_CHAIN_ID !== expectedChain) {
+      ctx.addIssue({ code: "custom", path: ["ARC_CHAIN_ID"], message: `must be ${expectedChain} for ${env.CIRCLE_BLOCKCHAIN}` });
     }
   });
 

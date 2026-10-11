@@ -4,12 +4,12 @@ import type { Ctx } from "../context";
 import { badRequest } from "../errors";
 import { ensureMainWallet, ensureUser } from "./users";
 
-/** Sends a 6-digit code. In preview mode the code is returned so the screen can show it. */
+/** Sends a 6-digit code. In preview, or on testnet with EMAIL_PROVIDER=screen, the code is returned for the screen. */
 export async function startSignIn(ctx: Ctx, rawEmail: string): Promise<{ previewCode?: string }> {
   const email = normaliseEmail(rawEmail);
   const code = await issueLoginCode(ctx.db, email, ctx.now());
   await ctx.email.sendLoginCode(email, code);
-  return ctx.mode === "preview" ? { previewCode: code } : {};
+  return ctx.showCodes ? { previewCode: code } : {};
 }
 
 /** A correct code signs the person in and makes sure their wallet exists. Email is the wallet. */

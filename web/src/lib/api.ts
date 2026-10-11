@@ -6,7 +6,7 @@ export type WalletView = ReturnType<typeof walletView>;
 export type SplitView = ReturnType<typeof splitView>;
 export type TransferView = ReturnType<typeof transferView>;
 export type ActionView = ReturnType<typeof actionView>;
-export type Me = { mode: "preview" | "live"; user: UserView; wallets: WalletView[] };
+export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; user: UserView; wallets: WalletView[] };
 
 export class ApiError extends Error {
   constructor(
