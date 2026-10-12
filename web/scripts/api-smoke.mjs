@@ -35,6 +35,11 @@ async function call(method, path, body, { origin = ORIGIN, withCookie = true } =
   return { status: res.status, data };
 }
 
+async function callForm(path, form) {
+  const res = await fetch(`${ORIGIN}${path}`, { method: "POST", headers: { origin: ORIGIN, cookie }, body: form });
+  return { status: res.status, data: await res.json().catch(() => null) };
+}
+
 async function waitForServer() {
   for (let i = 0; i < 60; i++) {
     try {
@@ -69,6 +74,22 @@ try {
   assert.equal((await call("POST", "/api/security/pin", { pin: "123456" })).data.error.code, "PIN_TOO_SIMPLE");
   assert.equal((await call("POST", "/api/security/pin", { pin: "482913" })).status, 200);
   step("PIN set, trivial PINs refused");
+
+  assert.equal((await call("GET", "/api/me")).data.agent, true);
+  const agentText = new FormData();
+  agentText.set("text", "bola@example.com, 5, prize\n0x00000000000000000000000000000000000000f1, 3");
+  const agentDraft = await callForm("/api/agent/draft", agentText);
+  assert.equal(agentDraft.status, 200, JSON.stringify(agentDraft.data));
+  assert.equal(agentDraft.data.mode, "each");
+  assert.equal(agentDraft.data.text, "bola@example.com, 5.00, prize\n0x00000000000000000000000000000000000000f1, 3.00");
+  const agentBig = new FormData();
+  const agentBytes = new Uint8Array(3_750_001);
+  agentBytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  agentBig.append("images", new Blob([agentBytes], { type: "image/png" }), "huge.png");
+  const agentRefused = await callForm("/api/agent/draft", agentBig);
+  assert.equal(agentRefused.status, 400);
+  assert.equal(agentRefused.data.error.code, "IMAGE_TOO_BIG");
+  step("agentic mode drafts a list and refuses an oversize screenshot");
 
   const draft = await call("POST", "/api/splits", {
     name: "Family in Lagos",

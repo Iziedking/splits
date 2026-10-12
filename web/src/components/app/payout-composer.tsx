@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass, Notice } from "@/components/ui/field";
-import { api, errorMessage, type PayoutCheck } from "@/lib/api";
+import { api, errorMessage, type ComposerFill, type PayoutCheck } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const bytes = (s: string) => new TextEncoder().encode(s.trim()).length;
@@ -17,12 +17,15 @@ export function PayoutComposer({
   initialLabel,
   onChecked,
   checkPath = "/api/payouts/check",
+  fill = null,
 }: {
   mode: "one" | "many";
   initialLabel: string;
   onChecked: (check: PayoutCheck | null) => void;
   /** Visitors check through /api/visitor/check; accounts use the default. */
   checkPath?: string;
+  /** A list drafted by agentic mode; applied once per id, with Undo. */
+  fill?: (ComposerFill & { id: number }) | null;
 }) {
   const [who, setWho] = React.useState("");
   const [amount, setAmount] = React.useState("");
@@ -34,6 +37,36 @@ export function PayoutComposer({
   const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => setLabel(initialLabel), [initialLabel]);
+
+  type Snapshot = { text: string; split: "equal" | "each"; pot: string; label: string };
+  const [filled, setFilled] = React.useState<{ notes: string[]; before: Snapshot } | null>(null);
+  const current = React.useRef<Snapshot>({ text, split, pot, label });
+  current.current = { text, split, pot, label };
+
+  React.useEffect(() => {
+    if (!fill || mode !== "many") return;
+    setFilled({ notes: fill.notes, before: current.current });
+    setText(fill.text);
+    setSplit(fill.mode);
+    setPot(fill.pot);
+    if (fill.label) setLabel(fill.label);
+    setError(null);
+    onChecked(null);
+    // Applied once per drafted list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fill?.id]);
+
+  function undo() {
+    if (!filled) return;
+    const b = filled.before;
+    setText(b.text);
+    setSplit(b.split);
+    setPot(b.pot);
+    setLabel(b.label);
+    setFilled(null);
+    setError(null);
+    onChecked(null);
+  }
 
   function edit<T>(set: (v: T) => void) {
     return (v: T) => {
@@ -70,6 +103,25 @@ export function PayoutComposer({
 
   return (
     <form onSubmit={check} className="space-y-5">
+      {/* Mounted before any fill, so screen readers announce the result. */}
+      <p className="sr-only" aria-live="polite">
+        {filled ? "Filled from your description. Check every line before you continue." : ""}
+      </p>
+      {filled && (
+        <Notice>
+          <span className="block font-semibold text-foreground">Filled from your description. Check every line before you continue.</span>
+          {filled.notes.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {filled.notes.map((note, i) => (
+                <li key={i}>{note}</li>
+              ))}
+            </ul>
+          )}
+          <button type="button" onClick={undo} className="mt-2 min-h-11 font-semibold text-primary underline underline-offset-4">
+            Undo
+          </button>
+        </Notice>
+      )}
       {mode === "one" ? (
         <>
           <Field

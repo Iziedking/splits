@@ -52,6 +52,8 @@ export function parsePayoutLines(text: string): ParsedLine[] {
     if (HEX_ADDRESS.test(who)) {
       if (checksumOk(who)) parsed.target = { type: "address", address: getAddress(who) };
       else parsed.problem = "This address has a typo. Copy it again from the source.";
+    } else if (/^@[^@\s]+$/.test(who)) {
+      parsed.problem = "Usernames are coming soon. Use an email or wallet address.";
     } else if (who.includes("@")) {
       if (isValidEmail(who.toLowerCase())) parsed.target = { type: "email", email: who.toLowerCase() };
       else parsed.problem = "That email address isn't valid";

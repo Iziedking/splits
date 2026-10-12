@@ -56,6 +56,11 @@ describe("parsePayoutLines", () => {
     const [e1, e2] = parsePayoutLines("Ada@X.com\nada@x.com");
     expect(recipientKey(e1!.target!)).toBe(recipientKey(e2!.target!));
   });
+
+  it("says usernames are coming instead of calling them bad emails", () => {
+    const [line] = parsePayoutLines("@tunde, 5");
+    expect(line!.problem).toBe("Usernames are coming soon. Use an email or wallet address.");
+  });
 });
 
 describe("equalPot", () => {

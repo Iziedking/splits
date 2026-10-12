@@ -297,3 +297,20 @@ and the dark theme (tokens exist, not switched on).
 - A dark crypto-dashboard look with charts and wallet addresses up front. It tells the wrong story
   for people who just want rent paid.
 - Stock portraits as default avatars. Explained above.
+
+## Agentic mode ("Describe it, I split it")
+
+- Intent: people who pay many at once start from a mess (chat, spreadsheet screenshot, note). The
+  model drafts; the person decides. Nothing about paying changes.
+- Switch "Try agentic mode" above the One/Many tabs, only for signed-in people when the server has a
+  model. On: text box, "Add screenshots" (up to 3, shrunk in the browser to 1,568 px), "Fill in the
+  list" / "Reading…". Off again after a fill.
+- Result: Many people composer filled; notice "Filled from your description. Check every line
+  before you continue." with the model's notes, and Undo. Then the usual Check list, review, fee,
+  limit, PIN.
+- Trust boundary: the model's text is a draft, never a verified fact; every address is checked by
+  the server like a typed list.
+- States: empty (button disabled), working (busy button, live region), caps reached, unavailable
+  (input kept), nothing found, too many lines (note), images refused (which file and why).
+- Rejected: a chat panel (more to read, no clearer decision); filling the checked review directly
+  (hides what the model read, which is the safety net for screenshot addresses).

@@ -47,7 +47,7 @@ Field.displayName = "Field";
 
 export function Notice({ tone = "info", children, className }: { tone?: "info" | "error" | "success"; children: React.ReactNode; className?: string }) {
   return (
-    <p
+    <div
       role={tone === "error" ? "alert" : "status"}
       className={cn(
         "rounded-[14px] px-4 py-3 text-sm",
@@ -58,6 +58,6 @@ export function Notice({ tone = "info", children, className }: { tone?: "info" |
       )}
     >
       {children}
-    </p>
+    </div>
   );
 }

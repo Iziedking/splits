@@ -86,6 +86,13 @@ const schema = z
     // (for example on serverless, where the cron route does the job instead).
     SWEEP_INTERVAL_MS: z.coerce.number().int().min(0).default(5000),
     CRON_SECRET: z.string().min(24).optional(),
+
+    // Agentic mode ("Describe it, I split it"). Live servers need a Bedrock model or inference
+    // profile ID; unset turns it off. Preview mode uses a built-in stand-in.
+    AGENT_MODEL_ID: z.string().min(1).optional(),
+    AWS_REGION: z.string().min(1).default("us-east-1"),
+    AGENT_DRAFTS_PER_DAY: z.coerce.number().int().min(1).default(20),
+    AGENT_DRAFTS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(300),
   })
   .superRefine((env, ctx) => {
     if (env.SPLITS_MODE !== "live") return;

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
+import { AgentComposer } from "@/components/app/agent-composer";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
@@ -14,7 +15,7 @@ import { Ribbon } from "@/components/app/ribbon";
 import { VisitorLimit } from "@/components/app/visitor-limit";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
-import { api, ApiError, errorMessage, type ActionView, type PayoutCheck, type SplitView, type TransferView } from "@/lib/api";
+import { api, ApiError, errorMessage, type ActionView, type ComposerFill, type PayoutCheck, type SplitView, type TransferView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,11 @@ function Pay() {
   const [limited, setLimited] = React.useState(false);
   const [pending, setPending] = React.useState<{ action: ActionView; transfer: TransferView } | null>(null);
   const [splits, setSplits] = React.useState<SplitView[] | null>(null);
+  /** Agentic mode: the switch, and the list it drafted (applied once per id). */
+  const [agentOn, setAgentOn] = React.useState(false);
+  /** A draft is being read; the switch waits so the result can't land on a composer in use. */
+  const [drafting, setDrafting] = React.useState(false);
+  const [fill, setFill] = React.useState<(ComposerFill & { id: number }) | null>(null);
 
   // Starting points arrive as ?mode=many&template=giveaway or ?fund=card. Read after mount so the
   // page needs no suspense boundary.
@@ -156,57 +162,98 @@ function Pay() {
           Anyone, by email or Arc address. Everyone is paid in one transaction, or nobody is.
         </p>
 
-        <div role="tablist" aria-label="Who gets paid" className="mt-6 grid grid-cols-3 rounded-full bg-white/60 p-1 ring-1 ring-white">
-          {TABS.map((tab) => (
-            <button
-              key={tab.mode}
-              type="button"
-              role="tab"
-              aria-selected={mode === tab.mode}
-              onClick={() => {
-                setMode(tab.mode);
-                setCheck(null);
-                setError(null);
-              }}
-              className={cn(
-                "relative z-10 min-h-11 rounded-full px-1 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                mode === tab.mode ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {mode === tab.mode && (
-                <motion.span
-                  layoutId="pay-mode"
-                  className="absolute inset-0 -z-10 rounded-full bg-primary"
-                  transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
-                />
-              )}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground" aria-disabled="true">
-          <Landmark className="h-4 w-4" aria-hidden="true" />
-          Bank or mobile money
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Coming soon</span>
-        </p>
+        {me.agent && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={agentOn}
+            disabled={drafting}
+            onClick={() => setAgentOn((on) => !on)}
+            className="mt-6 flex min-h-11 w-full items-center justify-between gap-3 rounded-full bg-white/60 px-4 text-sm font-semibold ring-1 ring-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+          >
+            Try agentic mode
+            <span className={cn("relative h-6 w-10 rounded-full transition-colors motion-reduce:transition-none", agentOn ? "bg-primary" : "bg-muted")} aria-hidden="true">
+              <span
+                className={cn(
+                  "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none",
+                  agentOn ? "translate-x-[18px]" : "translate-x-0.5",
+                )}
+              />
+            </span>
+          </button>
+        )}
+
+        {!agentOn && (
+          <>
+            <div role="tablist" aria-label="Who gets paid" className="mt-6 grid grid-cols-3 rounded-full bg-white/60 p-1 ring-1 ring-white">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.mode}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === tab.mode}
+                  onClick={() => {
+                    setMode(tab.mode);
+                    setFill(null);
+                    setCheck(null);
+                    setError(null);
+                  }}
+                  className={cn(
+                    "relative z-10 min-h-11 rounded-full px-1 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    mode === tab.mode ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {mode === tab.mode && (
+                    <motion.span
+                      layoutId="pay-mode"
+                      className="absolute inset-0 -z-10 rounded-full bg-primary"
+                      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground" aria-disabled="true">
+              <Landmark className="h-4 w-4" aria-hidden="true" />
+              Bank or mobile money
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Coming soon</span>
+            </p>
+          </>
+        )}
 
         <div className="surface mt-6 p-5">
-          {mode === "saved" ? (
-            <SavedSplits splits={splits} />
-          ) : (
-            <PayoutComposer key={mode} mode={mode} initialLabel={label} onChecked={onChecked} />
+          {agentOn && (
+            <AgentComposer
+              onBusy={setDrafting}
+              onFilled={(f) => {
+                setFill({ ...f, id: Date.now() });
+                setMode("many");
+                setCheck(null);
+                setError(null);
+                setAgentOn(false);
+              }}
+            />
           )}
+          {/* Stays mounted while agentic mode is on, so what was typed (and Undo's snapshot) survives. */}
+          <div hidden={agentOn}>
+            {mode === "saved" ? (
+              <SavedSplits splits={splits} />
+            ) : (
+              <PayoutComposer key={mode} mode={mode} initialLabel={label} onChecked={onChecked} fill={mode === "many" ? fill : null} />
+            )}
+          </div>
         </div>
       </div>
 
       <div className="space-y-4" aria-live="polite">
-        {mode !== "saved" && !check && (
+        {!agentOn && mode !== "saved" && !check && (
           <div className="rounded-[20px] border border-dashed border-border p-6 text-muted-foreground">
             <Ribbon height={10} parts={[1, 1, 1, 1, 1].map((w, i) => ({ label: `Person ${i + 1}`, weight: w }))} />
             <p className="mt-4">Check {mode === "one" ? "the payment" : "your list"} to see exactly what each person gets before anything moves.</p>
           </div>
         )}
-        {check && (
+        {!agentOn && check && (
           <>
             <ReviewTable check={check} />
             {check.ready ? (

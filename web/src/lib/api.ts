@@ -25,7 +25,8 @@ import type { ReceivedItem } from "@/server/services/activity";
 export type { ReceivedItem };
 export type { CheckLine, PayoutCheck } from "@/server/services/payouts";
 export type ActivityView = { sent: TransferView[]; received: ReceivedItem[]; receivedError: string | null };
-export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; user: UserView; wallets: WalletView[] };
+export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; agent: boolean; user: UserView; wallets: WalletView[] };
+export type { ComposerFill } from "@/server/agent/draft";
 
 export class ApiError extends Error {
   constructor(
@@ -43,8 +44,8 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   try {
     res = await fetch(path, {
       method: init.method ?? (init.body === undefined ? "GET" : "POST"),
-      headers: init.body === undefined ? undefined : { "content-type": "application/json" },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      headers: init.body === undefined || init.body instanceof FormData ? undefined : { "content-type": "application/json" },
+      body: init.body === undefined ? undefined : init.body instanceof FormData ? init.body : JSON.stringify(init.body),
       credentials: "same-origin",
       cache: "no-store",
     });

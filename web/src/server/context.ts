@@ -1,4 +1,6 @@
 import type { Address } from "viem";
+import { bedrockModel } from "./agent/bedrock";
+import { previewModel, type DraftModel } from "./agent/model";
 import { createResendEmail, PreviewEmail, type EmailSender } from "./auth/email";
 import type { RelyingParty } from "./auth/passkeys";
 import type { ChainReader } from "./chain/types";
@@ -25,6 +27,8 @@ export type Limits = {
   visitorDaily: bigint;
   visitorChecksPerHour: number;
   visitorChecksGlobalPerHour: number;
+  agentDraftsPerDay: number;
+  agentDraftsGlobalPerHour: number;
 };
 
 /** Everything a service needs. Built once per process; tests build their own. */
@@ -53,6 +57,8 @@ export type Ctx = {
   trustProxy: boolean;
   /** Fixed per payment at quote; changing these never touches a payment already quoted. */
   fees: { rule: FeeRule; address: Address };
+  /** Agentic mode's model; null turns it off. */
+  agent: DraftModel | null;
   /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
   showCodes: boolean;
   now: () => Date;
@@ -77,6 +83,8 @@ export function limitsFromConfig(config: Config): Limits {
     visitorDaily: parseUsdc(config.VISITOR_SEND_LIMIT_DAILY_USDC),
     visitorChecksPerHour: config.VISITOR_CHECKS_PER_HOUR,
     visitorChecksGlobalPerHour: config.VISITOR_CHECKS_GLOBAL_PER_HOUR,
+    agentDraftsPerDay: config.AGENT_DRAFTS_PER_DAY,
+    agentDraftsGlobalPerHour: config.AGENT_DRAFTS_GLOBAL_PER_HOUR,
   };
 }
 
@@ -118,6 +126,7 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     appUrl: config.APP_URL,
     ...chainSettings(config, treasuryAddress),
     showCodes: true,
+    agent: previewModel(),
     now: () => new Date(),
     webhookKey: async () => {
       throw new Error("Webhooks are not used in preview mode");
@@ -167,6 +176,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
     appUrl: config.APP_URL,
     ...chainSettings(config, treasuryAddress),
     showCodes: screenCodes,
+    agent: config.AGENT_MODEL_ID ? bedrockModel({ modelId: config.AGENT_MODEL_ID, region: config.AWS_REGION }) : null,
     now: () => new Date(),
     webhookKey: (keyId) => fetchCircleWebhookKey(config.CIRCLE_API_KEY!, keyId),
   };

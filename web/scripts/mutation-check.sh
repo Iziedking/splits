@@ -132,5 +132,8 @@ mutate_in "visitor-key-unchecked" src/server/services/payouts.ts \
 mutate_in "no-receipt-check" "$T" \
   '  if (receipt.status !== "success") return false;' '  return receipt.status === "success";' \
   src/server/services/visitorPayments.test.ts "fails a payment whose legs differ"
+mutate_in "no-draft-cap" src/server/services/agentDrafts.ts   '  if (!perAccount) {' '  if (false) {'   src/server/services/agentDrafts.test.ts "stops at the daily cap"
+mutate_in "image-type-unchecked" src/server/agent/images.ts   '    if (!format) {' '    if (false) {'   src/server/agent/images.test.ts "refuses a file that isn't an image"
+mutate_in "schema-unchecked" src/server/services/agentDrafts.ts   '    const parsed = agentDraftSchema.safeParse(result.output);' '    const parsed = { success: true as const, data: result.output as AgentDraft };'   src/server/services/agentDrafts.test.ts "tries once more when the answer has the wrong shape"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

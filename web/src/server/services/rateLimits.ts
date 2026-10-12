@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, gt, sql } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { rateHits } from "../db/schema";
 
@@ -12,4 +12,14 @@ export async function hitRateLimit(ctx: Ctx, key: string, limit: number, windowM
     .onConflictDoUpdate({ target: [rateHits.key, rateHits.windowStart], set: { count: sql`${rateHits.count} + 1` } })
     .returning({ count: rateHits.count });
   return (row?.count ?? Number.POSITIVE_INFINITY) <= limit;
+}
+
+/** Takes back one hit for `key` in the current window, for an attempt that ended up costing nothing. */
+export async function refundRateHit(ctx: Ctx, key: string, windowMs: number): Promise<void> {
+  const now = ctx.now().getTime();
+  const windowStart = new Date(now - (now % windowMs));
+  await ctx.db
+    .update(rateHits)
+    .set({ count: sql`${rateHits.count} - 1` })
+    .where(and(eq(rateHits.key, key), eq(rateHits.windowStart, windowStart), gt(rateHits.count, 0)));
 }
