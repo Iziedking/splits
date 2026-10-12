@@ -68,7 +68,16 @@ export default function SignIn() {
   return (
     <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col px-6 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
       <Backdrop />
-      <p className="text-xl font-extrabold tracking-tight">Splits</p>
+      <header className="flex items-center justify-between">
+        <p className="text-xl font-extrabold tracking-tight">Splits</p>
+        {/* Deliberately quiet: the welcome screen's job is getting started. */}
+        <Link
+          href="/about"
+          className="-mr-2 inline-flex min-h-11 items-center rounded-full px-2 text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          About
+        </Link>
+      </header>
 
       {step === "welcome" && (
         <section className="enter mt-auto">

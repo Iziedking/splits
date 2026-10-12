@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { Backdrop } from "@/components/app/backdrop";
 import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
@@ -73,7 +74,8 @@ export default function VisitorPay() {
       <VisitorHeader config={config} />
       <main className="enter mx-auto max-w-md space-y-6 px-5 pt-4 pb-16">
         <div>
-          <h1 className="text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
+          <BackLink />
+          <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
           <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
         </div>
 

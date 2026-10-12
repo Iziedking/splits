@@ -132,6 +132,13 @@ function Profile() {
         <Passkey hasPasskey={me.user.hasPasskey} onAdded={refresh} />
       </div>
 
+      <Link
+        href="/about"
+        className="mx-auto flex min-h-11 w-fit items-center rounded-full px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:col-span-2"
+      >
+        About Splits
+      </Link>
+
       {main && <AddMoney address={main.address} network={me.network} open={adding} onClose={() => setAdding(false)} />}
     </div>
   );
