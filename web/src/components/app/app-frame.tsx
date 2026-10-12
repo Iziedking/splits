@@ -76,8 +76,9 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
       }
       return !open;
     });
-  // Home sits beside the rail like the frame; other screens are a centred, readable column.
-  const width = wide ? "lg:mx-0 lg:max-w-7xl lg:px-12" : "lg:max-w-xl lg:px-10";
+  // Home uses the whole width beside the rail like the frame; other screens are a centred,
+  // readable column. The header always spans the page, its badge and bell at the far right.
+  const width = wide ? "lg:mx-0 lg:max-w-[110rem] lg:px-12" : "lg:max-w-xl lg:px-10";
 
   const refresh = React.useCallback(async () => {
     try {
@@ -99,7 +100,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
     <div className={cn("min-h-screen transition-[padding,color] duration-200", railOpen ? "lg:pl-56" : "lg:pl-20", night && "text-white")}>
       <Backdrop tone={tone} />
       {me && pathname !== "/setup" && <SideRail open={railOpen} onToggle={toggleRail} />}
-      <header className={cn("mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:pt-8", width)}>
+      <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:max-w-none lg:px-12 lg:pt-8">
         <Link
           href="/home"
           className={cn(

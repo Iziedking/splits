@@ -52,13 +52,13 @@ export async function listNotifications(ctx: Ctx, userId: string, limit = 50) {
       createdAt: notifications.createdAt,
     })
     .from(notifications)
-    .where(eq(notifications.userId, userId))
+    .where(and(eq(notifications.userId, userId), isNull(notifications.clearedAt)))
     .orderBy(desc(notifications.createdAt))
     .limit(limit);
   const [unread] = await ctx.db
     .select({ n: count() })
     .from(notifications)
-    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt), isNull(notifications.clearedAt)));
   return {
     items: items.map((i) => ({ ...i, read: i.read !== null, createdAt: i.createdAt.toISOString() })),
     unread: Number(unread?.n ?? 0),
@@ -67,6 +67,15 @@ export async function listNotifications(ctx: Ctx, userId: string, limit = 50) {
 
 export async function markRead(ctx: Ctx, userId: string): Promise<void> {
   await ctx.db.update(notifications).set({ readAt: ctx.now() }).where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+}
+
+/** "Clear all": empties the person's feed. Alert emails already due still go out. */
+export async function clearNotifications(ctx: Ctx, userId: string): Promise<void> {
+  await markRead(ctx, userId);
+  await ctx.db
+    .update(notifications)
+    .set({ clearedAt: ctx.now() })
+    .where(and(eq(notifications.userId, userId), isNull(notifications.clearedAt)));
 }
 
 /**

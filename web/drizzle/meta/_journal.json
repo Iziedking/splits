@@ -50,6 +50,13 @@
       "when": 1791800187014,
       "tag": "0006_strong_warhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791816455909,
+      "tag": "0007_elite_doctor_doom",
+      "breakpoints": true
     }
   ]
 }

@@ -145,5 +145,8 @@ mutate_in "deposit-waiting-holds-slots" src/server/services/deposits.ts   '    .
 mutate_in "deposit-no-backoff" src/server/services/deposits.ts   '      eq(depositMoves.attempts, 0),' '      sql`true`,'   src/server/services/deposits.test.ts "backs off a step that keeps failing"
 mutate_in "deposit-attesting-forever" src/server/services/deposits.ts   '      if (receipt !== "success") {' '      if (false) {'   src/server/services/deposits.test.ts "burns again when the first burn never stuck"
 mutate_in "payment-notified-on-every-advance" src/server/services/rules.ts   '  if (t.status !== before) await notifyPaymentOutcome(ctx, t);' '  await notifyPaymentOutcome(ctx, t);'   src/server/services/flow.test.ts "tells nobody again when an old payment is opened later"
+mutate_in "cleared-notifications-reappear" src/server/services/notifications.ts   '    .where(and(eq(notifications.userId, userId), isNull(notifications.clearedAt)))
+    .orderBy(desc(notifications.createdAt))' '    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))'   src/server/services/notifications.test.ts "clears the feed for good"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

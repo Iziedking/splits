@@ -44,7 +44,7 @@ export function AddressQr({ address, size = 184 }: { address: string; size?: num
 type Tab = "evm" | "solana";
 
 /**
- * "One address, any chain". The person's Splits address is the same on Arc and on every EVM chain
+ * One address for Arc and every chain Splits accepts (named, never "any chain"). The person's Splits address is the same on Arc and on every EVM chain
  * Splits accepts, so one QR and one copy button cover them all; money sent from another chain is
  * moved to Arc by itself and the status line follows it. Rises from the bottom on a phone.
  */
@@ -138,7 +138,9 @@ export function AddMoney({
             <h2 id="add-money-title" className="text-2xl font-bold">
               {title}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">One address, any chain.</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              One address for {[arcName, ...chains.map((c) => c.name)].join(", ").replace(/, ([^,]*)$/, " and $1")}.
+            </p>
           </div>
           <button
             type="button"
@@ -207,7 +209,10 @@ export function AddMoney({
             </ul>
             {about && <p className="mt-2 text-sm text-muted-foreground">{notes[about]}</p>}
 
-            <Notice className="mt-4">Send USDC only. Other tokens sent here can&apos;t be recovered.</Notice>
+            <Notice className="mt-4">
+              Send USDC only, and only from the networks above. Other tokens, or USDC from any other network, may not
+              reach your balance.
+            </Notice>
 
             <DepositStatus view={view} settingUp={settingUp} />
 

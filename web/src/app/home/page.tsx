@@ -78,7 +78,7 @@ function Home() {
   return (
     <div className="enter pt-4">
       <h1 className="text-[2rem] leading-tight font-extrabold">Hi, {greetingName(me.user.email)}</h1>
-      <div className="mt-7 flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-12">
+      <div className="mt-7 flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(22rem,1fr)] lg:items-start lg:gap-12">
         <div className="contents lg:flex lg:flex-col lg:gap-7">
           <section aria-label="Your balance" className="surface order-1 p-5 lg:order-none">
             <p className="text-sm text-muted-foreground">Balance</p>

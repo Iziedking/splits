@@ -222,17 +222,18 @@ try {
 
   const before = (await call("GET", "/api/deposits")).data;
   assert.deepEqual(before.chains.map((c) => c.key), ["base", "arb", "op"]);
-  assert.equal(before.ready, false);
+  // The sweeper may already have opened them in the background; opening again is harmless.
   const opened = (await call("POST", "/api/deposits")).data;
   assert.equal(opened.ready, true);
   assert.equal(opened.address, before.address);
-  assert.equal((await call("POST", "/api/demo/deposit", { chain: "base", amount: "5" })).status, 200);
+  const demo = await call("POST", "/api/demo/deposit", { chain: "base", amount: "5" });
+  assert.equal(demo.status, 200);
   let latest = null;
   for (let i = 0; i < 40 && latest?.status !== "ready"; i++) {
     await new Promise((r) => setTimeout(r, 500));
     latest = (await call("GET", "/api/deposits")).data.latest;
   }
-  assert.equal(latest?.status, "ready", JSON.stringify(latest));
+  assert.equal(latest?.status, "ready", JSON.stringify({ latest, deposits: (await call("GET", "/api/deposits")).data }));
   assert.equal(latest.minted, "4.99");
   const feed = (await call("GET", "/api/notifications")).data;
   assert.ok(feed.items.some((n) => n.title === "Ready: $4.99 is in your balance"), JSON.stringify(feed.items.map((n) => n.title)));

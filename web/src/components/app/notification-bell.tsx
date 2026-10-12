@@ -29,6 +29,7 @@ export function NotificationBell() {
   const [open, setOpen] = React.useState(false);
   const [toast, setToast] = React.useState<Item | null>(null);
   const seen = React.useRef<Set<string> | null>(null);
+  const [clearing, setClearing] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -70,6 +71,16 @@ export function NotificationBell() {
     }
   }, [open, view, load]);
 
+  async function clearAll() {
+    setClearing(true);
+    try {
+      await api("/api/notifications/clear", { method: "POST" });
+      await load();
+    } finally {
+      setClearing(false);
+    }
+  }
+
   const unread = view?.unread ?? 0;
   const groups: [string, Item[]][] = [];
   for (const item of view?.items ?? []) {
@@ -102,10 +113,21 @@ export function NotificationBell() {
         className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px]"
       >
         <div className="max-h-[80dvh] overflow-y-auto p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-2">
             <h2 id="notifications-title" className="text-2xl font-bold">
               Notifications
             </h2>
+            <span className="ml-auto" />
+            {groups.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void clearAll()}
+                disabled={clearing}
+                className="-my-1 inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+              >
+                Clear all
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setOpen(false)}
@@ -116,7 +138,7 @@ export function NotificationBell() {
             </button>
           </div>
           {groups.length === 0 ? (
-            <p className="mt-6 text-muted-foreground">Money you send, receive and deposit shows up here as it happens.</p>
+            <p className="mt-6 text-muted-foreground">You&apos;re all caught up. Money you send, receive and deposit shows up here as it happens.</p>
           ) : (
             groups.map(([label, items]) => (
               <section key={label} aria-label={label} className="mt-5">

@@ -10,6 +10,7 @@ import { depositMoves, deposits, notifications } from "../db/schema";
 import { testCtx } from "../testing";
 import { ensureDepositWallet } from "./depositWallets";
 import { activityFor } from "./activity";
+import { sweep } from "./sweeper";
 import { advanceDeposits, latestDepositFor, pollDepositWallets, recordInbound } from "./deposits";
 import { ensureMainWallet, ensureUser } from "./users";
 
@@ -52,12 +53,35 @@ describe("moving a deposit from another chain to Arc", () => {
     expect(await latestDepositFor(ctx, user.id)).toMatchObject({ chain: "base", chainName: "Base", amount: "5.00", status: "ready", minted: "4.99" });
   });
 
+  it("moves a deposit sent to someone who never opened Receive, on every chain that is on", async () => {
+    const { ctx, clock, arc } = await testCtx();
+    const user = await ensureUser(ctx, "bola@example.com", "active");
+    const main = await ensureMainWallet(ctx, user);
+    // Bola copied the address from Home and sent from Arbitrum: no deposit wallet was ever opened.
+    arc.simulateDeposit("arb", main.address as Address, 5_000_000n);
+    for (let i = 0; i < 12; i++) {
+      await sweep(ctx);
+      clock.advance(6_000);
+    }
+    expect(await ctx.chain.usdcBalance(main.address as Address)).toBe(4_999_500n);
+  });
+
+  it("records a reported deposit at once when the sweeper opened the address first", async () => {
+    const { ctx, arc } = await testCtx();
+    const user = await ensureUser(ctx, "cara@example.com", "active");
+    await ensureMainWallet(ctx, user);
+    await sweep(ctx);
+    const wallet = await ensureDepositWallet(ctx, user, SOURCE_CHAINS.base);
+    const txHash = arc.simulateDeposit("base", wallet.address as Address, 5_000_000n);
+    expect(await recordInbound(ctx, { walletId: wallet.providerWalletId, txHash })).toBe("recorded");
+  });
+
   it("names a moved deposit in the person's activity instead of the zero address", async () => {
     const { ctx, arc, clock, user, address } = await setup();
     arc.simulateDeposit("base", address, 5_000_000n);
     await drive(ctx, clock);
     const { received } = await activityFor(ctx, user);
-    expect(received.map((r) => [r.amount, r.fromLabel])).toEqual([["4.9995", "Deposit from Base"]]);
+    expect(received.map((r) => [r.amount, r.source, r.fromLabel])).toEqual([["4.9995", "deposit", "Deposit from Base"]]);
   });
 
   it("ignores a report that the chain doesn't back up, and records a real one once (Review Focus 1)", async () => {

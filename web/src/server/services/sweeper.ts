@@ -3,6 +3,7 @@ import type { Ctx } from "../context";
 import { actions, splits } from "../db/schema";
 import { pruneStale } from "./housekeeping";
 import { advanceDeposits, pollDepositWallets } from "./deposits";
+import { openMissingDepositWallets } from "./depositWallets";
 import { sendDueAlerts } from "./notifications";
 import { sendDueNotices } from "./notices";
 import { advanceWithRules } from "./rules";
@@ -97,6 +98,7 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
   // Deposits from other chains last: they read other chains' RPCs, which can be slow, and must not
   // hold up payments, notices or alerts. Find new ones (backup for webhooks), then move them to Arc.
   try {
+    await openMissingDepositWallets(ctx);
     await pollDepositWallets(ctx);
     await advanceDeposits(ctx);
   } catch (err) {

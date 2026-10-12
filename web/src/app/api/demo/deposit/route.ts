@@ -3,6 +3,7 @@ import { SOURCE_CHAINS, type ChainKey } from "@/server/crosschain/chains";
 import { notFound } from "@/server/errors";
 import { api, json, readJson, requireUser } from "@/server/http";
 import { ensureDepositWallet } from "@/server/services/depositWallets";
+import { recordInbound } from "@/server/services/deposits";
 import { parseUsdc } from "@/server/domain/money";
 
 const body = z.object({ chain: z.string(), amount: z.string() });
@@ -16,5 +17,7 @@ export const POST = api(async ({ req, ctx }) => {
   if (!chain) throw notFound("Unknown chain");
   const wallet = await ensureDepositWallet(ctx, user, chain);
   const txHash = ctx.preview.simulateDeposit(chain.key, wallet.address as `0x${string}`, parseUsdc(input.amount));
-  return json({ txHash });
+  // What Circle's webhook does seconds later in live mode; polling stays the backup either way.
+  const recorded = await recordInbound(ctx, { walletId: wallet.providerWalletId, txHash });
+  return json({ txHash, recorded });
 });

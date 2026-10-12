@@ -406,6 +406,8 @@ export const notifications = pgTable(
     href: text("href"),
     amount: text("amount"),
     readAt: timestamp("read_at", { withTimezone: true }),
+    /** Cleared from the feed by its owner. Kept (not deleted) so its email still sends and the event never returns. */
+    clearedAt: timestamp("cleared_at", { withTimezone: true }),
     email: text("email", { enum: ["none", "pending", "sent", "failed"] }).notNull().default("none"),
     emailAttempts: integer("email_attempts").notNull().default(0),
     emailNextAt: timestamp("email_next_at", { withTimezone: true }),

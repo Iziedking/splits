@@ -14,8 +14,8 @@ export type ReceivedItem = {
   from: string;
   /** The sender's email when the money came through a Splits payment, or "Deposit from Base". */
   fromLabel: string | null;
-  /** A Splits payment, the demo card's top-up, or anything else that reached the address. */
-  source: "splits" | "topup" | "external";
+  /** A Splits payment, the demo card's top-up, a deposit moved from another chain, or anything else. */
+  source: "splits" | "topup" | "deposit" | "external";
   purpose: string | null;
   at: string;
   explorerUrl: string | null;
@@ -69,7 +69,7 @@ export async function activityFor(ctx: Ctx, user: User) {
       amount: formatUsdc(i.amount),
       from: i.from,
       fromLabel: match?.payer ?? (topUp ? "Demo card top-up" : depositLabel),
-      source: match ? "splits" : topUp ? "topup" : "external",
+      source: match ? "splits" : topUp ? "topup" : deposit ? "deposit" : "external",
       purpose: leg?.purpose ?? null,
       at: i.at.toISOString(),
       explorerUrl: ctx.mode === "live" ? `${ctx.explorerUrl}/tx/${i.txHash}` : null,

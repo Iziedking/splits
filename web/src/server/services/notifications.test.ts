@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { notifications, users } from "../db/schema";
 import { testCtx } from "../testing";
-import { listNotifications, markRead, notify, sendDueAlerts } from "./notifications";
+import { clearNotifications, listNotifications, markRead, notify, sendDueAlerts } from "./notifications";
 
 async function setup() {
   const t = await testCtx({ APP_URL: "https://mysplits.xyz" });
@@ -20,6 +20,19 @@ describe("notifications", () => {
     const { items, unread } = await listNotifications(ctx, user.id);
     expect(items).toHaveLength(1);
     expect(unread).toBe(1);
+  });
+
+  it("clears the feed for good, but still sends the alert emails already due", async () => {
+    const { ctx, user } = await setup();
+    await notify(ctx, user.id, ready);
+    await notify(ctx, user.id, { ...ready, sourceKey: "deposit:2:ready", email: false });
+    await clearNotifications(ctx, user.id);
+    expect(await listNotifications(ctx, user.id)).toEqual({ items: [], unread: 0 });
+    // The same event reported again stays cleared; a new one shows.
+    await notify(ctx, user.id, ready);
+    await notify(ctx, user.id, { ...ready, sourceKey: "deposit:3:ready", email: false });
+    expect((await listNotifications(ctx, user.id)).items.map((i) => i.title)).toHaveLength(1);
+    expect(await sendDueAlerts(ctx)).toBe(1);
   });
 
   it("emails only the kinds that ask for it, and nobody who turned alerts off", async () => {
