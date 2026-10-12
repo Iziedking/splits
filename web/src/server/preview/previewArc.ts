@@ -1,15 +1,22 @@
 import {
   decodeFunctionData,
+  encodePacked,
   erc20Abi,
   getAddress,
   keccak256,
+  pad,
   stringToHex,
+  zeroAddress,
   type Address,
   type Hex,
 } from "viem";
 import { splitsRouterAbi } from "../chain/abi";
 import type { ChainReader, OnchainSplit, RouterReceipt } from "../chain/types";
 import { allocate, SplitRuleError, validateLegs } from "../domain/allocation";
+import { burnAbi, FAST, parseBurnMessage, toBytes32, transmitterAbi } from "../crosschain/cctp";
+import { ARC_DOMAIN, CCTP, chainByCircleCode, SOURCE_CHAINS, type ChainKey, type SourceChain } from "../crosschain/chains";
+import type { Iris } from "../crosschain/iris";
+import type { SourceReader } from "../crosschain/reader";
 import type { ProviderTx, WalletProvider } from "../wallets/types";
 
 /**
@@ -68,6 +75,17 @@ export class PreviewArc {
   private sent: { payer: string; ref: string; txHash: Hex; block: bigint }[] = [];
   private externalCount = 0;
 
+  // Other chains, for deposits: each derived wallet keeps its Arc address on that chain.
+  private derived = new Map<string, { address: Address; chain: ChainKey }>();
+  private chainBalances = new Map<string, bigint>();
+  private chainAllowances = new Map<string, bigint>();
+  private chainInbound = new Map<string, { chain: ChainKey; to: string; amount: bigint }>();
+  private burns = new Map<string, Hex>();
+  private usedNonces = new Set<string>();
+  private crossCount = 0;
+  /** Receipts of transactions sent from derived wallets on the simulated source chains. */
+  private chainReceipts = new Map<string, "success" | "reverted">();
+
   constructor(opts: PreviewArcOptions = {}) {
     this.pendingPolls = opts.pendingPolls ?? 1;
     const treasury = this.addressFor(PREVIEW_TREASURY_WALLET_ID);
@@ -89,8 +107,37 @@ export class PreviewArc {
   }
 
   walletAddress(walletId: string): Address | undefined {
-    return this.wallets.get(walletId);
+    return this.wallets.get(walletId) ?? this.derived.get(walletId)?.address;
   }
+
+  /** Someone sends USDC to `to` on another chain. Returns the transaction hash on that chain. */
+  simulateDeposit(chain: ChainKey, to: Address, amount: bigint): Hex {
+    const txHash = keccak256(stringToHex(`preview:deposit:${this.crossCount++}`));
+    const key = `${chain}:${to.toLowerCase()}`;
+    this.chainBalances.set(key, (this.chainBalances.get(key) ?? 0n) + amount);
+    this.chainInbound.set(txHash, { chain, to: to.toLowerCase(), amount });
+    return txHash;
+  }
+
+  /** Reads balances and transfers on the simulated source chains. */
+  readonly sourceReader: SourceReader = {
+    usdcBalance: async (chain, address) => this.chainBalances.get(`${chain.key}:${address.toLowerCase()}`) ?? 0n,
+    verifyInbound: async (chain, txHash, to) => {
+      const t = this.chainInbound.get(txHash);
+      return t && t.chain === chain.key && t.to === to.toLowerCase() ? { ok: true, amount: t.amount } : { ok: false };
+    },
+    receiptStatus: async (_chain, txHash) => (this.chainInbound.has(txHash) ? "success" : (this.chainReceipts.get(txHash) ?? null)),
+    cctpDomain: async (chain) => chain.domain,
+  };
+
+  /** Attests every simulated burn at once, at 1 bps for Fast and free for Standard. */
+  readonly iris: Iris = {
+    fees: async () => ({ fastBps: 1, standardBps: 0 }),
+    message: async (_domain, txHash) => {
+      const message = this.burns.get(txHash);
+      return message ? { status: "complete", message, attestation: "0x01" } : { status: "missing" };
+    },
+  };
 
   /** USDC transfers into an address, newest first, the way a wallet provider lists them. */
   inboundFor(address: Address) {
@@ -101,6 +148,7 @@ export class PreviewArc {
 
   readonly walletProvider: WalletProvider = {
     createWallet: async ({ refId, idempotencyKey }) => {
+      requireUuid(idempotencyKey);
       const existing = this.walletKeys.get(idempotencyKey);
       if (existing) return { providerWalletId: existing, address: this.wallets.get(existing)! };
       const providerWalletId = `preview-wallet-${refId}`;
@@ -110,8 +158,20 @@ export class PreviewArc {
       return { providerWalletId, address };
     },
 
-    execute: async ({ walletId, contract, callData, idempotencyKey }) =>
-      this.submit(idempotencyKey, () => this.applyCall(this.requireWallet(walletId), contract, callData)),
+    execute: async ({ walletId, contract, callData, idempotencyKey }) => {
+      const onChain = this.derived.get(walletId);
+      if (onChain) return this.submitOnChain(idempotencyKey, onChain, contract, callData);
+      return this.submit(idempotencyKey, () => this.applyCall(this.requireWallet(walletId), contract, callData));
+    },
+
+    deriveOn: async (walletId, blockchain) => {
+      const found = chainByCircleCode(blockchain);
+      if (!found) throw new Error(`Preview cannot derive onto ${blockchain}`);
+      const providerWalletId = `${walletId}@${blockchain}`;
+      const address = this.requireWallet(walletId);
+      this.derived.set(providerWalletId, { address, chain: found.chain.key });
+      return { providerWalletId, address };
+    },
 
     transferUsdc: async ({ walletId, to, amount, idempotencyKey }) =>
       this.submit(idempotencyKey, () => {
@@ -131,9 +191,19 @@ export class PreviewArc {
       return { status: "failed", rawState: "FAILED", txHash: tx.outcome.txHash, error: tx.outcome.error };
     },
 
-    listInbound: async (walletId, limit) => this.inboundFor(this.requireWallet(walletId)).slice(0, limit),
+    listInbound: async (walletId, limit) => {
+      const onChain = this.derived.get(walletId);
+      if (onChain) {
+        return [...this.chainInbound]
+          .filter(([, t]) => t.chain === onChain.chain && t.to === onChain.address.toLowerCase())
+          .reverse()
+          .slice(0, limit)
+          .map(([txHash, t]) => ({ txHash: txHash as Hex, from: zeroAddress, amount: t.amount, at: new Date() }));
+      }
+      return this.inboundFor(this.requireWallet(walletId)).slice(0, limit);
+    },
 
-    walletAddress: async (walletId) => this.requireWallet(walletId),
+    walletAddress: async (walletId) => this.derived.get(walletId)?.address ?? this.requireWallet(walletId),
   };
 
   readonly chainReader: ChainReader = {
@@ -152,6 +222,7 @@ export class PreviewArc {
     findSplitSent: async (payer, ref, fromBlock) =>
       this.sent.find((s) => s.payer === payer.toLowerCase() && s.ref === ref.toLowerCase() && s.block >= fromBlock)?.txHash ??
       null,
+    cctpNonceUsed: async (_transmitter, nonce) => this.usedNonces.has(nonce.toLowerCase()),
   };
 
   // ---------------------------------------------------------------- internals
@@ -167,6 +238,7 @@ export class PreviewArc {
   }
 
   private submit(idempotencyKey: string, run: () => Effects): { providerTxId: string } {
+    requireUuid(idempotencyKey);
     const existing = this.txKeys.get(idempotencyKey);
     if (existing) return { providerTxId: existing };
 
@@ -182,6 +254,64 @@ export class PreviewArc {
       this.txs.set(providerTxId, { polls: 0, outcome: { ok: false, error: err.message, txHash } });
     }
     return { providerTxId };
+  }
+
+  /** A call from a derived wallet on another chain: USDC approve, or a CCTP burn to Arc. */
+  private submitOnChain(idempotencyKey: string, from: { address: Address; chain: ChainKey }, contract: Address, callData: Hex) {
+    requireUuid(idempotencyKey);
+    const existing = this.txKeys.get(idempotencyKey);
+    if (existing) return { providerTxId: existing };
+    const providerTxId = `preview-tx-${this.txs.size + 1}`;
+    const txHash = keccak256(stringToHex(`preview:chain-tx:${providerTxId}`));
+    this.txKeys.set(idempotencyKey, providerTxId);
+    try {
+      this.applyChainCall(SOURCE_CHAINS[from.chain], from.address, contract, callData, txHash);
+      this.chainReceipts.set(txHash, "success");
+      const receipt: RouterReceipt = { txHash, status: "success", blockNumber: this.block++, splitCreated: [], splitLegsSet: [], splitSent: [], legPaid: [] };
+      this.txs.set(providerTxId, { polls: 0, outcome: { ok: true, receipt } });
+    } catch (err) {
+      if (!(err instanceof Revert)) throw err;
+      this.chainReceipts.set(txHash, "reverted");
+      this.txs.set(providerTxId, { polls: 0, outcome: { ok: false, error: err.message, txHash } });
+    }
+    return { providerTxId };
+  }
+
+  private applyChainCall(chain: SourceChain, sender: Address, contract: Address, callData: Hex, txHash: Hex) {
+    const usdc = chain.usdc.testnet;
+    const own = `${chain.key}:${sender.toLowerCase()}`;
+    if (contract.toLowerCase() === usdc.toLowerCase()) {
+      const call = decodeFunctionData({ abi: erc20Abi, data: callData });
+      if (call.functionName !== "approve") throw new Revert(`Preview USDC does not support ${call.functionName}`);
+      this.chainAllowances.set(`${own}:${call.args[0].toLowerCase()}`, call.args[1]);
+      return;
+    }
+    if (contract.toLowerCase() !== CCTP.testnet.tokenMessenger.toLowerCase()) throw new Revert("Unknown contract");
+    const call = decodeFunctionData({ abi: burnAbi, data: callData });
+    const [amount, destinationDomain, mintRecipient, burnToken, , maxFee, threshold] = call.args;
+    const allowanceKey = `${own}:${contract.toLowerCase()}`;
+    const allowance = this.chainAllowances.get(allowanceKey) ?? 0n;
+    const balance = this.chainBalances.get(own) ?? 0n;
+    if (burnToken.toLowerCase() !== usdc.toLowerCase()) throw new Revert("Unsupported burn token");
+    if (destinationDomain !== ARC_DOMAIN) throw new Revert("Preview only burns to Arc");
+    if (allowance < amount) throw new Revert("ERC20InsufficientAllowance");
+    if (balance < amount) throw new Revert("ERC20InsufficientBalance");
+    const feeExecuted = threshold <= FAST ? (amount * 100n + 999_999n) / 1_000_000n : 0n;
+    if (feeExecuted > maxFee) throw new Revert("Max fee too low");
+    this.chainAllowances.set(allowanceKey, allowance - amount);
+    this.chainBalances.set(own, balance - amount);
+    const nonce = keccak256(stringToHex(`preview:nonce:${this.crossCount++}`));
+    const body = encodePacked(
+      ["uint32", "bytes32", "bytes32", "uint256", "bytes32", "uint256", "uint256", "uint256"],
+      [1, toBytes32(usdc), mintRecipient, amount, toBytes32(sender), maxFee, feeExecuted, 0n],
+    );
+    this.burns.set(
+      txHash,
+      encodePacked(
+        ["uint32", "uint32", "uint32", "bytes32", "bytes32", "bytes32", "bytes32", "uint32", "uint32", "bytes"],
+        [1, chain.domain, ARC_DOMAIN, nonce, toBytes32(contract), toBytes32(contract), pad("0x00"), threshold, threshold, body],
+      ),
+    );
   }
 
   /** A call from a wallet Splits doesn't hold, the way a visitor's own wallet calls Arc. */
@@ -260,6 +390,19 @@ export class PreviewArc {
       if (call.functionName !== "approve") throw new Revert(`Preview USDC does not support ${call.functionName}`);
       const [spender, amount] = call.args;
       fx.allowances.set(allowanceKey(sender, spender), amount);
+      return fx;
+    }
+    if (contract.toLowerCase() === CCTP.testnet.messageTransmitter.toLowerCase()) {
+      const call = decodeFunctionData({ abi: transmitterAbi, data: callData });
+      if (call.functionName !== "receiveMessage") throw new Revert(`Preview transmitter does not support ${call.functionName}`);
+      const m = parseBurnMessage(call.args[0]);
+      if (m.destinationDomain !== ARC_DOMAIN) throw new Revert("Invalid destination domain");
+      if (this.usedNonces.has(m.nonce.toLowerCase())) throw new Revert("Nonce already used");
+      const minted = m.amount - m.feeExecuted;
+      const key = m.mintRecipient.toLowerCase();
+      fx.balances.set(key, (fx.balances.get(key) ?? 0n) + minted);
+      fx.moves.push({ from: zeroAddress, to: m.mintRecipient, amount: minted });
+      this.usedNonces.add(m.nonce.toLowerCase());
       return fx;
     }
     if (contract.toLowerCase() !== this.router.toLowerCase()) throw new Revert("Unknown contract");
@@ -356,4 +499,11 @@ function allowanceKey(owner: Address, spender: Address) {
 
 function refKey(payer: Address, ref: Hex) {
   return `${payer.toLowerCase()}:${ref.toLowerCase()}`;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Circle rejects any idempotency key that isn't a UUID ("API parameter invalid"); so does preview. */
+function requireUuid(key: string) {
+  if (!UUID.test(key)) throw new Error(`API parameter invalid: idempotencyKey must be a UUID, got "${key}"`);
 }

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
 import { Backdrop } from "@/components/app/backdrop";
+import { NotificationBell } from "@/components/app/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -79,14 +80,17 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
         >
           Splits
         </Link>
-        {me && (me.mode === "preview" || me.network === "arc-testnet") && (
-          <span
-            className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
-            title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
-          >
-            {me.mode === "preview" ? "Preview" : "Testnet"}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {me && (me.mode === "preview" || me.network === "arc-testnet") && (
+            <span
+              className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
+              title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
+            >
+              {me.mode === "preview" ? "Preview" : "Testnet"}
+            </span>
+          )}
+          {me && <NotificationBell />}
+        </div>
       </header>
 
       <main className="mx-auto max-w-md px-5 pb-32">

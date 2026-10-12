@@ -37,4 +37,6 @@ export interface ChainReader {
   blockNumber(): Promise<bigint>;
   /** The transaction in which `payer` paid with `ref`, searching from `fromBlock`; null if none yet. */
   findSplitSent(payer: Address, ref: Hex, fromBlock: bigint): Promise<Hex | null>;
+  /** True once a CCTP message with this nonce was minted on Arc (by anyone). */
+  cctpNonceUsed(transmitter: Address, nonce: Hex): Promise<boolean>;
 }

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type SplitView } from "@/lib/api";
 import { registerPasskey } from "@/lib/passkey";
+import { cn } from "@/lib/utils";
 
 export default function ProfilePage() {
   return (
@@ -123,6 +124,7 @@ function Profile() {
               </dd>
             </div>
           </dl>
+          <EmailAlertsSwitch on={me.user.emailAlerts} onChanged={refresh} />
           <Button variant="secondary" className="mt-5 w-full" onClick={() => void signOut()}>
             Sign out
           </Button>
@@ -240,5 +242,49 @@ function Passkey({ hasPasskey, onAdded }: { hasPasskey: boolean; onAdded: () => 
         <p className="mt-1 text-muted-foreground">This browser can&apos;t use Face ID or fingerprint. Try on your phone.</p>
       )}
     </section>
+  );
+}
+
+/** "Email me about my money": deposits ready or waiting, payments landed or failed. */
+function EmailAlertsSwitch({ on, onChanged }: { on: boolean; onChanged: () => Promise<void> }) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  async function toggle() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/me/settings", { body: { emailAlerts: !on } });
+      await onChanged();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="mt-4">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        disabled={busy}
+        onClick={() => void toggle()}
+        className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+      >
+        <span>
+          Email me about my money
+          <span className="block text-xs font-normal text-muted-foreground">Deposits ready, payments landed or failed.</span>
+        </span>
+        <span className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors motion-reduce:transition-none", on ? "bg-primary" : "bg-muted")} aria-hidden="true">
+          <span
+            className={cn(
+              "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none",
+              on ? "translate-x-[18px]" : "translate-x-0.5",
+            )}
+          />
+        </span>
+      </button>
+      {error && <Notice tone="error" className="mt-2">{error}</Notice>}
+    </div>
   );
 }

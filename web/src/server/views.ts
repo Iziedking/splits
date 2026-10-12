@@ -14,7 +14,7 @@ const txUrl = (ctx: Ctx, hash: string | null | undefined) =>
 const addressUrl = (ctx: Ctx, address: string) => (ctx.mode === "live" ? `${ctx.explorerUrl}/address/${address}` : null);
 
 export function userView(user: User, hasPasskey: boolean) {
-  return { id: user.id, email: user.email, hasPin: Boolean(user.pinHash), hasPasskey };
+  return { id: user.id, email: user.email, hasPin: Boolean(user.pinHash), hasPasskey, emailAlerts: user.emailAlerts };
 }
 
 export function walletView(ctx: Ctx, w: Wallet & { balance?: bigint }) {

@@ -12,6 +12,7 @@ import {
   type Hex,
   type Log,
 } from "viem";
+import { transmitterAbi } from "../crosschain/cctp";
 import { splitsRouterAbi } from "./abi";
 import type { ChainReader, OnchainSplit, RouterReceipt } from "./types";
 
@@ -126,6 +127,10 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
     },
 
     blockNumber: () => client.getBlockNumber(),
+
+    async cctpNonceUsed(transmitter, nonce) {
+      return (await client.readContract({ address: transmitter, abi: transmitterAbi, functionName: "usedNonces", args: [nonce] })) !== 0n;
+    },
 
     // Searched in chunks: a day of Arc blocks is more than many RPCs serve in one getLogs call.
     async findSplitSent(payer, ref, fromBlock) {

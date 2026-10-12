@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -24,6 +25,8 @@ export const users = pgTable("users", {
   pinHash: text("pin_hash"),
   pinFailures: integer("pin_failures").notNull().default(0),
   pinLockedUntil: timestamp("pin_locked_until", { withTimezone: true }),
+  /** Email alerts for money events (deposits ready or waiting, payments landed or failed). */
+  emailAlerts: boolean("email_alerts").notNull().default(true),
   createdAt: createdAt(),
 });
 
@@ -308,4 +311,110 @@ export const rateHits = pgTable(
     count: integer("count").notNull().default(0),
   },
   (t) => [primaryKey({ columns: [t.key, t.windowStart] })],
+);
+
+/**
+ * A person's deposit address on another chain: their Arc wallet derived onto that chain (the same
+ * address), kept apart from `wallets` so Arc balances and payments never see it.
+ */
+export const depositWallets = pgTable(
+  "deposit_wallets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    chain: text("chain").notNull(),
+    providerWalletId: text("provider_wallet_id").notNull().unique(),
+    address: text("address").notNull(),
+    /** When the sweeper last asked Circle for inbound transfers (backup for missed webhooks). */
+    polledAt: timestamp("polled_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("deposit_wallets_one_per_chain").on(t.userId, t.chain)],
+);
+
+export const DEPOSIT_STATUSES = ["detected", "waiting", "moving", "ready", "stuck", "carried"] as const;
+
+/** One USDC transfer that arrived at a deposit wallet, verified on its chain. */
+export const deposits = pgTable(
+  "deposits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    depositWalletId: uuid("deposit_wallet_id").notNull().references(() => depositWallets.id),
+    chain: text("chain").notNull(),
+    /** "<chain>:<txHash>": one deposit per inbound transfer, whether the webhook or polling saw it. */
+    sourceTxId: text("source_tx_id").notNull().unique(),
+    sourceTxHash: text("source_tx_hash").notNull(),
+    amount: text("amount").notNull(),
+    status: text("status", { enum: DEPOSIT_STATUSES }).notNull(),
+    moveId: uuid("move_id"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("deposits_wallet_status").on(t.depositWalletId, t.status), index("deposits_user_created").on(t.userId, t.createdAt)],
+);
+
+export const MOVE_STATUSES = ["burning", "attesting", "minting", "ready", "stuck"] as const;
+
+/** Moving a deposit wallet's USDC to the person's Arc address: approve, burn, attest, mint. */
+export const depositMoves = pgTable(
+  "deposit_moves",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    depositWalletId: uuid("deposit_wallet_id").notNull().references(() => depositWallets.id),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    chain: text("chain").notNull(),
+    status: text("status", { enum: MOVE_STATUSES }).notNull(),
+    burnAmount: text("burn_amount").notNull(),
+    maxFee: text("max_fee"),
+    approveProviderTx: text("approve_provider_tx"),
+    burnProviderTx: text("burn_provider_tx"),
+    burnTxHash: text("burn_tx_hash"),
+    message: text("message"),
+    attestation: text("attestation"),
+    nonce: text("nonce"),
+    mintProviderTx: text("mint_provider_tx"),
+    mintTxHash: text("mint_tx_hash"),
+    mintedAmount: text("minted_amount"),
+    leaseUntil: timestamp("lease_until", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    stuckNotifiedAt: timestamp("stuck_notified_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    // One move at a time per deposit wallet: a second burn of the same USDC is impossible.
+    uniqueIndex("deposit_moves_one_active")
+      .on(t.depositWalletId)
+      .where(sql`${t.status} in ('burning', 'attesting', 'minting')`),
+    index("deposit_moves_status").on(t.status),
+  ],
+);
+
+/** What happened to a person's money, for the bell, the feed and (for some kinds) an email. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    /** One notification per event: e.g. deposit:<id>:ready, transfer:<id>:settled. */
+    sourceKey: text("source_key").notNull(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    href: text("href"),
+    amount: text("amount"),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    email: text("email", { enum: ["none", "pending", "sent", "failed"] }).notNull().default("none"),
+    emailAttempts: integer("email_attempts").notNull().default(0),
+    emailNextAt: timestamp("email_next_at", { withTimezone: true }),
+    emailError: text("email_error"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("notifications_one_per_event").on(t.userId, t.sourceKey),
+    index("notifications_user_created").on(t.userId, t.createdAt),
+    index("notifications_email").on(t.email),
+  ],
 );

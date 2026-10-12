@@ -2,10 +2,13 @@ import { createPublicKey, verify } from "node:crypto";
 import { eq, or } from "drizzle-orm";
 import { z } from "zod";
 import type { Ctx } from "../context";
-import { providerTxs, transfers, wallets, webhookEvents } from "../db/schema";
+import { depositWallets, providerTxs, transfers, wallets, webhookEvents } from "../db/schema";
 import { deterministicUuid } from "../domain/ids";
 import { MoneyError, parseUsdc } from "../domain/money";
 import { forbidden } from "../errors";
+import { inboundStateOk } from "../wallets/circle";
+import { recordInbound } from "./deposits";
+import { notifyPaymentOutcome } from "./paymentNotifications";
 import { createAutoTransfer } from "./rules";
 import { advanceTransfer } from "./transfers";
 
@@ -60,7 +63,23 @@ export async function handleCircleWebhook(
 
   if (event.notificationType !== "transactions.inbound") return "ignored";
   const tx = inbound.safeParse(event.notification);
-  if (!tx.success || tx.data.state !== "COMPLETE") return "ignored";
+  if (!tx.success) return "ignored";
+
+  // Money arriving on another chain: a deposit to move to Arc. It is checked on that chain first,
+  // so Circle's earlier CONFIRMED state is enough to start.
+  const [deposit] = await ctx.db.select({ id: depositWallets.id }).from(depositWallets).where(eq(depositWallets.providerWalletId, tx.data.walletId)).limit(1);
+  if (deposit) {
+    if (!tx.data.txHash || !inboundStateOk(tx.data.state, true)) return "ignored";
+    try {
+      return (await recordInbound(ctx, { walletId: tx.data.walletId, txHash: tx.data.txHash as `0x${string}` })) === "ignored" ? "ignored" : "processed";
+    } catch (err) {
+      // The chain couldn't be read: forget this delivery so Circle's retry is handled, not a duplicate.
+      await ctx.db.delete(webhookEvents).where(eq(webhookEvents.notificationId, event.notificationId));
+      throw err;
+    }
+  }
+  // Money arriving on Arc runs the person's rules only once it is final.
+  if (!inboundStateOk(tx.data.state, false)) return "ignored";
 
   const [wallet] = await ctx.db.select().from(wallets).where(eq(wallets.providerWalletId, tx.data.walletId)).limit(1);
   if (!wallet) return "ignored";
@@ -89,6 +108,6 @@ export async function handleCircleWebhook(
   }
 
   const childId = await createAutoTransfer(ctx, wallet, amount, deterministicUuid(`inbound:${tx.data.id}`));
-  if (childId) await advanceTransfer(ctx, childId);
+  if (childId) await notifyPaymentOutcome(ctx, await advanceTransfer(ctx, childId));
   return "processed";
 }

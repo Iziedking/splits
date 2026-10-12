@@ -7,8 +7,9 @@ import { CENT } from "../domain/allocation";
 import { transferRef } from "../domain/ids";
 import { queueNotices } from "./notices";
 import { expectedAmounts } from "./splits";
-import { advanceTransfer, type Transfer } from "./transfers";
+import { advanceTransfer, getTransfer, type Transfer } from "./transfers";
 import { walletByAddress, type Wallet } from "./users";
+import { notifyPaymentOutcome } from "./paymentNotifications";
 
 /**
  * Receiver-side splits. When money lands in a wallet that has an automatic split, a new payment
@@ -96,11 +97,14 @@ export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]
  * `budgetMs` bounds how long this call works before answering; the sweeper carries on after it.
  */
 export async function advanceWithRules(ctx: Ctx, transferId: string, budgetMs?: number): Promise<Transfer> {
+  const before = (await getTransfer(ctx, transferId)).status;
   const t = await advanceTransfer(ctx, transferId, budgetMs);
+  // Only news is told: opening an old receipt advances a finished payment, which changes nothing.
+  if (t.status !== before) await notifyPaymentOutcome(ctx, t);
   if (t.status === "settled") {
     await queueNotices(ctx, t);
     for (const childId of await triggerRules(ctx, t)) {
-      await advanceTransfer(ctx, childId);
+      await notifyPaymentOutcome(ctx, await advanceTransfer(ctx, childId));
     }
   }
   return t;

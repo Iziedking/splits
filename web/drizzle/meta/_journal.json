@@ -43,6 +43,13 @@
       "when": 1791758620539,
       "tag": "0005_omniscient_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791800187014,
+      "tag": "0006_strong_warhawk",
+      "breakpoints": true
     }
   ]
 }

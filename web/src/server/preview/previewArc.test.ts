@@ -1,3 +1,4 @@
+import { deterministicUuid } from "../domain/ids";
 import { encodeFunctionData, erc20Abi, getAddress, keccak256, stringToHex } from "viem";
 import { describe, expect, it } from "vitest";
 import { splitsRouterAbi } from "../chain/abi";
@@ -8,13 +9,13 @@ const W1 = getAddress("0x00000000000000000000000000000000000a0001");
 const W2 = getAddress("0x00000000000000000000000000000000000a0002");
 
 async function payer(arc: PreviewArc) {
-  const { providerWalletId, address } = await arc.walletProvider.createWallet({ refId: "p", name: "main", idempotencyKey: "k-p" });
+  const { providerWalletId, address } = await arc.walletProvider.createWallet({ refId: "p", name: "main", idempotencyKey: deterministicUuid("k-p") });
   arc.mint(address, 10_000_000n);
   await arc.walletProvider.execute({
     walletId: providerWalletId,
     contract: arc.usdc,
     callData: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [arc.router, 10_000_000n] }),
-    idempotencyKey: "k-approve",
+    idempotencyKey: deterministicUuid("k-approve"),
     refId: "a",
   });
   return { providerWalletId, address };
@@ -33,7 +34,7 @@ describe("PreviewArc pay", () => {
       walletId: p.providerWalletId,
       contract: arc.router,
       callData: encodeFunctionData({ abi: splitsRouterAbi, functionName: "pay", args: [legs, 3_000_000n, ref] }),
-      idempotencyKey: "k-pay",
+      idempotencyKey: deterministicUuid("k-pay"),
       refId: "pay",
     });
     const tx = await arc.walletProvider.getTx(providerTxId);
@@ -59,8 +60,8 @@ describe("PreviewArc pay", () => {
       functionName: "pay",
       args: [[{ recipient: W1, fixedAmount: 10_000n, shareBps: 0, purpose: purposeToBytes32("x") }], 10_000n, ref],
     });
-    await arc.walletProvider.execute({ walletId: p.providerWalletId, contract: arc.router, callData: call, idempotencyKey: "k1", refId: "1" });
-    const second = await arc.walletProvider.execute({ walletId: p.providerWalletId, contract: arc.router, callData: call, idempotencyKey: "k2", refId: "2" });
+    await arc.walletProvider.execute({ walletId: p.providerWalletId, contract: arc.router, callData: call, idempotencyKey: deterministicUuid("k1"), refId: "1" });
+    const second = await arc.walletProvider.execute({ walletId: p.providerWalletId, contract: arc.router, callData: call, idempotencyKey: deterministicUuid("k2"), refId: "2" });
     const tx = await arc.walletProvider.getTx(second.providerTxId);
     expect(tx.status).toBe("failed");
     expect(tx.error).toContain("RefAlreadyUsed");

@@ -1,6 +1,10 @@
 import { generateKeyPairSync, sign } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { SOURCE_CHAINS } from "../crosschain/chains";
+import { deposits, transfers } from "../db/schema";
 import { testCtx } from "../testing";
+import { ensureDepositWallet } from "./depositWallets";
+import { ensureUser } from "./users";
 import { handleCircleWebhook, verifyCircleSignature } from "./webhooks";
 
 // Published sample from developers.circle.com/wallets/webhook-notifications (checked 2026-10-11).
@@ -54,5 +58,49 @@ describe("Circle webhook handling", () => {
     const headers = { signature: keys.sign(body), keyId: "k" };
     expect(await handleCircleWebhook(live, body, headers)).toBe("ignored");
     expect(await handleCircleWebhook(live, body, headers)).toBe("duplicate");
+  });
+
+  it("records a verified deposit on another chain, and never runs Arc rules for it", async () => {
+    const { ctx, arc } = await testCtx();
+    const keys = signer();
+    const live = { ...ctx, webhookKey: async () => keys.spki };
+    const user = await ensureUser(ctx, "ada@example.com", "active");
+    const wallet = await ensureDepositWallet(ctx, user, SOURCE_CHAINS.base);
+    const txHash = arc.simulateDeposit("base", wallet.address as `0x${string}`, 5_000_000n);
+    const body = JSON.stringify({
+      notificationId: "n3",
+      notificationType: "transactions.inbound",
+      // Deposits start at CONFIRMED: they are verified on chain anyway.
+      notification: { id: "c1", walletId: wallet.providerWalletId, blockchain: "BASE-SEPOLIA", state: "CONFIRMED", amounts: ["5"], txHash },
+    });
+    expect(await handleCircleWebhook(live, body, { signature: keys.sign(body), keyId: "k" })).toBe("processed");
+    const rows = await ctx.db.select().from(deposits);
+    expect(rows.map((d) => [d.status, d.amount])).toEqual([["detected", "5000000"]]);
+    expect(await ctx.db.select().from(transfers)).toHaveLength(0);
+  });
+  it("lets Circle deliver a deposit again when its chain couldn't be read (final review I4)", async () => {
+    const { ctx, arc } = await testCtx();
+    const keys = signer();
+    const user = await ensureUser(ctx, "ada@example.com", "active");
+    const wallet = await ensureDepositWallet(ctx, user, SOURCE_CHAINS.base);
+    const txHash = arc.simulateDeposit("base", wallet.address as `0x${string}`, 5_000_000n);
+    let down = true;
+    const reader = {
+      ...ctx.crossChain.reader,
+      verifyInbound: async (...args: Parameters<typeof ctx.crossChain.reader.verifyInbound>) => {
+        if (down) throw new Error("RPC timeout");
+        return ctx.crossChain.reader.verifyInbound(...args);
+      },
+    };
+    const live = { ...ctx, webhookKey: async () => keys.spki, crossChain: { ...ctx.crossChain, reader } };
+    const body = JSON.stringify({
+      notificationId: "n4",
+      notificationType: "transactions.inbound",
+      notification: { id: "c2", walletId: wallet.providerWalletId, blockchain: "BASE-SEPOLIA", state: "CONFIRMED", amounts: ["5"], txHash },
+    });
+    await expect(handleCircleWebhook(live, body, { signature: keys.sign(body), keyId: "k" })).rejects.toThrow("RPC timeout");
+    down = false;
+    expect(await handleCircleWebhook(live, body, { signature: keys.sign(body), keyId: "k" })).toBe("processed");
+    expect(await ctx.db.select().from(deposits)).toHaveLength(1);
   });
 });

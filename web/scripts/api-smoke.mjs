@@ -91,6 +91,7 @@ try {
   assert.equal(agentRefused.data.error.code, "IMAGE_TOO_BIG");
   step("agentic mode drafts a list and refuses an oversize screenshot");
 
+
   const draft = await call("POST", "/api/splits", {
     name: "Family in Lagos",
     legs: [
@@ -218,6 +219,27 @@ try {
   assert.equal(signedIn.data.error.code, "SIGNED_IN");
   step("signed-in people are sent to their account's limits, not visitor ones");
 
+
+  const before = (await call("GET", "/api/deposits")).data;
+  assert.deepEqual(before.chains.map((c) => c.key), ["base", "arb", "op"]);
+  assert.equal(before.ready, false);
+  const opened = (await call("POST", "/api/deposits")).data;
+  assert.equal(opened.ready, true);
+  assert.equal(opened.address, before.address);
+  assert.equal((await call("POST", "/api/demo/deposit", { chain: "base", amount: "5" })).status, 200);
+  let latest = null;
+  for (let i = 0; i < 40 && latest?.status !== "ready"; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    latest = (await call("GET", "/api/deposits")).data.latest;
+  }
+  assert.equal(latest?.status, "ready", JSON.stringify(latest));
+  assert.equal(latest.minted, "4.99");
+  const feed = (await call("GET", "/api/notifications")).data;
+  assert.ok(feed.items.some((n) => n.title === "Ready: $4.99 is in your balance"), JSON.stringify(feed.items.map((n) => n.title)));
+  assert.ok(feed.unread > 0);
+  assert.equal((await call("POST", "/api/notifications/read")).status, 200);
+  assert.equal((await call("GET", "/api/notifications")).data.unread, 0);
+  step("a deposit from Base reaches the Arc balance by itself, with notifications");
   console.log("api smoke: all checks passed");
 } catch (err) {
   console.error(err);

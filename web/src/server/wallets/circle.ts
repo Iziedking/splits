@@ -47,6 +47,11 @@ export async function fetchCircleWebhookKey(apiKey: string, keyId: string): Prom
  * Circle developer-controlled wallets on Arc. Wallets are SCA so Gas Station pays gas; the
  * Gas Station policy itself lives in the Circle Console.
  */
+/** Circle's final inbound state is COMPLETE (its docs also show COMPLETED); CONFIRMED comes first. */
+export function inboundStateOk(state: string | undefined, confirmed: boolean): boolean {
+  return state === "COMPLETE" || state === "COMPLETED" || (confirmed && state === "CONFIRMED");
+}
+
 export function createCircleWallets(opts: CircleOptions): WalletProvider {
   const client = initiateDeveloperControlledWalletsClient({
     apiKey: opts.apiKey,
@@ -113,7 +118,7 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
       return { providerTxId: res.data.id };
     },
 
-    async listInbound(walletId, limit) {
+    async listInbound(walletId, limit, opts) {
       const res = await client.listTransactions({ walletIds: [walletId], txType: "INBOUND", pageSize: limit });
       // Not filtered by token id: on Arc, USDC can arrive through the native or the ERC-20 view of
       // the same balance, and Circle may list each. One entry per transaction hash is kept.
@@ -121,7 +126,7 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
       const out: InboundTx[] = [];
       for (const t of res.data?.transactions ?? []) {
         const amount = t.amounts?.[0];
-        if (t.state !== "COMPLETE" || !t.txHash || !amount || seen.has(t.txHash.toLowerCase())) continue;
+        if (!inboundStateOk(t.state, opts?.confirmed ?? false) || !t.txHash || !amount || seen.has(t.txHash.toLowerCase())) continue;
         seen.add(t.txHash.toLowerCase());
         out.push({
           txHash: t.txHash as Hex,
@@ -131,6 +136,14 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
         });
       }
       return out;
+    },
+
+    async deriveOn(walletId, blockchain) {
+      // 201 creates it, 200 returns the existing one: safe to call again.
+      const res = await client.deriveWallet({ id: walletId, blockchain: blockchain as never });
+      const wallet = res.data?.wallet;
+      if (!wallet?.id || !wallet.address) throw new Error(`Circle could not derive wallet ${walletId} on ${blockchain}`);
+      return { providerWalletId: wallet.id, address: getAddress(wallet.address) };
     },
 
     async walletAddress(walletId) {

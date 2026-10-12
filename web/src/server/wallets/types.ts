@@ -39,6 +39,15 @@ export interface WalletProvider {
   }): Promise<{ providerTxId: string }>;
   getTx(providerTxId: string): Promise<ProviderTx>;
   /** USDC that arrived in this wallet, newest first. Used for the activity list. */
-  listInbound(walletId: string, limit: number): Promise<InboundTx[]>;
+  /**
+   * Inbound transfers, newest first. Finished ones only, unless `confirmed`: deposits accept
+   * Circle's earlier CONFIRMED state because they are verified on chain before they count.
+   */
+  listInbound(walletId: string, limit: number, opts?: { confirmed?: boolean }): Promise<InboundTx[]>;
   walletAddress(walletId: string): Promise<Address>;
+  /**
+   * The same wallet on another EVM chain (same address), for deposits from that chain. Returns
+   * the existing one if it was derived before. `blockchain` is a Circle code such as "BASE".
+   */
+  deriveOn(walletId: string, blockchain: string): Promise<{ providerWalletId: string; address: Address }>;
 }

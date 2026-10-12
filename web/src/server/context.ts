@@ -6,6 +6,9 @@ import type { RelyingParty } from "./auth/passkeys";
 import type { ChainReader } from "./chain/types";
 import { createViemChain } from "./chain/viemChain";
 import { getConfig, type Config } from "./config";
+import { CCTP, enabledChains, type CrossNetwork, type SourceChain } from "./crosschain/chains";
+import { httpIris, type Iris } from "./crosschain/iris";
+import { createSourceReader, type SourceReader } from "./crosschain/reader";
 import { createPgliteDb, createPostgresDb, type Db } from "./db/client";
 import type { FeeRule } from "./domain/fees";
 import { ratesFromConfig, type FxRates } from "./domain/fx";
@@ -59,6 +62,8 @@ export type Ctx = {
   fees: { rule: FeeRule; address: Address };
   /** Agentic mode's model; null turns it off. */
   agent: DraftModel | null;
+  /** Deposits from other chains: the enabled chains, their reader, Circle's attestations, CCTP. */
+  crossChain: CrossChain;
   /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
   showCodes: boolean;
   now: () => Date;
@@ -85,6 +90,56 @@ export function limitsFromConfig(config: Config): Limits {
     visitorChecksGlobalPerHour: config.VISITOR_CHECKS_GLOBAL_PER_HOUR,
     agentDraftsPerDay: config.AGENT_DRAFTS_PER_DAY,
     agentDraftsGlobalPerHour: config.AGENT_DRAFTS_GLOBAL_PER_HOUR,
+  };
+}
+
+export type CrossChain = {
+  network: CrossNetwork;
+  chains: SourceChain[];
+  reader: SourceReader;
+  iris: Iris;
+  cctp: { tokenMessenger: Address; messageTransmitter: Address };
+};
+
+const splitList = (s: string) =>
+  s
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+/**
+ * Live deposits: the chains in DEPOSIT_CHAINS, each checked at startup against its CCTP contract.
+ * A chain whose MessageTransmitterV2 doesn't answer with the expected domain (wrong address, RPC
+ * down) is left out and logged, so a bad chain never takes the whole app down.
+ */
+async function liveCrossChain(config: Config): Promise<CrossChain> {
+  const network: CrossNetwork = config.CIRCLE_BLOCKCHAIN === "ARC" ? "mainnet" : "testnet";
+  const overrides = Object.fromEntries(
+    splitList(config.SOURCE_RPCS).map((pair) => {
+      const i = pair.indexOf("=");
+      return [pair.slice(0, i).trim(), pair.slice(i + 1).trim()];
+    }),
+  );
+  const reader = createSourceReader(network, overrides);
+  const wanted = enabledChains(splitList(config.DEPOSIT_CHAINS));
+  const checked = await Promise.all(
+    wanted.map(async (chain) => {
+      try {
+        const domain = await reader.cctpDomain(chain);
+        if (domain === chain.domain) return chain;
+        console.error(`[deposits] ${chain.name}: CCTP reports domain ${domain}, expected ${chain.domain}; chain left out`);
+      } catch (err) {
+        console.error(`[deposits] ${chain.name}: CCTP check failed (${err instanceof Error ? err.message : err}); chain left out`);
+      }
+      return null;
+    }),
+  );
+  return {
+    network,
+    chains: checked.filter((c): c is SourceChain => c !== null),
+    reader,
+    iris: httpIris(config.IRIS_URL ?? (network === "mainnet" ? "https://iris-api.circle.com" : "https://iris-api-sandbox.circle.com")),
+    cctp: CCTP[network],
   };
 }
 
@@ -127,6 +182,13 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     ...chainSettings(config, treasuryAddress),
     showCodes: true,
     agent: previewModel(),
+    crossChain: {
+      network: "testnet",
+      chains: enabledChains(config.DEPOSIT_CHAINS ? splitList(config.DEPOSIT_CHAINS) : ["base", "arb", "op"]),
+      reader: arc.sourceReader,
+      iris: arc.iris,
+      cctp: CCTP.testnet,
+    },
     now: () => new Date(),
     webhookKey: async () => {
       throw new Error("Webhooks are not used in preview mode");
@@ -177,6 +239,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
     ...chainSettings(config, treasuryAddress),
     showCodes: screenCodes,
     agent: config.AGENT_MODEL_ID ? bedrockModel({ modelId: config.AGENT_MODEL_ID, region: config.AWS_REGION }) : null,
+    crossChain: await liveCrossChain(config),
     now: () => new Date(),
     webhookKey: (keyId) => fetchCircleWebhookKey(config.CIRCLE_API_KEY!, keyId),
   };

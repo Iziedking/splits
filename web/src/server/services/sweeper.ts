@@ -2,6 +2,8 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { actions, splits } from "../db/schema";
 import { pruneStale } from "./housekeeping";
+import { advanceDeposits, pollDepositWallets } from "./deposits";
+import { sendDueAlerts } from "./notifications";
 import { sendDueNotices } from "./notices";
 import { advanceWithRules } from "./rules";
 import { advanceSplit } from "./splits";
@@ -83,6 +85,23 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
   } catch (err) {
     result.errors++;
     console.error("[sweep] notices", err);
+  }
+
+  try {
+    await sendDueAlerts(ctx);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] alerts", err);
+  }
+
+  // Deposits from other chains last: they read other chains' RPCs, which can be slow, and must not
+  // hold up payments, notices or alerts. Find new ones (backup for webhooks), then move them to Arc.
+  try {
+    await pollDepositWallets(ctx);
+    await advanceDeposits(ctx);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] deposits", err);
   }
   return result;
 }

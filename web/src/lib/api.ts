@@ -27,6 +27,12 @@ export type { CheckLine, PayoutCheck } from "@/server/services/payouts";
 export type ActivityView = { sent: TransferView[]; received: ReceivedItem[]; receivedError: string | null };
 export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; agent: boolean; user: UserView; wallets: WalletView[] };
 export type { ComposerFill } from "@/server/agent/draft";
+import type { depositView } from "@/server/services/depositView";
+import type { listNotifications } from "@/server/services/notifications";
+/** The Receive sheet (GET/POST /api/deposits). */
+export type DepositView = Awaited<ReturnType<typeof depositView>>;
+/** The bell and the feed (GET /api/notifications). */
+export type NotificationsView = Awaited<ReturnType<typeof listNotifications>>;
 
 export class ApiError extends Error {
   constructor(

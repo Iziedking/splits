@@ -93,6 +93,15 @@ const schema = z
     AWS_REGION: z.string().min(1).default("us-east-1"),
     AGENT_DRAFTS_PER_DAY: z.coerce.number().int().min(1).default(20),
     AGENT_DRAFTS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(300),
+
+    // Deposits from other chains, moved to Arc with CCTP V2. Comma list of chain keys
+    // (base, arb, op, matic, avax, uni, monad, eth); only chains with an active Gas Station
+    // policy belong here. Preview mode offers base, arb and op when this is empty.
+    DEPOSIT_CHAINS: z.string().default(""),
+    // Optional RPC per source chain, "base=https://…,arb=https://…"; public endpoints otherwise.
+    SOURCE_RPCS: z.string().default(""),
+    // Circle's attestation service; defaults to mainnet or sandbox to match the network.
+    IRIS_URL: z.url().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.SPLITS_MODE !== "live") return;

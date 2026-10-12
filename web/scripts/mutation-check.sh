@@ -135,5 +135,15 @@ mutate_in "no-receipt-check" "$T" \
 mutate_in "no-draft-cap" src/server/services/agentDrafts.ts   '  if (!perAccount) {' '  if (false) {'   src/server/services/agentDrafts.test.ts "stops at the daily cap"
 mutate_in "image-type-unchecked" src/server/agent/images.ts   '    if (!format) {' '    if (false) {'   src/server/agent/images.test.ts "refuses a file that isn't an image"
 mutate_in "schema-unchecked" src/server/services/agentDrafts.ts   '    const parsed = agentDraftSchema.safeParse(result.output);' '    const parsed = { success: true as const, data: result.output as AgentDraft };'   src/server/services/agentDrafts.test.ts "tries once more when the answer has the wrong shape"
+mutate_in "deposit-not-verified" src/server/services/deposits.ts   '  if (!seen.ok) {' '  if (false) {'   src/server/services/deposits.test.ts "ignores a report that the chain doesn't back up"
+mutate_in "deposit-random-keys" src/server/services/deposits.ts 'const key = (move: Move, step: string) => deterministicUuid(`deposit-move:${move.id}:${step}:${move.attempts}`);' 'const key = (_move: Move, _step: string) => crypto.randomUUID();' src/server/services/deposits.test.ts "resumes after a crash between sending the burn and saving it"
+mutate_in "deposit-ignores-used-nonce" src/server/services/deposits.ts   '    if (!(await ctx.chain.cctpNonceUsed(cctp.messageTransmitter, move.nonce as Hex))) {
+      if (minted.status === "failed")' '    if (false) {
+      if (minted.status === "failed")'   src/server/services/deposits.test.ts "never calls a deposit ready when its mint failed"
+mutate_in "deposit-mints-for-anyone" src/server/services/deposits.ts   '    if (parsed.mintRecipient.toLowerCase() !== recipient.toLowerCase() || parsed.amount !== amount || parsed.sourceDomain !== chain.domain) {' '    if (false) {'   src/server/services/deposits.test.ts "never mints a message addressed to someone else"
+mutate_in "deposit-waiting-holds-slots" src/server/services/deposits.ts   '    .where(eq(deposits.status, "detected"))' '    .where(inArray(deposits.status, ["detected", "waiting"]))'   src/server/services/deposits.test.ts "never lets deposits that wait for more hold up anyone else"
+mutate_in "deposit-no-backoff" src/server/services/deposits.ts   '      eq(depositMoves.attempts, 0),' '      sql`true`,'   src/server/services/deposits.test.ts "backs off a step that keeps failing"
+mutate_in "deposit-attesting-forever" src/server/services/deposits.ts   '      if (receipt !== "success") {' '      if (false) {'   src/server/services/deposits.test.ts "burns again when the first burn never stuck"
+mutate_in "payment-notified-on-every-advance" src/server/services/rules.ts   '  if (t.status !== before) await notifyPaymentOutcome(ctx, t);' '  await notifyPaymentOutcome(ctx, t);'   src/server/services/flow.test.ts "tells nobody again when an old payment is opened later"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

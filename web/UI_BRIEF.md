@@ -314,3 +314,24 @@ and the dark theme (tokens exist, not switched on).
   (input kept), nothing found, too many lines (note), images refused (which file and why).
 - Rejected: a chat panel (more to read, no clearer decision); filling the checked review directly
   (hides what the model read, which is the safety net for screenshot addresses).
+
+## One address, any chain (deposits) and notifications
+
+- Intent: people in the diaspora hold USDC on Base, Arbitrum, Optimism and other chains. The
+  Receive sheet gives them one address (their Splits address, identical on Arc and every EVM chain
+  Splits accepts); whatever arrives is moved to Arc by itself and the status line follows it.
+- Receive sheet: tabs "EVM chains" | "Solana" (Solana says "coming soon" until it moves money).
+  QR, address, copy; "Send from" chips (Arc + enabled chains), tapping one shows its speed and
+  minimum; "Send USDC only. Other tokens sent here can't be recovered."; a status line that is a
+  polite live region: waiting → arrived, moving to Arc (pulsing dot) → ready (check) → back to
+  waiting after 10 minutes; "Setting up your address…" the first time the tab opens. The demo card
+  section shows only where the demo card is on.
+- Trust: nothing is called arrived or ready until it is verified on its chain and on Arc; amounts in
+  messages are cents rounded down, never more than arrived.
+- Notifications: a bell in the header with an unread count; a sheet grouped by day (Today,
+  Yesterday, date), newest first, each item linking to its screen; opening it marks all read; a
+  toast for anything new while the app is open. Checks every 15 seconds while the tab is visible.
+- Profile: "Email me about my money" switch (on by default): deposits ready or waiting, payments
+  landed or failed. All emails share one branded layout (teal wordmark; logo slot for the designer).
+- Rejected: a separate "Bridge" page (Karwan's lesson: one balance, the rail never named); a chain
+  picker before showing the address (one address works everywhere, so asking first only adds a step).

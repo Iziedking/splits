@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { getAddress, type Address, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import type { Ctx } from "../context";
-import { providerTxs, splits, transfers, users } from "../db/schema";
+import { notifications, providerTxs, splits, transfers, users } from "../db/schema";
 import { AppError } from "../errors";
 import { formatUsdc } from "../domain/money";
 import { PREVIEW_TREASURY_WALLET_ID } from "../preview/previewArc";
@@ -76,6 +76,18 @@ async function balanceOf(ctx: Ctx, email: string) {
 }
 
 describe("sending money home through a split", () => {
+  it("tells nobody again when an old payment is opened later (final review I7)", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    const t = await pay(ctx, user, split.id, 1000);
+    expect(t.status).toBe("settled");
+    // A payment from before notifications existed: none were ever written for it.
+    await ctx.db.delete(notifications);
+    await advanceWithRules(ctx, t.id);
+    expect(await ctx.db.select().from(notifications)).toHaveLength(0);
+  });
+
   it("pays every recipient by email, verifies the receipt, and records purposes", async () => {
     const { ctx, arc } = await testCtx();
     const { user } = await signedInUser(ctx, "ada@example.com");
