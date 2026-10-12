@@ -1,0 +1,166 @@
+#!/usr/bin/env bash
+# Splits release script. Installed root-owned as /usr/local/sbin/splits-deploy (see deploy/README.md)
+# and run by CI as: sudo -n /usr/local/sbin/splits-deploy <40-hex commit sha>
+#
+# CI only sends a SHA. The bundle it copied to /opt/splits/incoming/<sha> must hold:
+#   splits-api.tar.gz  docker save of splits-api:<sha>, gzipped
+#   compose.yml        deploy/compose.yml from the same commit
+#   SHA256SUMS         sha256 of both
+#
+# Never runs `docker compose down`, never deletes volumes, never touches deploy_default.
+# Re-running with the same SHA is safe; running with an older kept SHA is a manual rollback.
+set -euo pipefail
+umask 077
+
+readonly ENV_FILE=/opt/splits/prod.env
+readonly INCOMING_ROOT=/opt/splits/incoming
+readonly RELEASES_ROOT=/opt/splits/releases
+readonly BACKUPS_ROOT=/opt/splits/backups
+readonly KEEP_RELEASES=5
+readonly KEEP_BACKUPS=10
+readonly HEALTH_TIMEOUT=120
+readonly API=splits-api
+readonly DB=splits-db
+
+sha="${1:-}"
+[[ "$sha" =~ ^[0-9a-f]{40}$ ]] || { echo "usage: splits-deploy <40-hex commit sha>" >&2; exit 2; }
+[[ $# -eq 1 ]] || { echo "usage: splits-deploy <40-hex commit sha>" >&2; exit 2; }
+
+log() { echo "[splits-deploy] $*" >&2; }
+
+exec 9>/run/lock/splits-deploy.lock
+flock -n 9 || { log "another Splits release is already running"; exit 1; }
+
+incoming="$INCOMING_ROOT/$sha"
+release="$RELEASES_ROOT/$sha"
+
+test -f "$ENV_FILE" || { log "missing $ENV_FILE"; exit 1; }
+for f in SHA256SUMS splits-api.tar.gz compose.yml; do
+  test -f "$incoming/$f" || { log "missing $incoming/$f"; exit 1; }
+  # Every file used below must be covered by the checksum list.
+  if [[ "$f" != SHA256SUMS ]]; then
+    grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$incoming/SHA256SUMS" || { log "$f is not listed in SHA256SUMS"; exit 1; }
+  fi
+done
+(cd "$incoming" && sha256sum --check --strict --quiet SHA256SUMS) || { log "checksum mismatch in $incoming"; exit 1; }
+docker network inspect deploy_default >/dev/null 2>&1 || { log "network deploy_default is missing (ArcRun's Caddy project)"; exit 1; }
+
+mkdir -p "$release" "$BACKUPS_ROOT"
+cp "$incoming/compose.yml" "$incoming/SHA256SUMS" "$release/"
+touch "$release"
+
+compose() { # compose <sha> <compose file> <args...>
+  local tag="$1" file="$2"
+  shift 2
+  SPLITS_SHA="$tag" docker compose -p splits --env-file "$ENV_FILE" -f "$file" "$@"
+}
+
+compose "$sha" "$release/compose.yml" config --quiet
+
+if ! docker image inspect "splits-api:$sha" >/dev/null 2>&1; then
+  log "loading image splits-api:$sha"
+  gzip -dc "$incoming/splits-api.tar.gz" | docker load >/dev/null
+fi
+docker image inspect "splits-api:$sha" >/dev/null 2>&1 || { log "bundle did not contain splits-api:$sha"; exit 1; }
+
+running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
+
+# Backup before anything changes. Skipped on the very first release, when there is no database yet.
+if running "$DB"; then
+  dump="$BACKUPS_ROOT/pre-release-$(date -u +%Y%m%dT%H%M%SZ)-$sha.dump"
+  log "backing up database to $dump"
+  if ! docker exec "$DB" pg_dump -U splits -d splits -Fc >"$dump.partial"; then
+    rm -f "$dump.partial"
+    log "pg_dump failed; release aborted, nothing changed"
+    exit 1
+  fi
+  mv "$dump.partial" "$dump"
+else
+  log "$DB is not running; skipping backup (first release?)"
+fi
+
+# What is serving now, for rollback.
+previous_image="$(docker inspect -f '{{.Config.Image}}' "$API" 2>/dev/null || true)"
+previous_sha=""
+if [[ "$previous_image" =~ ^splits-api:([0-9a-f]{40})$ ]]; then
+  previous_sha="${BASH_REMATCH[1]}"
+fi
+log "currently running: ${previous_image:-nothing}"
+
+wait_healthy() { # wait_healthy <sha>
+  local want="splits-api:$1" deadline=$((SECONDS + HEALTH_TIMEOUT)) image status
+  while ((SECONDS < deadline)); do
+    image="$(docker inspect -f '{{.Config.Image}}' "$API" 2>/dev/null || true)"
+    status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$API" 2>/dev/null || true)"
+    if [[ "$image" == "$want" && "$status" == healthy ]]; then
+      return 0
+    fi
+    if [[ "$image" == "$want" && "$status" == unhealthy ]]; then
+      log "$API reported unhealthy"
+      return 1
+    fi
+    sleep 3
+  done
+  log "$API did not become healthy within ${HEALTH_TIMEOUT}s (image=${image:-none} health=${status:-none})"
+  return 1
+}
+
+rollback() {
+  if [[ -z "$previous_sha" || "$previous_sha" == "$sha" ]]; then
+    log "no earlier release to roll back to"
+    return 1
+  fi
+  if ! docker image inspect "splits-api:$previous_sha" >/dev/null 2>&1; then
+    log "previous image splits-api:$previous_sha is gone; cannot roll back"
+    return 1
+  fi
+  local file="$RELEASES_ROOT/$previous_sha/compose.yml"
+  [[ -f "$file" ]] || file="$release/compose.yml"
+  log "rolling back to splits-api:$previous_sha"
+  compose "$previous_sha" "$file" up -d && wait_healthy "$previous_sha"
+}
+
+log "starting splits-api:$sha"
+if ! compose "$sha" "$release/compose.yml" up -d || ! wait_healthy "$sha"; then
+  log "release $sha failed; inspect with: docker logs --tail 200 $API"
+  if rollback; then
+    ln -sfn "$RELEASES_ROOT/$previous_sha" "$RELEASES_ROOT/current"
+    log "rolled back to $previous_sha and it is healthy"
+  else
+    log "ROLLBACK FAILED; Splits may be down"
+  fi
+  log "database migrations are never rolled back automatically; pre-release dumps are in $BACKUPS_ROOT"
+  exit 1
+fi
+
+ln -sfn "$release" "$RELEASES_ROOT/current"
+log "release $sha is healthy"
+
+# Retention: the newest $KEEP_RELEASES releases (by last deploy) keep their bundle, release dir and
+# image; anything older goes. The running image is never removed.
+mapfile -t kept < <(find "$RELEASES_ROOT" -mindepth 1 -maxdepth 1 -type d -regextype posix-extended \
+  -regex '.*/[0-9a-f]{40}' -printf '%T@ %f\n' | sort -rn | head -n "$KEEP_RELEASES" | cut -d' ' -f2)
+is_kept() {
+  local s
+  for s in "${kept[@]}" "$sha"; do [[ "$s" == "$1" ]] && return 0; done
+  return 1
+}
+for dir in "$RELEASES_ROOT"/* "$INCOMING_ROOT"/*; do
+  name="$(basename "$dir")"
+  [[ -d "$dir" && ! -L "$dir" && "$name" =~ ^[0-9a-f]{40}$ ]] || continue
+  is_kept "$name" || { log "pruning $dir"; rm -rf -- "$dir"; }
+done
+while read -r tag; do
+  [[ "$tag" =~ ^[0-9a-f]{40}$ ]] || continue
+  is_kept "$tag" && continue
+  [[ "splits-api:$tag" == "$(docker inspect -f '{{.Config.Image}}' "$API" 2>/dev/null || true)" ]] && continue
+  log "removing image splits-api:$tag"
+  docker image rm "splits-api:$tag" >/dev/null || true
+done < <(docker image ls splits-api --format '{{.Tag}}')
+find "$BACKUPS_ROOT" -maxdepth 1 -type f -name 'pre-release-*.dump' -printf '%T@ %p\n' | sort -rn |
+  tail -n +"$((KEEP_BACKUPS + 1))" | cut -d' ' -f2- | while read -r old; do
+    log "pruning backup $old"
+    rm -f -- "$old"
+  done
+
+log "done: splits-api:$sha serving"

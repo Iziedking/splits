@@ -1,0 +1,69 @@
+# Splits production (mysplits.xyz) on the shared host. Started only by /usr/local/sbin/splits-deploy:
+#
+#   SPLITS_SHA=<sha> docker compose -p splits --env-file /opt/splits/prod.env \
+#     -f /opt/splits/releases/<sha>/compose.yml up -d
+#
+# splits-api joins ArcRun's external network deploy_default so arcrun-caddy reaches it by name
+# (reverse_proxy splits-api:3930), like Kova and sFace. Never run `docker compose down` against
+# deploy_default; this project only ever uses `up -d`.
+#
+# splits-db sits on the internal network only: no published ports, no route out.
+name: splits
+
+services:
+  splits-db:
+    image: postgres:17.6-alpine
+    container_name: splits-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: splits
+      POSTGRES_DB: splits
+      # Interpolated from /opt/splits/prod.env (passed with --env-file), so the database container
+      # never sees the app's other secrets. Only used when the volume is first initialised.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in /opt/splits/prod.env}
+    volumes:
+      - splits-db-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U splits -d splits"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  splits-api:
+    image: splits-api:${SPLITS_SHA:?SPLITS_SHA is set by splits-deploy}
+    container_name: splits-api
+    restart: unless-stopped
+    env_file:
+      - /opt/splits/prod.env
+    depends_on:
+      splits-db:
+        condition: service_healthy
+    networks:
+      - internal
+      - deploy_default
+    # Gives the in-process sweeper time to finish a tick on redeploy.
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3930/api/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    logging: *logging
+
+volumes:
+  splits-db-data:
+
+networks:
+  internal:
+    internal: true
+  deploy_default:
+    external: true
