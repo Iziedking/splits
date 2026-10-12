@@ -101,7 +101,8 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
   return (
     <div className={cn("min-h-screen transition-[padding,color] duration-200", railOpen ? "lg:pl-56" : "lg:pl-20", night && "text-white")}>
       <Backdrop tone={tone} />
-      {me && pathname !== "/setup" && <SideRail open={railOpen} onToggle={toggleRail} />}
+      {/* Drawn at once (not after the account loads) so it never pops in; signed-out visitors are sent away anyway. */}
+      {pathname !== "/setup" && <SideRail open={railOpen} onToggle={toggleRail} />}
       <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:max-w-none lg:px-12 lg:pt-8">
         <Link
           href="/home"
