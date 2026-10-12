@@ -1,0 +1,13 @@
+{
+  "network": "arc-mainnet",
+  "chainId": 5042,
+  "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
+  "usdc": "0x3600000000000000000000000000000000000000",
+  "create2Factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+  "salt": "0x3d10f73c2ea3ad7b42ad808246548a7f107ffa91803e570a58d918f76639aa84",
+  "initCodeHash": "0xbcc416c6b016cdefa30d21ff723967790c6c1a0257c12162a4444f1b79c34608",
+  "runtimeCodeHash": "0x2067237657cf43f47c068327d702712d53db5db358762d117d29e846c1dd71cc",
+  "deployTx": "0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f",
+  "nextSplitId": "1",
+  "verifiedAt": "2026-10-12T07:15:10.554Z"
+}
