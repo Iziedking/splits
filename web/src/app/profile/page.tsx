@@ -2,10 +2,10 @@
 
 import { ExternalLink, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AddMoney, AddressQr } from "@/components/app/add-money";
 import { AppFrame, useMe } from "@/components/app/app-frame";
+import { useSignOut } from "@/components/app/sign-out";
 import { CopyAddress } from "@/components/app/copy-address";
 import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,8 @@ export default function ProfilePage() {
 }
 
 function Profile() {
-  const router = useRouter();
   const { me } = useMe();
+  const { signOut, signingOut, overlay } = useSignOut();
   const main = me.wallets.find((w) => w.kind === "main");
   const [adding, setAdding] = React.useState(false);
   const [rule, setRule] = React.useState<SplitView | null | undefined>(undefined);
@@ -31,11 +31,6 @@ function Profile() {
       .then((r) => setRule(r.splits.find((s) => s.automatic && s.status !== "failed") ?? null))
       .catch(() => setRule(null));
   }, []);
-
-  async function signOut() {
-    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  }
 
   return (
     <div className="enter space-y-6 pt-4">
@@ -127,7 +122,7 @@ function Profile() {
             Settings
             <span className="text-xs font-normal text-muted-foreground">PIN, Face ID, email alerts</span>
           </Link>
-          <Button variant="secondary" className="mt-5 w-full" onClick={() => void signOut()}>
+          <Button variant="secondary" className="mt-5 w-full" disabled={signingOut} onClick={() => void signOut()}>
             Sign out
           </Button>
         </section>
@@ -141,6 +136,7 @@ function Profile() {
       </Link>
 
       {main && <AddMoney address={main.address} network={me.network} open={adding} onClose={() => setAdding(false)} />}
+      {overlay}
     </div>
   );
 }

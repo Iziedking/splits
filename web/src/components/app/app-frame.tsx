@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
 import { Backdrop } from "@/components/app/backdrop";
+import { Loader } from "@/components/app/loader";
 import { Logo } from "@/components/app/logo";
 import { NotificationBell } from "@/components/app/notification-bell";
 import { SideRail } from "@/components/app/side-rail";
@@ -132,7 +133,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
             </Button>
           </div>
         )}
-        {!me && !error && <FrameSkeleton />}
+        {!me && !error && <Loader label="Loading your account" />}
         {me && (
           <ToneContext.Provider value={setTone}>
             <MeContext.Provider value={{ me, refresh }}>{children}</MeContext.Provider>
@@ -163,16 +164,6 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
           ))}
         </nav>
       )}
-    </div>
-  );
-}
-
-function FrameSkeleton() {
-  return (
-    <div aria-busy="true" aria-label="Loading" className="mt-6 space-y-5">
-      <div className="h-10 w-40 rounded-full bg-white/60 motion-safe:animate-pulse" />
-      <div className="surface h-36 motion-safe:animate-pulse" />
-      <div className="surface h-24 motion-safe:animate-pulse" />
     </div>
   );
 }

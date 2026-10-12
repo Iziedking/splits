@@ -1,0 +1,26 @@
+import { cn } from "@/lib/utils";
+
+/**
+ * Whole-screen loading: the Splits icon, its four pieces lighting up in turn like money splitting
+ * outward (globals.css, `split-piece`). Still for people who turn motion off. Lists and buttons
+ * keep their own placeholders; this is for a screen with nothing to show yet.
+ */
+export function Loader({ label = "Loading", className }: { label?: string; className?: string }) {
+  return (
+    <div role="status" className={cn("flex min-h-[40vh] items-center justify-center", className)}>
+      <svg viewBox="150 150 442 394" aria-hidden="true" className="h-14 w-auto text-[#0EA5A4]">
+        <g transform="matrix(1,0,0,1,-293,-382)" fill="currentColor">
+          <g transform="matrix(2.25317,0,0,2.25317,-909.210836,-434.962492)">
+            <g transform="matrix(0.501415,0,0,0.420441,35.186976,297.745019)">
+            <path className="split-piece" style={{ animationDelay: "0ms" }} d="M1158.861,580.023L1272.216,353.312C1283.229,331.287 1303.146,317.795 1324.649,317.795C1346.152,317.795 1366.069,331.287 1377.082,353.312L1397.664,394.476C1397.664,394.476 1331.543,477.424 1295.373,522.8C1280.401,541.582 1260.993,554.489 1239.725,559.806C1206.187,568.191 1158.861,580.023 1158.861,580.023Z" />
+            <path className="split-piece" style={{ animationDelay: "160ms" }} d="M1154.654,588.436C1154.654,588.436 1209.283,581.096 1243.985,576.433C1262.331,573.967 1280.9,577.2 1297.89,585.817C1359.446,617.036 1509.321,693.047 1509.321,693.047C1498.292,714.839 1478.48,728.224 1457.059,728.224L1192.239,728.224C1170.275,728.224 1150.004,714.153 1139.156,691.377C1128.309,668.6 1128.557,640.63 1139.806,618.132L1154.654,588.436Z" />
+            <path className="split-piece" style={{ animationDelay: "320ms" }} d="M1323.469,570.856C1322.213,570.384 1321.402,568.932 1321.521,567.368C1321.639,565.804 1322.655,564.55 1323.962,564.354C1375.553,556.615 1427.176,548.825 1471.486,542.121L1509.492,618.132C1513.476,626.1 1516.08,634.755 1517.3,643.622C1517.3,643.622 1367.789,587.494 1323.469,570.856Z" />
+            <path className="split-piece" style={{ animationDelay: "480ms" }} d="M1323.482,539.329C1322.173,539.638 1320.864,538.804 1320.351,537.336C1319.838,535.869 1320.263,534.173 1321.368,533.282C1350.542,509.763 1425.21,449.569 1425.21,449.569L1454.604,508.357C1454.604,508.357 1359.495,530.822 1323.482,539.329Z" />
+            </g>
+          </g>
+        </g>
+      </svg>
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}

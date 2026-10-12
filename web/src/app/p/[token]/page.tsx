@@ -7,6 +7,7 @@ import * as React from "react";
 import { Backdrop } from "@/components/app/backdrop";
 import { Landed } from "@/components/app/landed";
 import { VisitorHeader } from "@/components/app/visitor-header";
+import { Loader } from "@/components/app/loader";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type VisitorPaymentView } from "@/lib/api";
@@ -70,7 +71,7 @@ export default function VisitorPayment() {
               </Link>
             </div>
           ) : (
-            <div aria-busy="true" aria-label="Loading payment" className="surface h-96 motion-safe:animate-pulse" />
+            <Loader label="Loading payment" />
           )
         ) : p.status === "settled" ? (
           <>

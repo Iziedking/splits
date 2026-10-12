@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
+import { Loader } from "@/components/app/loader";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { CountUp } from "@/components/app/count-up";
 import { FeeLines } from "@/components/app/fee-lines";
@@ -108,7 +109,7 @@ function Send() {
   }
 
   if (loadError) return <Notice tone="error" className="mx-auto mt-8 max-w-md">{loadError}</Notice>;
-  if (!split) return <div aria-busy="true" aria-label="Loading" className="mx-auto mt-8 h-96 max-w-md rounded-2xl bg-muted/60 motion-safe:animate-pulse" />;
+  if (!split) return <Loader label="Loading your split" />;
 
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
   const symbol = fundWith === "card" ? CURRENCIES[currency] : "$";

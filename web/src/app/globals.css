@@ -125,6 +125,25 @@
   }
 }
 
+/* The loader's icon pieces light up in turn (components/app/loader.tsx); still without motion. */
+@keyframes split-piece {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  35%,
+  60% {
+    opacity: 1;
+  }
+}
+
+.split-piece {
+  animation: split-piece 1.4s ease-in-out infinite both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
 @utility enter {
   animation: settle 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   @media (prefers-reduced-motion: reduce) {

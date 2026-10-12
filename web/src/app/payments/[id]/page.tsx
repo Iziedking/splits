@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useFrameTone, useMe } from "@/components/app/app-frame";
+import { Loader } from "@/components/app/loader";
 import { Landed } from "@/components/app/landed";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
@@ -96,7 +97,7 @@ function Payment() {
         {error}
       </Notice>
     ) : (
-      <div aria-busy="true" aria-label="Loading payment" className="surface mt-8 h-96 motion-safe:animate-pulse" />
+      <Loader label="Loading payment" />
     );
   }
 

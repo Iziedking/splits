@@ -2,8 +2,8 @@
 
 import { Home, Info, LogOut, Menu, PanelsTopLeft, Settings, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { usePathname } from "next/navigation";
+import { useSignOut } from "@/components/app/sign-out";
 import { cn } from "@/lib/utils";
 
 const TOP: { href: string; label: string; icon: LucideIcon }[] = [
@@ -22,14 +22,9 @@ const TOP: { href: string; label: string; icon: LucideIcon }[] = [
  * Open, labels are text, so it darkens to #0A7A73 where small white text reads at 5:1.
  */
 export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const router = useRouter();
   const pathname = usePathname();
+  const { signOut, signingOut, overlay } = useSignOut();
   const current = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
-
-  async function signOut() {
-    await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
-    router.replace("/");
-  }
 
   const item = cn(
     "group relative flex min-h-12 items-center gap-3 rounded-2xl text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:outline-none",
@@ -78,11 +73,12 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
           <Settings className="h-5 w-5 shrink-0" aria-hidden="true" />
           {label("Settings")}
         </Link>
-        <button type="button" onClick={() => void signOut()} className={item}>
+        <button type="button" onClick={() => void signOut()} disabled={signingOut} className={item}>
           <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
           {label("Sign out")}
         </button>
       </div>
+      {overlay}
     </aside>
   );
 }
