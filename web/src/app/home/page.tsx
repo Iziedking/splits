@@ -18,7 +18,7 @@ import { greetingName, isFinal } from "@/lib/format";
 
 export default function HomePage() {
   return (
-    <AppFrame>
+    <AppFrame wide>
       <Home />
     </AppFrame>
   );
@@ -71,126 +71,128 @@ function Home() {
   const rule = (splits ?? []).find((s) => s.automatic && s.status !== "failed");
   const splitNames = Object.fromEntries((splits ?? []).map((sp) => [sp.id, sp.name]));
 
+  // One list on a phone (the `order-*` classes keep the v4 order); two columns from `lg` (v5,
+  // frame "MacBook Air - 3"): money and splits on the left, send, receive and history on the right.
+  // The column wrappers are `contents` on a phone, so their children join the single flex list.
   return (
-    <div className="enter space-y-7 pt-4">
-      <h1 className="text-[2rem] leading-tight font-extrabold">Hi, {greetingName(me.user.email)}</h1>
-
-      <section aria-label="Your balance" className="surface p-5">
-        <p className="text-sm text-muted-foreground">Balance</p>
-        <p className="figure mt-1 text-[2.6rem] leading-none">
-          <CountUp value={main?.balance ?? "0.00"} />
-        </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {pockets.map((p) => (
-            <span key={p.id} className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border">
-              {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
-            </span>
-          ))}
-          {main && <CopyAddress address={main.address} tone="dark" className="ml-auto" />}
-        </div>
-      </section>
-
-      <div className="grid grid-cols-2 gap-3">
-        <Button onClick={() => router.push("/pay")}>
-          <Send className="h-4 w-4" aria-hidden="true" />
-          Send money
-        </Button>
-        <Button variant="secondary" onClick={() => setReceiving(true)}>
-          <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
-          Receive
-        </Button>
-      </div>
-
-      {error && (
-        <div className="space-y-3">
-          <Notice tone="error">{error}</Notice>
-          <Button variant="secondary" className="w-full" onClick={() => void load()}>
-            Try again
-          </Button>
-        </div>
-      )}
-
-      <section aria-labelledby="splits-heading">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 id="splits-heading" className="text-xl font-extrabold">
-            Saved splits
-          </h2>
-          {sendSplits.length > 0 && (
-            <Link
-              href="/splits/new"
-              className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              New split
-            </Link>
-          )}
-        </div>
-        {splits === null && !error ? (
-          <div aria-busy="true" aria-label="Loading splits" className="surface h-24 motion-safe:animate-pulse" />
-        ) : sendSplits.length === 0 ? (
-          <div className="surface p-5">
-            <Ribbon height={8} parts={[{ label: "Rent", weight: 40 }, { label: "School fees", weight: 35 }, { label: "Upkeep", weight: 25 }]} />
-            <p className="mt-4 text-lg font-bold">Tell your money where to go.</p>
-            <p className="mt-1 text-muted-foreground">Name who gets paid and what each part is for. Set it up once and use it every month.</p>
-            <Button className="mt-5 w-full" onClick={() => router.push("/splits/new")}>
-              Create your first split
+    <div className="enter flex flex-col gap-7 pt-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,25rem)] lg:items-start lg:gap-10">
+      <div className="contents lg:flex lg:flex-col lg:gap-7">
+        <h1 className="order-1 lg:order-none text-[2rem] leading-tight font-extrabold">Hi, {greetingName(me.user.email)}</h1>
+        <section aria-label="Your balance" className="surface order-2 p-5 lg:order-none">
+          <p className="text-sm text-muted-foreground">Balance</p>
+          <p className="figure mt-1 text-[2.6rem] leading-none">
+            <CountUp value={main?.balance ?? "0.00"} />
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {pockets.map((p) => (
+              <span key={p.id} className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border">
+                {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
+              </span>
+            ))}
+            {main && <CopyAddress address={main.address} tone="dark" className="ml-auto" />}
+          </div>
+        </section>
+        {error && (
+          <div className="order-4 space-y-3 lg:order-none">
+            <Notice tone="error">{error}</Notice>
+            <Button variant="secondary" className="w-full" onClick={() => void load()}>
+              Try again
             </Button>
           </div>
-        ) : (
-          <ul className="space-y-3">
-            {sendSplits.map((split) => (
-              <li key={split.id}>
-                <Link
-                  href={`/send/${split.id}`}
-                  className="surface flex items-center gap-3 p-4 transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:translate-y-0"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-bold">{split.name}</span>
-                    <Ribbon
-                      className="mt-3"
-                      height={8}
-                      parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))}
-                    />
-                    <span className="mt-2 block truncate text-sm text-muted-foreground">
-                      {split.status === "pending" ? "Setting up on Arc" : split.legs.map((l) => l.name).join(" · ")}
+        )}
+        <section aria-labelledby="auto-heading" className="surface order-7 p-5 lg:order-none">
+          <h2 id="auto-heading" className="font-bold">
+            {rule ? rule.name : "Divide incoming money automatically"}
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {rule
+              ? rule.status === "pending"
+                ? "Setting up on Arc."
+                : "Runs by itself on every payment that reaches your wallet."
+              : "Put part of every payment you receive into savings, by itself."}
+          </p>
+          {rule ? (
+            <Ribbon className="mt-4" height={8} parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />
+          ) : (
+            <Button className="mt-4 w-full" onClick={() => router.push("/rules/new")}>
+              Create a rule
+            </Button>
+          )}
+        </section>
+        <section aria-labelledby="splits-heading" className="order-5 lg:order-none">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 id="splits-heading" className="text-xl font-extrabold">
+              Saved splits
+            </h2>
+            {sendSplits.length > 0 && (
+              <Link
+                href="/splits/new"
+                className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                New split
+              </Link>
+            )}
+          </div>
+          {splits === null && !error ? (
+            <div aria-busy="true" aria-label="Loading splits" className="surface h-24 motion-safe:animate-pulse" />
+          ) : sendSplits.length === 0 ? (
+            <div className="surface p-5">
+              <Ribbon height={8} parts={[{ label: "Rent", weight: 40 }, { label: "School fees", weight: 35 }, { label: "Upkeep", weight: 25 }]} />
+              <p className="mt-4 text-lg font-bold">Tell your money where to go.</p>
+              <p className="mt-1 text-muted-foreground">Name who gets paid and what each part is for. Set it up once and use it every month.</p>
+              <Button className="mt-5 w-full" onClick={() => router.push("/splits/new")}>
+                Create your first split
+              </Button>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {sendSplits.map((split) => (
+                <li key={split.id}>
+                  <Link
+                    href={`/send/${split.id}`}
+                    className="surface flex items-center gap-3 p-4 transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:hover:translate-y-0"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-bold">{split.name}</span>
+                      <Ribbon
+                        className="mt-3"
+                        height={8}
+                        parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))}
+                      />
+                      <span className="mt-2 block truncate text-sm text-muted-foreground">
+                        {split.status === "pending" ? "Setting up on Arc" : split.legs.map((l) => l.name).join(" · ")}
+                      </span>
                     </span>
-                  </span>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section aria-labelledby="activity-heading">
-        <h2 id="activity-heading" className="mb-3 text-xl font-extrabold">
-          Recent transfers
-        </h2>
-        <ActivityList activity={activity} splitNames={splitNames} onRetry={() => void load()} />
-      </section>
-
-      <section aria-labelledby="auto-heading" className="surface p-5">
-        <h2 id="auto-heading" className="font-bold">
-          {rule ? rule.name : "Divide incoming money automatically"}
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {rule
-            ? rule.status === "pending"
-              ? "Setting up on Arc."
-              : "Runs by itself on every payment that reaches your wallet."
-            : "Put part of every payment you receive into savings, by itself."}
-        </p>
-        {rule ? (
-          <Ribbon className="mt-4" height={8} parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />
-        ) : (
-          <Button className="mt-4 w-full" onClick={() => router.push("/rules/new")}>
-            Create a rule
+                    <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        <div className="order-8 lg:order-none">
+          <StartSomething />
+        </div>
+      </div>
+      <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-7">
+        <div className="order-3 grid grid-cols-2 gap-3 lg:order-none">
+          <Button onClick={() => router.push("/pay")}>
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Send money
           </Button>
-        )}
-      </section>
-
-      <StartSomething />
+          <Button variant="secondary" onClick={() => setReceiving(true)}>
+            <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
+            Receive
+          </Button>
+        </div>
+        <section aria-labelledby="activity-heading" className="order-6 lg:order-none">
+          <h2 id="activity-heading" className="mb-3 text-xl font-extrabold">
+            Recent transfers
+          </h2>
+          <ActivityList activity={activity} splitNames={splitNames} onRetry={() => void load()} />
+        </section>
+      </div>
 
       {main && (
         <AddMoney

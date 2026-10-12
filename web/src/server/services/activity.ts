@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import type { Ctx } from "../context";
-import { transfers, users } from "../db/schema";
+import { SOURCE_CHAINS, type ChainKey } from "../crosschain/chains";
+import { depositMoves, transfers, users } from "../db/schema";
 import { formatUsdc } from "../domain/money";
 import { transferView } from "../views";
 import { transfersFor } from "./transfers";
@@ -11,7 +12,7 @@ export type ReceivedItem = {
   amount: string;
   /** The sending address. */
   from: string;
-  /** The sender's email when the money came through a Splits payment. */
+  /** The sender's email when the money came through a Splits payment, or "Deposit from Base". */
   fromLabel: string | null;
   /** A Splits payment, the demo card's top-up, or anything else that reached the address. */
   source: "splits" | "topup" | "external";
@@ -49,16 +50,25 @@ export async function activityFor(ctx: Ctx, user: User) {
         .innerJoin(users, eq(users.id, transfers.payerUserId))
         .where(and(isNotNull(transfers.txHash), inArray(transfers.txHash, hashes)))
     : [];
+  // A deposit moved from another chain arrives as a CCTP mint, "from" the zero address.
+  const minted = hashes.length
+    ? await ctx.db
+        .select({ hash: depositMoves.mintTxHash, chain: depositMoves.chain })
+        .from(depositMoves)
+        .where(and(eq(depositMoves.userId, user.id), inArray(depositMoves.mintTxHash, hashes)))
+    : [];
   const me = wallet.address.toLowerCase();
   const received: ReceivedItem[] = inbound.map((i) => {
     const match = ours.find((o) => o.t.txHash?.toLowerCase() === i.txHash.toLowerCase());
     const leg = match?.t.expected.find((l) => l.address.toLowerCase() === me);
     const topUp = !match && i.from.toLowerCase() === ctx.treasuryAddress.toLowerCase();
+    const deposit = minted.find((m) => m.hash?.toLowerCase() === i.txHash.toLowerCase());
+    const depositLabel = deposit ? `Deposit from ${SOURCE_CHAINS[deposit.chain as ChainKey]?.name ?? deposit.chain}` : null;
     return {
       txHash: i.txHash,
       amount: formatUsdc(i.amount),
       from: i.from,
-      fromLabel: match?.payer ?? (topUp ? "Demo card top-up" : null),
+      fromLabel: match?.payer ?? (topUp ? "Demo card top-up" : depositLabel),
       source: match ? "splits" : topUp ? "topup" : "external",
       purpose: leg?.purpose ?? null,
       at: i.at.toISOString(),

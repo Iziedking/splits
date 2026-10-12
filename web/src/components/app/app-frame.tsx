@@ -7,6 +7,7 @@ import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
 import { Backdrop } from "@/components/app/backdrop";
 import { NotificationBell } from "@/components/app/notification-bell";
+import { SideRail } from "@/components/app/side-rail";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
@@ -44,8 +45,11 @@ export function useMe(): MeState {
 /**
  * The signed-in shell. Loads the user once, sends signed-out visitors to sign in and anyone
  * without a PIN to set one, and shows a Preview tag whenever money is simulated.
+ *
+ * Phones get a centred column and a floating nav (UI_BRIEF.md v4). From `lg` up, a teal side rail
+ * replaces the nav (v5); `wide` screens (Home) use the extra width, the rest stay a readable column.
  */
-export function AppFrame({ children, requirePin = true }: { children: React.ReactNode; requirePin?: boolean }) {
+export function AppFrame({ children, requirePin = true, wide = false }: { children: React.ReactNode; requirePin?: boolean; wide?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const [me, setMe] = React.useState<Me | null>(null);
@@ -70,13 +74,17 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
   }, [refresh]);
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-500", night && "text-white")}>
+    <div className={cn("min-h-screen transition-colors duration-500 lg:pl-24", night && "text-white")}>
       <Backdrop tone={tone} />
-      {/* Mobile composition at every width until the designer's PC view lands (UI_BRIEF.md v4). */}
-      <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2">
+      {me && pathname !== "/setup" && <SideRail items={NAV} isCurrent={(href) => isCurrent(pathname, href)} />}
+      <header className={cn("mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:px-10 lg:pt-8", wide ? "lg:max-w-6xl" : "lg:max-w-xl")}>
         <Link
           href="/home"
-          className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className={cn(
+            "inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            // The rail carries the wordmark on desktop, except where it is hidden (PIN setup).
+            pathname !== "/setup" && "lg:invisible",
+          )}
         >
           Splits
         </Link>
@@ -93,7 +101,7 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
         </div>
       </header>
 
-      <main className="mx-auto max-w-md px-5 pb-32">
+      <main className={cn("mx-auto max-w-md px-5 pb-32 lg:px-10 lg:pb-16", wide ? "lg:max-w-6xl" : "lg:max-w-xl")}>
         {error && !me && (
           <div className="mt-16 space-y-4">
             <Notice tone="error">{error}</Notice>
@@ -113,7 +121,7 @@ export function AppFrame({ children, requirePin = true }: { children: React.Reac
         <nav
           aria-label="Main"
           className={cn(
-            "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 grid w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 grid-cols-3 rounded-full p-1",
+            "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 grid w-[calc(100%-2.5rem)] max-w-[24rem] -translate-x-1/2 grid-cols-3 rounded-full p-1 lg:hidden",
             night ? "surface-night" : "surface",
           )}
         >

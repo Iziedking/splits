@@ -1,11 +1,31 @@
 # Splits UI brief
 
+## v5 desktop layout (2026-10-12), from the design team
+
+Source: the same Figma file, frames "MacBook Air - 1" (welcome), "- 2" (create account) and "- 3"
+(dashboard). Only from the `lg` breakpoint (1024px); phones and tablets keep v4 unchanged.
+
+- **Welcome and sign-in** are a split screen. The left half (`components/app/welcome-panel.tsx`)
+  is the designer's image slot; until the image arrives it shows the product: one $800 payment
+  landing divided three ways, on deep teal. The right half runs the same steps as the phone:
+  welcome, email, 6-digit code. The frame's password field becomes the emailed code (no passwords),
+  and its Google button waits until Google sign-in is built. The wordmark stands in for the logo.
+- **Signed-in screens** get a teal side rail (`components/app/side-rail.tsx`): Home, Send, Profile,
+  then About and Sign out at the bottom. It replaces the floating nav, which is phone-only now.
+- **Home** is two columns. Left: greeting, balance, the automatic-split card, saved splits. Right,
+  sticky: Send money and Receive, then recent transfers. On a phone the order is v4's, kept with
+  `order-*` classes over `contents` column wrappers.
+- **Other signed-in screens** (Send, Profile, payments, rules) stay one readable column, 36rem wide.
+  The designer drew no desktop version of them.
+- Amounts stay in USD and the greeting uses the person's own name, as in v4 (the frame's
+  "Hello, John" and naira balance are placeholders).
+
 ## v4 visual direction (2026-10-11): "Glass and teal", from the design team
 
 Source: the team's Figma file "Splits — UI Draft" (mobile frames S1 Welcome to S8 Confirmation,
 plus Welcome Page, Email/Sign up, Connect Bank and two Dashboards). It replaces the v2 adire
-direction below for colour, type and surfaces. A PC layout is still to come from the designer, so
-until then wide screens show the same mobile composition, centred, rather than an invented desktop
+direction below for colour, type and surfaces. The PC layout arrived later as v5 (above); before
+that, wide screens showed the same mobile composition, centred, rather than an invented desktop
 layout. The Figma file is read only; nothing in it was changed.
 
 | Token | Value | Use |

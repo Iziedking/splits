@@ -9,6 +9,7 @@ import type { Ctx } from "../context";
 import { depositMoves, deposits, notifications } from "../db/schema";
 import { testCtx } from "../testing";
 import { ensureDepositWallet } from "./depositWallets";
+import { activityFor } from "./activity";
 import { advanceDeposits, latestDepositFor, pollDepositWallets, recordInbound } from "./deposits";
 import { ensureMainWallet, ensureUser } from "./users";
 
@@ -49,6 +50,14 @@ describe("moving a deposit from another chain to Arc", () => {
       { key: "move:<id>:ready", title: "Ready: $4.99 is in your balance", email: "pending" },
     ]);
     expect(await latestDepositFor(ctx, user.id)).toMatchObject({ chain: "base", chainName: "Base", amount: "5.00", status: "ready", minted: "4.99" });
+  });
+
+  it("names a moved deposit in the person's activity instead of the zero address", async () => {
+    const { ctx, arc, clock, user, address } = await setup();
+    arc.simulateDeposit("base", address, 5_000_000n);
+    await drive(ctx, clock);
+    const { received } = await activityFor(ctx, user);
+    expect(received.map((r) => [r.amount, r.fromLabel])).toEqual([["4.9995", "Deposit from Base"]]);
   });
 
   it("ignores a report that the chain doesn't back up, and records a real one once (Review Focus 1)", async () => {

@@ -368,6 +368,10 @@ async function stepMove(ctx: Ctx, move: Move): Promise<void> {
       if (minted.status === "failed") return retry(ctx, move, `mint failed: ${minted.error ?? minted.rawState}`);
       return;
     }
+  } else if (move.mintProviderTx && !move.mintTxHash) {
+    // Our mint landed between two sweeps: record its hash (receipts and activity name it by that).
+    const minted = await ctx.wallets.getTx(move.mintProviderTx);
+    if (landed(minted) && minted.txHash) await save(ctx, move, { mintTxHash: minted.txHash });
   }
   await finish(ctx, move, chain, parsed.amount - parsed.feeExecuted);
 }
