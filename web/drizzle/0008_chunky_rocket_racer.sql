@@ -1,0 +1,1 @@
+ALTER TABLE "notices" ADD COLUMN "kind" text DEFAULT 'received' NOT NULL;

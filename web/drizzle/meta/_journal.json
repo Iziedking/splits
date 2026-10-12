@@ -57,6 +57,13 @@
       "when": 1791816455909,
       "tag": "0007_elite_doctor_doom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791840740724,
+      "tag": "0008_chunky_rocket_racer",
+      "breakpoints": true
     }
   ]
 }

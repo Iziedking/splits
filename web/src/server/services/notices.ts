@@ -19,9 +19,14 @@ export async function queueNotices(ctx: Ctx, t: Transfer): Promise<number> {
   const [payer] = t.payerUserId
     ? await ctx.db.select({ email: users.email }).from(users).where(eq(users.id, t.payerUserId)).limit(1)
     : [];
-  const rows = t.expected
+  const rows: (typeof notices.$inferInsert)[] = t.expected
     .filter((l) => l.email && l.email !== payer?.email && BigInt(l.amount) > 0n)
     .map((l) => ({ transferId: t.id, email: l.email!, amount: l.amount, purpose: l.purpose }));
+  // Paid from a wallet without an account: the email given at payment gets the receipt link, by
+  // itself, once it lands (the "Email me my receipt" button stays for anyone who didn't give one).
+  if (!t.payerUserId && t.visitorEmail && t.visitorToken) {
+    rows.push({ transferId: t.id, kind: "payer_receipt", email: t.visitorEmail, amount: (BigInt(t.amount) + BigInt(t.feeAmount)).toString(), purpose: "receipt" });
+  }
   if (rows.length === 0) return 0;
   const inserted = await ctx.db.insert(notices).values(rows).onConflictDoNothing().returning({ id: notices.id });
   return inserted.length;
@@ -34,7 +39,7 @@ export async function queueNotices(ctx: Ctx, t: Transfer): Promise<number> {
 export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sent: number; failed: number }> {
   const now = ctx.now();
   const due = await ctx.db
-    .select({ n: notices, from: users.email, payerAddress: transfers.payerAddress, visitorEmail: transfers.visitorEmail })
+    .select({ n: notices, from: users.email, payerAddress: transfers.payerAddress, visitorEmail: transfers.visitorEmail, visitorToken: transfers.visitorToken })
     .from(notices)
     .innerJoin(transfers, eq(transfers.id, notices.transferId))
     .leftJoin(users, eq(users.id, transfers.payerUserId))
@@ -50,7 +55,7 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
 
   let sent = 0;
   let failed = 0;
-  for (const [i, { n, from, payerAddress, visitorEmail }] of due.entries()) {
+  for (const [i, { n, from, payerAddress, visitorEmail, visitorToken }] of due.entries()) {
     if (i > 0 && ctx.mode === "live") await new Promise((r) => setTimeout(r, LIVE_GAP_MS));
     // Claim the notice first, so two sweeps running at once can't both send it.
     const [claimed] = await ctx.db
@@ -60,7 +65,9 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
       .returning({ id: notices.id });
     if (!claimed) continue;
     try {
-      await ctx.email.sendPaymentNotice(n.email, {
+      if (n.kind === "payer_receipt") {
+        await ctx.email.sendReceiptLink(n.email, { amount: formatUsdc(BigInt(n.amount)), url: `${ctx.appUrl}/p/${visitorToken}` });
+      } else await ctx.email.sendPaymentNotice(n.email, {
         from: from ?? (visitorEmail ? greetingName(visitorEmail) : `${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}`),
         amount: formatUsdc(BigInt(n.amount)),
         purpose: n.purpose,

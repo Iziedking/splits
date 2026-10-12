@@ -52,7 +52,10 @@ describe("notifications", () => {
     expect(a + b).toBe(1);
     expect(await sendDueAlerts(ctx)).toBe(0);
     expect(ctx.previewEmail!.alerts).toEqual([
-      { to: "ada@example.com", alert: { subject: "Your $49.99 is ready", title: "Your $49.99 is ready", body: "It arrived from Base.", url: "https://mysplits.xyz/home" } },
+      {
+        to: "ada@example.com",
+        alert: { subject: "Your $49.99 is ready", title: "Your $49.99 is ready", body: "It arrived from Base.", url: "https://mysplits.xyz/home", kind: "deposit_ready", amount: "49.99" },
+      },
     ]);
   });
 

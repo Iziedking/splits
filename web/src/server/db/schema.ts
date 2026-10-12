@@ -273,6 +273,8 @@ export const notices = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     transferId: uuid("transfer_id").notNull().references(() => transfers.id),
+    /** "received": a recipient is told money reached them. "payer_receipt": a payer without an account gets their receipt link. */
+    kind: text("kind", { enum: ["received", "payer_receipt"] }).notNull().default("received"),
     email: text("email").notNull(),
     amount: text("amount").notNull(),
     purpose: text("purpose").notNull(),

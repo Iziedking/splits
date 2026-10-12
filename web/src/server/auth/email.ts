@@ -5,7 +5,16 @@ import { brandedEmail } from "../email/layout";
 export type PaymentNotice = { from: string; amount: string; purpose: string; appUrl: string };
 
 /** One alert about someone's money (deposit ready, payment landed, …), with a link back in. */
-export type AlertEmail = { subject: string; title: string; body: string; url: string | null };
+export type AlertEmail = { subject: string; title: string; body: string; url: string | null; kind?: string; amount?: string | null };
+
+/** The small label above an alert's title, by what happened. */
+const ALERT_LABEL: Record<string, string> = {
+  deposit_ready: "Deposit ready",
+  deposit_waiting: "Deposit arrived",
+  deposit_stuck: "Deposit update",
+  payment_landed: "Payment landed",
+  payment_failed: "Payment needs a look",
+};
 
 export interface EmailSender {
   sendLoginCode(email: string, code: string): Promise<void>;
@@ -53,7 +62,10 @@ export function createResendEmail(apiKey: string, from: string, appUrl?: string)
         `Your Splits code is ${code}`,
         brandedEmail({
           appUrl,
-          title: `Your code is ${code}`,
+          eyebrow: "Sign in",
+          title: "Your sign-in code",
+          code,
+          preheader: `${code} is your Splits code. It expires in 10 minutes.`,
           body: ["Enter it on the Splits sign-in screen. It expires in 10 minutes.", "If you didn't ask for it, you can ignore this email."],
           footer: "Splits never asks for this code by phone, chat or email.",
         }),
@@ -67,11 +79,34 @@ export function createResendEmail(apiKey: string, from: string, appUrl?: string)
       await send(
         to,
         `Your Splits receipt for $${r.amount}`,
-        brandedEmail({ title: `Your $${r.amount} payment landed`, body: ["See it, and each person's receipt."], button: { label: "View receipt", url: r.url }, appUrl }),
+        brandedEmail({
+          appUrl,
+          eyebrow: "Payment landed",
+          title: "Your payment landed",
+          amount: `$${r.amount}`,
+          details: [["Network", "Arc · USDC"], ["Paid from", "Your own wallet"]],
+          preheader: `Your $${r.amount} payment landed, divided. Each person has a receipt.`,
+          body: ["Everyone was paid in one transaction on Arc. Open your receipt to see who got what, and share each person's own receipt."],
+          button: { label: "View receipt", url: r.url },
+          footer: "You're getting this because you asked for a receipt when you paid with Splits.",
+        }),
       );
     },
     async sendAlert(to, a) {
-      await send(to, a.subject, brandedEmail({ title: a.title, body: [a.body], button: a.url ? { label: "Open Splits", url: a.url } : undefined, appUrl }));
+      await send(
+        to,
+        a.subject,
+        brandedEmail({
+          appUrl,
+          eyebrow: (a.kind && ALERT_LABEL[a.kind]) || "Splits",
+          title: a.title,
+          amount: a.amount ? `$${a.amount}` : undefined,
+          preheader: a.body,
+          body: [a.body],
+          button: a.url ? { label: "Open Splits", url: a.url } : undefined,
+          footer: "You're getting this because email alerts are on. Turn them off any time in Settings.",
+        }),
+      );
     },
   };
 }
@@ -79,10 +114,19 @@ export function createResendEmail(apiKey: string, from: string, appUrl?: string)
 /** The "you received money" email. Signing in with the address it went to is the claim. */
 export function paymentNoticeEmail(n: PaymentNotice): { subject: string; text: string; html: string } {
   const email = brandedEmail({
-    title: `You received $${n.amount}`,
+    appUrl: n.appUrl,
+    eyebrow: "Money received",
+    title: "You received money",
+    amount: `$${n.amount}`,
+    details: [
+      ["From", n.from],
+      ["For", n.purpose],
+      ["Network", "Arc · USDC"],
+    ],
+    preheader: `${n.from} sent you $${n.amount} for "${n.purpose}".`,
     body: [`${n.from} sent you $${n.amount} USDC for "${n.purpose}".`, `Sign in with this email at ${n.appUrl} to use it. There's nothing to install and no password.`],
     button: { label: "Open Splits", url: n.appUrl },
-    appUrl: n.appUrl,
+    footer: "You're getting this because someone paid this email address through Splits.",
   });
   return { subject: `You received $${n.amount} on Splits`, ...email };
 }

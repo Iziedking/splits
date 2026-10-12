@@ -267,6 +267,17 @@ describe("paying from your own wallet", () => {
     expect(await code(checkVisitorList(ctx, { keyHash: "e".repeat(64), ip: null }, input))).toBe("OK");
   });
 
+  it("emails the receipt by itself to the email given when paying, once, after it lands", async () => {
+    const { ctx, arc } = await testCtx();
+    arc.mint(me, 10_000_000n);
+    const p = await prepared(ctx, `${friend}, 2`, "payer@example.com");
+    await submitVisitorPayment(ctx, p.transfer.visitorToken!, payFromWallet(arc, p));
+    await drive(ctx, p.transfer.id);
+    await sweep(ctx);
+    await sweep(ctx);
+    expect(ctx.previewEmail!.receipts).toEqual([{ to: "payer@example.com", amount: "2.00", url: `${ctx.appUrl}/p/${p.transfer.visitorToken}` }]);
+  });
+
   it("emails the visitor their receipt only once it has landed", async () => {
     const { ctx, arc } = await testCtx();
     arc.mint(me, 10_000_000n);

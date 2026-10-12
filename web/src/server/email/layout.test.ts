@@ -28,4 +28,29 @@ describe("branded email", () => {
   it("only links to http(s) urls", () => {
     expect(brandedEmail({ title: "t", body: [], button: { label: "x", url: "javascript:alert(1)" } }).html).not.toContain("javascript:");
   });
+
+  it("shows the amount large, a details table, a sign-in code and an inbox preview line, all escaped", () => {
+    const e = brandedEmail({
+      appUrl: "https://mysplits.xyz",
+      eyebrow: "Money received",
+      title: "You received money",
+      amount: "$20.00",
+      details: [["From", "<b>Ada</b>"], ["For", 'rent & "bills"']],
+      code: "482913",
+      preheader: "Ada sent you $20.00",
+      body: ["Sign in to use it."],
+      button: { label: "Open Splits", url: "https://mysplits.xyz/home" },
+    });
+    expect(e.html).toContain(">Money received<");
+    expect(e.html).toContain(">$20.00<");
+    expect(e.html).toContain("&lt;b&gt;Ada&lt;/b&gt;");
+    expect(e.html).toContain("rent &amp; &quot;bills&quot;");
+    expect(e.html).not.toContain("<b>Ada</b>");
+    expect(e.html).toContain(">482913<");
+    expect(e.html).toContain("display:none");
+    expect(e.html).toContain('href="https://mysplits.xyz/about"');
+    expect(e.text).toBe(
+      'You received money\n\n$20.00\n\n482913\n\nFrom: <b>Ada</b>\nFor: rent & "bills"\n\nSign in to use it.\n\nOpen Splits: https://mysplits.xyz/home',
+    );
+  });
 });

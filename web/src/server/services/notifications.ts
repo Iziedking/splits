@@ -108,7 +108,14 @@ export async function sendDueAlerts(ctx: Ctx, limit = PER_SWEEP): Promise<number
       .returning({ id: notifications.id });
     if (!claimed) continue;
     try {
-      await ctx.email.sendAlert(to, { subject: n.title, title: n.title, body: n.body, url: n.href ? `${ctx.appUrl}${n.href}` : null });
+      await ctx.email.sendAlert(to, {
+        subject: n.title,
+        title: n.title,
+        body: n.body,
+        url: n.href ? `${ctx.appUrl}${n.href}` : null,
+        kind: n.kind,
+        amount: n.amount,
+      });
       await ctx.db.update(notifications).set({ email: "sent", emailError: null }).where(eq(notifications.id, n.id));
       sent++;
     } catch (err) {
