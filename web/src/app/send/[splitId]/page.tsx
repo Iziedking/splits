@@ -34,6 +34,8 @@ type Preview = {
   rate: string | null;
   simulatedCard: boolean;
   legs: { name: string; purpose: string; amount: string }[];
+  /** Set when the split shares out under 100%: the amount typed, of which `amount` is sent. */
+  whole: string | null;
 };
 
 /** "10.5" -> 1050 pence; null when it isn't a money amount. */
@@ -199,6 +201,11 @@ function Send() {
                 </span>
               </div>
               {preview.rate && <p className="text-right text-xs text-muted-foreground">1 {currency} = {preview.rate} USDC</p>}
+              {preview.whole && (
+                <p className="mt-1 text-right text-xs text-muted-foreground">
+                  ${preview.amount} of ${preview.whole}. This split shares out less than 100%, so the rest isn&apos;t sent.
+                </p>
+              )}
               <Ribbon className="mt-4" height={8} parts={preview.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
               <ul className="mt-4 space-y-2.5">
                 {preview.legs.map((leg, i) => (

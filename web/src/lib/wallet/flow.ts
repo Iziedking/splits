@@ -65,8 +65,13 @@ export function waitForAccount(deps: ConnectDeps): Promise<Address> {
     const stopAccount = deps.watchAccount((account) => {
       if (account) finish(() => resolve(account));
     });
+    // Closing the sheet settles it either way. A wallet can reconnect by itself while the sheet is
+    // open (back on the page, it reconnects a moment after load) without any change event, so a
+    // close with an account means "use it", not "wait for a change that will never come".
     const stopOpen = deps.watchOpen((open) => {
-      if (!open && !deps.current()) finish(() => reject(new Error("closed")));
+      if (open) return;
+      const account = deps.current();
+      finish(() => (account ? resolve(account) : reject(new Error("closed"))));
     });
     deps.open().then(
       () => {

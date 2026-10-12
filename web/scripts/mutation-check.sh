@@ -153,5 +153,8 @@ mutate_in "unlisted-no-grace" src/server/services/deposits.ts   '  if (since ===
 mutate_in "unlisted-counted-twice" src/server/services/deposits.ts   '    const left = BigInt(u.amount) - seen.amount;' '    const left = -1n;'   src/server/services/deposits.test.ts "counts a deposit once when Circle reports it after"
 mutate_in "deposit-skips-automatic-split" src/server/services/deposits.ts   '  if (row?.mintTxHash && main) await createAutoTransfer(ctx, main, minted, inboundKey(row.mintTxHash));' ''   src/server/services/flow.test.ts "runs the person's rule on a deposit once it lands"
 mutate_in "stale-node-trusted" src/server/chain/freshness.ts   '  const current = (i: number) => heights[i] !== null && top - heights[i]! <= maxLag;' '  const current = (_i: number) => true;'   src/server/chain/freshness.test.ts "moves a node that has fallen behind"
+mutate_in "partial-split-last-takes-rest" src/server/domain/allocation.ts   '    if (i === lastShare && whole) return remainder - shared;' '    if (i === lastShare) return remainder - shared;'   src/server/domain/domain.test.ts "give each person exactly their percentage"
+mutate_in "rule-allows-partial-shares" src/server/services/splits.ts   '{ partialShares: !input.autoForWalletId }' '{ partialShares: true }'   src/server/services/flow.test.ts "still requires 100% for an automatic split"
+mutate_in "wallet-close-hangs" src/lib/wallet/flow.ts   '      finish(() => (account ? resolve(account) : reject(new Error("closed"))));' '      if (!account) finish(() => reject(new Error("closed")));'   src/lib/wallet/flow.test.ts "uses a wallet that reconnected"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

@@ -70,6 +70,10 @@ function fakeSheet(opts: { account?: `0x${string}`; closesDuringOpen?: boolean }
       open = false;
       openListeners.forEach((cb) => cb(false));
     },
+    /** The wallet finished reconnecting by itself: the account is there, with no change event. */
+    reconnectQuietly(a: `0x${string}`) {
+      account = a;
+    },
     listeners: () => accountListeners.size + openListeners.size,
   };
 }
@@ -96,6 +100,18 @@ describe("connecting a wallet", () => {
     await Promise.resolve();
     sheet.close();
     await expect(result).rejects.toThrow("closed");
+    expect(sheet.listeners()).toBe(0);
+  });
+
+  it("uses a wallet that reconnected while the sheet was open, once the sheet closes", async () => {
+    // Back on the page, the wallet reconnects a moment after load; a tap in that moment opens the
+    // sheet, the wallet reappears without a change event, and the person closes the sheet.
+    const sheet = fakeSheet();
+    const result = waitForAccount(sheet.deps);
+    await Promise.resolve();
+    sheet.reconnectQuietly(addr);
+    sheet.close();
+    await expect(result).resolves.toBe(addr);
     expect(sheet.listeners()).toBe(0);
   });
 

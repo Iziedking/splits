@@ -72,7 +72,9 @@ export async function draftSplit(ctx: Ctx, owner: User, input: SplitInput): Prom
       });
       purposeToBytes32(leg.purpose);
     }
-    validateLegs(toRules(legs), [ctx.router, ctx.usdc]);
+    // Splits you send may share out less than 100%; automatic rules run through the contract,
+    // which needs exactly 100%.
+    validateLegs(toRules(legs), [ctx.router, ctx.usdc], { partialShares: !input.autoForWalletId });
   } catch (err) {
     throw asUserError(err);
   }
@@ -127,6 +129,15 @@ export function toRules(legs: StoredLeg[]) {
   }));
 }
 
+/**
+ * A split whose percentages total under 100%. The contract only stores splits that total 100%, so
+ * these live in Splits alone and every payment through them is a list of exact amounts.
+ */
+export function sharesUnderWhole(legs: StoredLeg[]): boolean {
+  const total = legs.reduce((sum, l) => sum + l.shareBps, 0);
+  return total > 0 && total < 10_000;
+}
+
 export function onchainLegs(legs: StoredLeg[]) {
   return legs.map((l) => ({
     recipient: l.address as Address,
@@ -171,6 +182,9 @@ export async function advanceSplit(ctx: Ctx, splitId: string): Promise<Split> {
     .where(and(eq(actions.subjectId, splitId), eq(actions.status, "confirmed")))
     .limit(1);
   if (!action) return split;
+
+  // Nothing to register: payments through it are paid as exact amounts (see sharesUnderWhole).
+  if (sharesUnderWhole(split.legs)) return markSplit(ctx, splitId, { status: "active", version: 1 });
 
   const wallet = await mainWallet(ctx, split.ownerUserId);
   if (!wallet) throw new Error(`Owner of split ${splitId} has no wallet`);

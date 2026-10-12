@@ -15,7 +15,7 @@ import { confirmAction, createAction, type Action, type Confirmation } from "./a
 import { claimDraft, consumeDraft } from "./payouts";
 import { findProviderTx, refreshProviderTx, submitOnce } from "./providerTx";
 import { checkSendLimit, withSendLimitLock } from "./sendLimits";
-import { expectedAmounts, getSplit } from "./splits";
+import { expectedAmounts, getSplit, sharesUnderWhole } from "./splits";
 import { mainWallet, type User } from "./users";
 
 export type Transfer = typeof transfers.$inferSelect;
@@ -123,8 +123,10 @@ export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput
     fee: formatUsdc(fee.amount),
     feePercent: fee.bps / 100,
     total: formatUsdc(charge),
-    rate: quoteData ? formatUsdc(BigInt(quoteData.rate as string)) : null,
-    simulatedCard: quoteData !== null,
+    rate: quoteData?.rate ? formatUsdc(BigInt(quoteData.rate as string)) : null,
+    simulatedCard: quoteData?.simulated === true,
+    /** Through a split under 100%: the amount typed; `amount` is the part actually sent. */
+    whole: typeof (quoteData as Record<string, unknown> | null)?.whole === "string" ? formatUsdc(BigInt((quoteData as { whole: string }).whole)) : null,
     legs: expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
   };
 }
@@ -163,7 +165,7 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
 
   const split = await getSplit(ctx, input.splitId);
   if (split.ownerUserId !== user.id) throw notFound("Split not found");
-  if (split.status !== "active" || split.onchainId === null) {
+  if (split.status !== "active" || (split.onchainId === null && !sharesUnderWhole(split.legs))) {
     throw conflict("SPLIT_NOT_READY", "This split isn't active yet");
   }
   if (split.autoForWalletId) throw badRequest("SPLIT_IS_RULE", "Automatic splits run on their own");
@@ -189,6 +191,13 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
     amount: l.amount.toString(),
     email: split.legs[i]!.email,
   }));
+  // Shares under 100%: only the shares go out, and the fee is on what goes out. The amount typed
+  // is kept as `whole`, so the send step can recompute the shares from it and compare.
+  const sent = expected.reduce((sum, l) => sum + BigInt(l.amount), 0n);
+  if (sent !== amount) {
+    quoteData = { ...(quoteData ?? {}), whole: amount.toString() };
+    amount = sent;
+  }
   const fee = feeFor(amount, paying(expected).length, ctx.fees.rule);
   const charge = amount + fee.amount;
   const topUp = input.fundWith === "card" ? charge : 0n;
@@ -455,7 +464,8 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
           if (split.version !== t.splitVersion) return fail(notSent(t, "VersionMismatch"));
           // The stored legs must still be what the template gives for this amount; the template,
           // not the payment row, is the independent record of what the sender approved.
-          const fromTemplate = expectedAmounts(split, BigInt(t.amount));
+          const whole = (t.quote as { whole?: string } | null)?.whole;
+          const fromTemplate = expectedAmounts(split, BigInt(whole ?? t.amount));
           const same =
             fromTemplate.length === t.expected.length &&
             fromTemplate.every(

@@ -65,7 +65,8 @@ function NewSplit() {
 
   const percentLegs = legs.filter((l) => l.kind === "percent");
   const totalBps = percentLegs.reduce((sum, l) => sum + (percentToBps(l.value) ?? 0), 0);
-  const sharesOk = percentLegs.length === 0 || totalBps === 10_000;
+  // Under 100% is fine: whatever isn't allocated simply isn't sent. Over 100% never is.
+  const sharesOk = percentLegs.length === 0 || (totalBps > 0 && totalBps <= 10_000);
   const complete = name.trim() !== "" && legs.every((l) => l.name.trim() && l.email.trim() && l.purpose.trim() && l.value.trim());
 
   function update(key: number, patch: Partial<LegDraft>) {
@@ -75,7 +76,7 @@ function NewSplit() {
   async function review(e: React.FormEvent) {
     e.preventDefault();
     if (!sharesOk) {
-      setError(`Percentages add up to ${totalBps / 100}%. They need to make 100%.`);
+      setError(`Percentages add up to ${totalBps / 100}%. They can be at most 100%.`);
       return;
     }
     setBusy(true);
@@ -215,7 +216,11 @@ function NewSplit() {
 
         {percentLegs.length > 0 && (
           <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-primary" : "text-muted-foreground")}>
-            {sharesOk ? "100% allocated." : `${totalBps / 100}% allocated, ${(10_000 - totalBps) / 100}% left.`}
+            {totalBps > 10_000
+              ? `${totalBps / 100}% allocated. Bring it down to 100% or less.`
+              : totalBps === 10_000
+                ? "100% allocated."
+                : `${totalBps / 100}% allocated. The other ${(10_000 - totalBps) / 100}% isn't sent.`}
             {legs.some((l) => l.kind === "fixed") && " Fixed amounts are paid first; percentages share the rest."}
           </p>
         )}

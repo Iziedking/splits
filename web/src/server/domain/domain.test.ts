@@ -100,6 +100,25 @@ describe("allocation mirrors SplitsRouter", () => {
   });
 });
 
+describe("splits whose shares total under 100%", () => {
+  it("are allowed for sending when asked for, never above 100% and never for the contract's own splits", () => {
+    const partial = [
+      { recipient: A, ...share(3000) },
+      { recipient: B, ...share(2000) },
+    ];
+    expect(() => validateLegs(partial, [], { partialShares: true })).not.toThrow();
+    expect(() => validateLegs(partial, [])).toThrow(/50%/);
+    expect(() => validateLegs([{ recipient: A, ...share(6000) }, { recipient: B, ...share(5000) }], [], { partialShares: true })).toThrow(/110%/);
+  });
+
+  it("give each person exactly their percentage, rounded down to the cent; the rest isn't sent", () => {
+    expect(allocate([share(3000), share(2000)], 100_000_000n)).toEqual([30_000_000n, 20_000_000n]);
+    // Nobody is handed the cents left over from rounding: they stay unsent.
+    expect(allocate([share(3333), share(3333)], 1_000_000n)).toEqual([330_000n, 330_000n]);
+    expect(allocate([fixed(10_000_000n), share(5000)], 30_000_000n)).toEqual([10_000_000n, 10_000_000n]);
+  });
+});
+
 describe("fx quote (simulated)", () => {
   const rates = { GBP: 1_270_000n, EUR: 1_090_000n, USD: 1_000_000n };
   it("converts pence to USDC and rounds down to whole cents", () => {

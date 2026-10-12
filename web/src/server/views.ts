@@ -60,7 +60,7 @@ const STEP_LABELS: Record<string, string> = {
 };
 
 export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [], receipts: string[] | null = null) {
-  const quote = t.quote as { currency?: string; fiatMinor?: number; rate?: string } | null;
+  const quote = t.quote as { currency?: string; fiatMinor?: number; rate?: string; whole?: string } | null;
   return {
     id: t.id,
     kind: t.kind,
@@ -70,6 +70,8 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [],
     fee: formatUsdc(BigInt(t.feeAmount)),
     feePercent: t.feeBps / 100,
     total: formatUsdc(BigInt(t.amount) + BigInt(t.feeAmount)),
+    /** Through a split under 100%: the amount typed, of which `amount` (the shares) was sent. */
+    whole: quote?.whole ? formatUsdc(BigInt(quote.whole)) : null,
     quote: quote?.currency
       ? {
           currency: quote.currency,

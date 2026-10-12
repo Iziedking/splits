@@ -216,6 +216,48 @@ describe("receiver-side automatic splits", () => {
   });
 });
 
+describe("splits whose shares total under 100%", () => {
+  it("sends only the shares, charges the fee on what is sent, and needs no onchain registration", async () => {
+    const { ctx, arc } = await testCtx({ FEE_BPS: "150", FEE_MANY_BPS: "200" });
+    const { user, wallet } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user, {
+      name: "Mum and sister",
+      legs: [
+        { name: "Mum", to: { type: "email", email: "mum@example.com" }, amount: { type: "percent", percent: 30 }, purpose: "upkeep" },
+        { name: "Sister", to: { type: "email", email: "sister@example.com" }, amount: { type: "percent", percent: 20 }, purpose: "school fees" },
+      ],
+    });
+    expect(split.onchainId).toBeNull();
+
+    arc.mint(wallet.address as Address, 100_000_000n);
+    const { transfer, action } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "balance", usdc: "100" });
+    expect(transfer.amount).toBe("50000000");
+    expect(transfer.feeAmount).toBe("750000"); // 1.5% of the $50 sent, not of $100
+    await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+    const t = await drive(ctx, transfer.id);
+
+    expect(t.status).toBe("settled");
+    expect(await balanceOf(ctx, "mum@example.com")).toBe(30_000_000n);
+    expect(await balanceOf(ctx, "sister@example.com")).toBe(20_000_000n);
+    expect(await ctx.chain.usdcBalance(wallet.address as Address)).toBe(100_000_000n - 50_750_000n);
+  });
+
+  it("still requires 100% for an automatic split, which runs through the contract", async () => {
+    const { ctx } = await testCtx();
+    const { user, wallet } = await signedInUser(ctx, "ada@example.com");
+    const savings = await createPocket(ctx, user, "Savings");
+    expect(
+      await code(
+        draftSplit(ctx, user, {
+          name: "Save 30%",
+          autoForWalletId: wallet.id,
+          legs: [{ name: "Savings", to: { type: "wallet", walletId: savings.id }, amount: { type: "percent", percent: 30 }, purpose: "savings" }],
+        }),
+      ),
+    ).toBe("SHARES_MUST_TOTAL");
+  });
+});
+
 describe("automatic splits on deposits from other chains", () => {
   it("runs the person's rule on a deposit once it lands on Arc, without waiting for a webhook", async () => {
     const { ctx, arc, clock } = await testCtx();
@@ -428,11 +470,12 @@ describe("confirmation", () => {
     expect(await code(confirmSplit(ctx, user, action.id, { pin: TEST_PIN }))).toBe("ACTION_EXPIRED");
   });
 
-  it("rejects a split whose percentages don't add up, before anything goes onchain", async () => {
+  it("rejects a split whose percentages add up to more than 100%, before anything goes onchain", async () => {
     const { ctx } = await testCtx();
     const { user } = await signedInUser(ctx, "ada@example.com");
     const bad = structuredClone(familySplit);
-    bad.legs[2]!.amount = { type: "percent", percent: 24.99 };
+    // Under 100% is allowed (the rest isn't sent); over 100% never is.
+    bad.legs[2]!.amount = { type: "percent", percent: 25.01 };
     expect(await code(draftSplit(ctx, user, bad))).toBe("SHARES_MUST_TOTAL");
   });
 });

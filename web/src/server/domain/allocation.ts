@@ -38,7 +38,12 @@ export class SplitRuleError extends Error {
   }
 }
 
-export function validateLegs(legs: readonly LegRule[], forbidden: readonly Address[]): void {
+/**
+ * The contract's rules for a split. `partialShares` allows percentages that total less than 100%
+ * (whatever isn't allocated isn't sent): fine for splits the app pays as a list of exact amounts,
+ * never for one registered on the contract, which needs exactly 100%.
+ */
+export function validateLegs(legs: readonly LegRule[], forbidden: readonly Address[], opts: { partialShares?: boolean } = {}): void {
   if (legs.length === 0) throw new SplitRuleError("NO_LEGS", "Add at least one recipient");
   const blocked = new Set([zeroAddress, ...forbidden].map((a) => a.toLowerCase()));
   let totalBps = 0;
@@ -62,14 +67,16 @@ export function validateLegs(legs: readonly LegRule[], forbidden: readonly Addre
     }
     totalBps += leg.shareBps;
   });
-  if (totalBps !== 0 && totalBps !== BPS_DENOMINATOR) {
+  const sharesOk = totalBps === 0 || totalBps === BPS_DENOMINATOR || (opts.partialShares === true && totalBps < BPS_DENOMINATOR);
+  if (!sharesOk) {
     throw new SplitRuleError("SHARES_MUST_TOTAL", `Percentages add up to ${totalBps / 100}%, not 100%`);
   }
 }
 
 /**
- * Fixed legs first, then shares of the rest, each rounded down to a whole cent; the last share leg
- * takes the leftover cents. Every amount comes out in whole cents.
+ * Fixed legs first, then shares of the rest, each rounded down to a whole cent. When the shares
+ * total 100%, the last share leg takes the leftover cents (as the contract does). Under 100%, each
+ * gets exactly its percentage and the rest isn't sent. Every amount comes out in whole cents.
  */
 export function allocate(legs: readonly Pick<LegRule, "fixedAmount" | "shareBps">[], amount: bigint): bigint[] {
   if (amount <= 0n) throw new SplitRuleError("ZERO_AMOUNT", "Amount must be more than zero");
@@ -77,10 +84,13 @@ export function allocate(legs: readonly Pick<LegRule, "fixedAmount" | "shareBps"
 
   let fixedTotal = 0n;
   let lastShare = -1;
+  let totalBps = 0;
   legs.forEach((leg, i) => {
     if (leg.fixedAmount !== 0n) fixedTotal += leg.fixedAmount;
     else lastShare = i;
+    totalBps += leg.shareBps;
   });
+  const whole = totalBps === BPS_DENOMINATOR;
 
   if (amount < fixedTotal) {
     throw new SplitRuleError("AMOUNT_BELOW_FIXED", "Amount is less than the fixed payments in this split");
@@ -93,7 +103,7 @@ export function allocate(legs: readonly Pick<LegRule, "fixedAmount" | "shareBps"
   let shared = 0n;
   return legs.map((leg, i) => {
     if (leg.fixedAmount !== 0n) return leg.fixedAmount;
-    if (i === lastShare) return remainder - shared;
+    if (i === lastShare && whole) return remainder - shared;
     const part = ((remainder * BigInt(leg.shareBps)) / BigInt(BPS_DENOMINATOR) / CENT) * CENT;
     shared += part;
     return part;
