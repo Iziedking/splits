@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, gt, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, lt } from "drizzle-orm";
 import type { Address, Hex } from "viem";
 import { getAddress, isAddress } from "viem";
 import type { Ctx } from "../context";
@@ -25,6 +25,7 @@ export type PreparedPayment = {
 const HOUR = 3_600_000;
 const TOKEN = /^[A-Za-z0-9_-]{24}$/;
 const LATE_WINDOW_MS = 24 * HOUR;
+const LATE_CHECK_EVERY_MS = 30_000;
 
 /** One hit against this visitor's hourly budget for `what`, by cookie and (behind our proxy) by IP. */
 async function visitorAllowed(ctx: Ctx, visitor: Visitor, what: "check" | "prepare"): Promise<boolean> {
@@ -146,20 +147,34 @@ export async function emailVisitorReceipt(ctx: Ctx, token: string, rawEmail: str
 /**
  * Cancelled reservations from the last 24 hours whose payment landed anyway (the page closed, or
  * the wallet took its time). Each found one moves to verifying and is settled like any other.
+ *
+ * Each is checked at most every LATE_CHECK_EVERY_MS, with one read of whether its ref was spent;
+ * only a spent ref is worth the log search for its transaction. Scanning every abandoned
+ * reservation's logs on every sweep used up Arc's public RPC limit and broke balance reads.
  */
 export async function findLatePayments(ctx: Ctx, limit: number): Promise<number> {
   const since = new Date(ctx.now().getTime() - LATE_WINDOW_MS);
+  const checkedBefore = new Date(ctx.now().getTime() - LATE_CHECK_EVERY_MS);
   const rows = await ctx.db
     .select()
     .from(transfers)
-    .where(and(eq(transfers.funding, "own_wallet"), eq(transfers.status, "cancelled"), isNull(transfers.txHash), gt(transfers.createdAt, since)))
+    .where(
+      and(
+        eq(transfers.funding, "own_wallet"),
+        eq(transfers.status, "cancelled"),
+        isNull(transfers.txHash),
+        gt(transfers.createdAt, since),
+        lt(transfers.updatedAt, checkedBefore),
+      ),
+    )
     .orderBy(asc(transfers.updatedAt))
     .limit(limit);
   let found = 0;
   for (const t of rows) {
     let hash: Hex | null;
     try {
-      hash = await ctx.chain.findSplitSent(t.payerAddress as Address, t.ref as Hex, t.fromBlock ?? 0n);
+      const spent = await ctx.chain.refUsed(t.payerAddress as Address, t.ref as Hex);
+      hash = spent ? await ctx.chain.findSplitSent(t.payerAddress as Address, t.ref as Hex, t.fromBlock ?? 0n) : null;
     } catch (err) {
       console.error(`[late payments] ${t.id}`, err);
       hash = null;

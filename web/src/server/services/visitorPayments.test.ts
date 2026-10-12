@@ -227,6 +227,8 @@ describe("paying from your own wallet", () => {
     await sweep(ctx);
     expect((await visitorPaymentByToken(ctx, p.transfer.visitorToken!)).status).toBe("cancelled");
     payFromWallet(arc, p);
+    // Cancelled reservations are re-checked every 30 seconds.
+    clock.advance(31_000);
     await sweep(ctx);
     await sweep(ctx);
     expect((await visitorPaymentByToken(ctx, p.transfer.visitorToken!)).status).toBe("settled");
@@ -299,6 +301,34 @@ describe("paying from your own wallet", () => {
     expect((await getTransfer(ctx, transfer.id)).status).not.toBe("confirmed");
   });
 
+  it("checks abandoned reservations with one cheap read, not a log scan on every sweep (mainnet RPC limit)", async () => {
+    const { ctx, arc, clock } = await testCtx({ VISITOR_CHECKS_PER_HOUR: "1000" });
+    arc.mint(me, 10_000_000n);
+    for (let i = 0; i < 3; i++) await prepared(ctx, `${friend}, 1`);
+    clock.advance(31 * 60_000);
+    await sweep(ctx);
+    let scans = 0;
+    let reads = 0;
+    const chain = {
+      ...ctx.chain,
+      findSplitSent: (...a: Parameters<Ctx["chain"]["findSplitSent"]>) => {
+        scans++;
+        return ctx.chain.findSplitSent(...a);
+      },
+      refUsed: (...a: Parameters<Ctx["chain"]["refUsed"]>) => {
+        reads++;
+        return ctx.chain.refUsed(...a);
+      },
+    };
+    // A minute of sweeps, one every five seconds.
+    for (let i = 0; i < 12; i++) {
+      clock.advance(5_000);
+      await sweep({ ...ctx, chain });
+    }
+    expect(scans).toBe(0);
+    expect(reads).toBeLessThanOrEqual(3 * 2);
+  });
+
   it("finds a late payment even behind many abandoned reservations", async () => {
     const { ctx, arc, clock } = await testCtx({ VISITOR_CHECKS_PER_HOUR: "1000" });
     arc.mint(me, 10_000_000n);
@@ -307,8 +337,8 @@ describe("paying from your own wallet", () => {
     clock.advance(31 * 60_000);
     for (let i = 0; i < 3; i++) await sweep(ctx);
     payFromWallet(arc, all.at(-1)!);
-    // The sweeper runs every few seconds; time moves between runs.
-    for (let i = 0; i < 5; i++) {
+    // The sweeper runs every few seconds; time moves between runs (each reservation every 30s).
+    for (let i = 0; i < 10; i++) {
       clock.advance(5_000);
       await sweep(ctx);
     }
