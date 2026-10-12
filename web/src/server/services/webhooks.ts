@@ -9,7 +9,7 @@ import { forbidden } from "../errors";
 import { inboundStateOk } from "../wallets/circle";
 import { recordInbound } from "./deposits";
 import { notifyPaymentOutcome } from "./paymentNotifications";
-import { createAutoTransfer } from "./rules";
+import { createAutoTransfer, inboundKey } from "./rules";
 import { advanceTransfer } from "./transfers";
 
 /** ECDSA P-256 / SHA-256 over the raw body, as Circle documents. Never re-serialise the JSON first. */
@@ -107,7 +107,8 @@ export async function handleCircleWebhook(
     throw err;
   }
 
-  const childId = await createAutoTransfer(ctx, wallet, amount, deterministicUuid(`inbound:${tx.data.id}`));
+  // Keyed by the transaction hash, like the deposit engine's: a deposit is split once either way.
+  const childId = await createAutoTransfer(ctx, wallet, amount, tx.data.txHash ? inboundKey(tx.data.txHash) : deterministicUuid(`inbound:${tx.data.id}`));
   if (childId) await notifyPaymentOutcome(ctx, await advanceTransfer(ctx, childId));
   return "processed";
 }

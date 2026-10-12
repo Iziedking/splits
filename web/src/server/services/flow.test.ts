@@ -216,6 +216,33 @@ describe("receiver-side automatic splits", () => {
   });
 });
 
+describe("automatic splits on deposits from other chains", () => {
+  it("runs the person's rule on a deposit once it lands on Arc, without waiting for a webhook", async () => {
+    const { ctx, arc, clock } = await testCtx();
+    const { user: sister, wallet: sisterMain } = await signedInUser(ctx, "sister@example.com");
+    const savings = await createPocket(ctx, sister, "Savings");
+    await activeSplit(ctx, sister, {
+      name: "Save 30%",
+      autoForWalletId: sisterMain.id,
+      legs: [
+        { name: "Savings", to: { type: "wallet", walletId: savings.id }, amount: { type: "percent", percent: 30 }, purpose: "savings" },
+        { name: "Spending", to: { type: "wallet", walletId: sisterMain.id }, amount: { type: "percent", percent: 70 }, purpose: "spending" },
+      ],
+    });
+    await sweep(ctx); // opens her deposit addresses
+    arc.simulateDeposit("base", sisterMain.address as Address, 5_000_000n);
+    for (let i = 0; i < 30; i++) {
+      await sweep(ctx);
+      clock.advance(6_000);
+    }
+    const autos = await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"));
+    expect(autos).toHaveLength(1);
+    expect(autos[0]!.status).toBe("settled");
+    // 4.9995 arrived; the rule works in cents: 30% of 4.99, rounded down.
+    expect(await ctx.chain.usdcBalance(savings.address as Address)).toBe(1_490_000n);
+  });
+});
+
 describe("automatic splits don't chain", () => {
   it("money moved by one automatic split never triggers another", async () => {
     const { ctx } = await testCtx();

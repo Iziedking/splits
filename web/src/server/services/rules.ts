@@ -4,7 +4,7 @@ import type { Address } from "viem";
 import type { Ctx } from "../context";
 import { splits, transfers } from "../db/schema";
 import { CENT } from "../domain/allocation";
-import { transferRef } from "../domain/ids";
+import { deterministicUuid, transferRef } from "../domain/ids";
 import { queueNotices } from "./notices";
 import { expectedAmounts } from "./splits";
 import { advanceTransfer, getTransfer, type Transfer } from "./transfers";
@@ -74,6 +74,9 @@ export async function createAutoTransfer(
     .limit(1);
   return existing?.id ?? null;
 }
+
+/** The automatic split's key for money that arrived in one Arc transaction (webhook or deposit). */
+export const inboundKey = (txHash: string) => deterministicUuid(`inbound-tx:${txHash.toLowerCase()}`);
 
 export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]> {
   if ((parent.kind !== "send" && parent.kind !== "pay") || parent.status !== "settled") return [];

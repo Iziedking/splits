@@ -180,7 +180,7 @@ export function PayoutComposer({
                   ? "ada@example.com\n0x8f3c…a12b\nbola@example.com"
                   : "ada@example.com, 50, 1st place\n0x8f3c…a12b, 30, 2nd place\nbola@example.com, 20"
               }
-              className={cn(inputClass, "min-h-44 py-3 font-mono text-sm leading-6")}
+              className={cn(inputClass, "min-h-44 py-3 font-mono leading-6 lg:text-sm")}
             />
             <p id="payout-list-hint" className="mt-1 text-sm text-muted-foreground">
               One person per line: an email or Arc address

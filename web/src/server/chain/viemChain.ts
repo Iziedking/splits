@@ -4,8 +4,6 @@ import {
   createPublicClient,
   defineChain,
   erc20Abi,
-  fallback,
-  http,
   parseEventLogs,
   TransactionReceiptNotFoundError,
   type Address,
@@ -14,6 +12,7 @@ import {
 } from "viem";
 import { transmitterAbi } from "../crosschain/cctp";
 import { splitsRouterAbi } from "./abi";
+import { freshTransport } from "./freshness";
 import type { ChainReader, OnchainSplit, RouterReceipt } from "./types";
 
 export type ViemChainOptions = {
@@ -77,7 +76,8 @@ export function parseRouterReceipt(
 export function createViemChain(opts: ViemChainOptions): ChainReader {
   const client = createPublicClient({
     chain: arcChain(opts),
-    transport: fallback(opts.rpcUrls.map((url) => http(url, { timeout: 10_000, retryCount: 2 }))),
+    // Your node first while it keeps up; a node that falls behind is passed over (freshness.ts).
+    transport: freshTransport(opts.rpcUrls),
   });
 
   return {

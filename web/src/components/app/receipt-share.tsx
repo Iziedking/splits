@@ -37,7 +37,7 @@ export function ManualLink({ path }: { path: string }) {
       aria-label="Receipt link"
       autoFocus
       onFocus={(e) => e.currentTarget.select()}
-      className="mt-2 min-h-11 w-full rounded-xl border border-border bg-white px-3 text-sm text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="mt-2 min-h-11 w-full rounded-xl border border-border bg-white px-3 text-base text-foreground lg:text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     />
   );
 }
@@ -142,7 +142,7 @@ export function ShareReceipts({
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Find a name or address"
             aria-label="Find a recipient"
-            className="mt-4 min-h-11 w-full rounded-full border border-border bg-white px-4 text-[15px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="mt-4 min-h-11 w-full rounded-full border border-border bg-white px-4 text-base lg:text-[15px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           />
         )}
 

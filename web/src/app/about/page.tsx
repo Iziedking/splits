@@ -4,7 +4,7 @@ import { getCtx } from "@/server/context";
 import { sessionToken } from "@/server/http";
 
 export const metadata = {
-  title: "About Splits",
+  title: "About",
   description: "Send money home in one payment and it arrives divided between the people it is for, each part with its purpose.",
 };
 

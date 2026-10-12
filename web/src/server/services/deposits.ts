@@ -8,6 +8,7 @@ import type { ProviderTx } from "../wallets/types";
 import { depositMoves, deposits, depositWallets } from "../db/schema";
 import { deterministicUuid } from "../domain/ids";
 import { mainWallet } from "./users";
+import { createAutoTransfer, inboundKey } from "./rules";
 import { notify } from "./notifications";
 
 /**
@@ -502,6 +503,12 @@ async function finish(ctx: Ctx, move: Move, chain: SourceChain, minted: bigint) 
     amount: usd(minted),
     email: true,
   });
+  // The person's automatic split runs on deposits too. Started here, not only from Circle's
+  // webhook (which can be late, lost, or absent on a private server); both use the mint's hash as
+  // the key, so a deposit is split once whichever comes first.
+  const [row] = await ctx.db.select({ mintTxHash: depositMoves.mintTxHash }).from(depositMoves).where(eq(depositMoves.id, move.id)).limit(1);
+  const main = await mainWallet(ctx, move.userId);
+  if (row?.mintTxHash && main) await createAutoTransfer(ctx, main, minted, inboundKey(row.mintTxHash));
 }
 
 /** The latest deposit for the Receive screen's status line. */

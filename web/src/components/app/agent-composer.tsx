@@ -97,7 +97,7 @@ export function AgentComposer({ onFilled, onBusy }: { onFilled: (fill: ComposerF
           }}
           maxLength={4000}
           placeholder="Paste names, emails, wallets and amounts, or describe the split…"
-          className={cn(inputClass, "min-h-40 py-3 text-sm leading-6")}
+          className={cn(inputClass, "min-h-40 py-3 leading-6 lg:text-sm")}
         />
       </div>
       <div className="flex flex-wrap items-center gap-3">

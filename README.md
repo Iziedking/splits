@@ -22,8 +22,10 @@ The same engine pays anyone who needs a payment divided: twenty giveaway winners
 | **Pay without an account** | Open [mysplits.xyz/send](https://mysplits.xyz/send) and pay straight from your own wallet: browser wallets or any WalletConnect wallet. You keep a private status link for the payment. |
 | **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. Claude Haiku 5.5 on Amazon Bedrock fills in the list; you check it and pay as usual. |
 | **Receipts per person** | Every recipient gets a private receipt showing only their part and what it was for. The sender chooses whose receipt to share. |
-| **Automatic splits** | A recipient can divide what they receive, such as "30% of everything into savings". It runs by itself when money arrives. |
-| **Activity** | Money in and out, each with its receipt, paged. |
+| **Automatic splits** | A recipient can divide what they receive, such as "30% of everything into savings". It runs by itself when money arrives, deposits included. |
+| **Add money from other chains** | Your Splits address is the same on Arc, Base, Arbitrum and Optimism. Send USDC to it from any of them and it lands in your Arc balance by itself, moved with Circle's CCTP. |
+| **Notifications** | A bell for everything that happens to your money (deposits arriving and ready, payments landed or failed, money received), with the moments that matter also by email. Clear them any time. |
+| **History** | Money in and out, each with its receipt, paged. Home shows the latest few. |
 
 ## How a payment moves
 
@@ -44,6 +46,25 @@ flowchart LR
 5. **Tell.** People paid by email get a "you received money" email and find it in their balance when they sign in.
 
 An equal pot is split to the cent: $100 across 7 winners pays four of them $14.29 and three $14.28.
+
+## Adding money from other chains
+
+```mermaid
+flowchart LR
+  A["USDC sent on Base,<br/>Arbitrum or Optimism"] --> B["Your Splits address<br/>on that chain"]
+  B -- "burn (CCTP V2, Fast)" --> C["Circle attestation"]
+  C -- "mint" --> D["Your balance on Arc"]
+  D -. "your automatic split" .-> E["Savings pocket"]
+```
+
+Circle wallets keep the same address on every EVM chain, so the person's Arc address is also their deposit address on Base, Arbitrum and Optimism. When USDC arrives there:
+
+1. **It is checked on its own chain** before it counts: the receipt must show a USDC transfer to that address. A webhook or a list from Circle is a hint, never the truth.
+2. **Nothing is missed.** Circle's webhook is the fast path, a sweeper polls as a backup, and the chain balance itself is the final check: money that no reported transfer explains (sent before the address was set up, or a lost webhook) is found after two minutes and moved too, and counted once if Circle reports it later.
+3. **It is moved to Arc** with CCTP V2: approve and burn from the person's wallet (gas paid by Gas Station), Circle attests, and the app's treasury mints on Arc. Every step carries a key derived from the move, so a crash or retry resumes the same transaction; a mint only counts once Arc marks its message used; and a failing step backs off instead of retrying forever.
+4. **The person is told** when it arrives and when it is ready, and their automatic split runs on it.
+
+Deposits under $1 wait until there is enough to move. Proven end to end on testnet from all three chains, and switched on for mainnet.
 
 ## Why Arc
 
@@ -74,6 +95,9 @@ It is deployed through the standard CREATE2 factory, so testnet and mainnet shar
 - **Splits fee:** 1.5% (2% from 10 recipients), paid by the sender on top and shown before approval. Set by the server's settings, fixed per payment when it is quoted, and never in the contract.
 - **Send limit:** until identity verification is added, nobody sends more than 500 USDC per payment or per rolling 24 hours, fee included. Visitors without an account have the same limit, tracked by wallet and email.
 - **Agentic mode:** signed-in only, 20 drafts a day per account and a global hourly cap. The model can only fill the list form: it never sees balances and never pays. Pasted text and screenshots are never stored or logged. Claude Haiku 5.5 was chosen over Nova 2 Lite after scoring 10 of 10 on a fixed test set that includes screenshots and an injection attempt.
+- **Deposits from other chains:** see above. The chains are switched on per server (`DEPOSIT_CHAINS`), and each is checked against its CCTP contract when the server starts.
+- **Notifications:** in the app for everything, by email for the moments that matter (with a switch in Settings). Emails carry the Splits logo and are sent through Resend.
+- **Reading Arc:** through our own Arc node first, with Arc's public RPC as fallback. Every 30 seconds the app compares block heights and passes over any RPC that has fallen behind, so a lagging node can never show an old balance.
 - **Payment engine:** each payment is a resumable state machine. Every Circle request carries a key derived from the payment, so a retry returns the original transaction instead of sending a second one. A background sweeper finishes payments nobody is watching.
 - **Preview mode:** with no keys at all, the app runs against an in-memory copy of Arc and the router that applies the same rules, so anyone can try the full flow.
 
@@ -123,7 +147,8 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 | Part | State |
 | --- | --- |
 | Contract | 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. |
-| App | 224 tests; 28 of 28 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP; both build modes; the production image started and checked healthy before release. |
+| App | 292 tests, run on both PGlite and Postgres; 42 of 42 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
+| Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |
 | Card checkout (onramp) | Simulated on testnet; switched off on mainnet. See the roadmap. |
@@ -168,7 +193,8 @@ Money that sits in a Splits balance between payments could earn. An opt-in **Ear
 - **Usernames:** pay `@tunde` instead of an email or address. Already recognised in lists, where they show "coming soon".
 - **Identity verification in the profile,** with names moving from sign-up to the profile, to raise the 500 USDC limit.
 - **Google sign-in,** landing on the same email account.
-- **Brand and desktop design:** logo, branded emails and favicon, and a desktop layout from the design team.
+- **Pay from any chain with your own wallet:** a connected wallet's USDC on another chain, bridged with CCTP and split in one flow.
+- **Solana deposits,** and more CCTP chains as their Gas Station support arrives.
 
 ## Things to know
 

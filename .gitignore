@@ -6,3 +6,6 @@ docs/superpowers/
 .env.*
 !.env.example
 .superpowers/
+
+# Hackathon submission drafts stay local.
+docs/dorahacks-submission.md

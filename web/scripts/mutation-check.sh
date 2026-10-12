@@ -151,5 +151,7 @@ mutate_in "cleared-notifications-reappear" src/server/services/notifications.ts 
 mutate_in "unlisted-balance-ignored" src/server/services/deposits.ts   '      if (await recordUnlisted(ctx, w)) found++;' ''   src/server/services/deposits.test.ts "moves a deposit sent to someone who never opened Receive"
 mutate_in "unlisted-no-grace" src/server/services/deposits.ts   '  if (since === undefined || now - since < UNLISTED_GRACE_MS) return false;' '  if (false) return false;'   src/server/services/deposits.test.ts "waits before trusting a balance"
 mutate_in "unlisted-counted-twice" src/server/services/deposits.ts   '    const left = BigInt(u.amount) - seen.amount;' '    const left = -1n;'   src/server/services/deposits.test.ts "counts a deposit once when Circle reports it after"
+mutate_in "deposit-skips-automatic-split" src/server/services/deposits.ts   '  if (row?.mintTxHash && main) await createAutoTransfer(ctx, main, minted, inboundKey(row.mintTxHash));' ''   src/server/services/flow.test.ts "runs the person's rule on a deposit once it lands"
+mutate_in "stale-node-trusted" src/server/chain/freshness.ts   '  const current = (i: number) => heights[i] !== null && top - heights[i]! <= maxLag;' '  const current = (_i: number) => true;'   src/server/chain/freshness.test.ts "moves a node that has fallen behind"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

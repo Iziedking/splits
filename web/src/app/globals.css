@@ -125,6 +125,26 @@
   }
 }
 
+/* Thin scrollbars in the brand's teal, on the page and inside panels (notifications, sheets). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(15 163 154 / 0.45) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(15 163 154 / 0.45);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(15 163 154 / 0.7);
+}
+
 /* The loader's icon pieces light up in turn (components/app/loader.tsx); still without motion. */
 @keyframes split-piece {
   0%,
