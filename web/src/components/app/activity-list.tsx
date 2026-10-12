@@ -10,7 +10,7 @@ import { pageOf } from "@/lib/paging";
 import { cn } from "@/lib/utils";
 
 /** A page fits a phone screen, so the list never turns into an endless scroll. */
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 8;
 
 type Row =
   | { kind: "sent"; at: string; item: ActivityView["sent"][number] }
@@ -23,15 +23,18 @@ const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)
 /**
  * Money in and out, newest first, one card per transfer (UI_BRIEF.md v4). Received items come from
  * the wallet provider; if that list is unavailable, sent items still show and the gap is said.
+ * With `recent`, only the newest few (Home); without it, everything in pages (History).
  */
 export function ActivityList({
   activity,
   splitNames,
   onRetry,
+  recent,
 }: {
   activity: ActivityView | null;
   splitNames: Record<string, string>;
   onRetry: () => void;
+  recent?: number;
 }) {
   // Kept across the home page's background refreshes; pageOf clamps it if the list shrinks.
   const [page, setPage] = React.useState(0);
@@ -49,7 +52,7 @@ export function ActivityList({
     ...activity.sent.map((item) => ({ kind: "sent" as const, at: item.createdAt, item })),
     ...activity.received.map((item) => ({ kind: "received" as const, at: item.at, item })),
   ].sort((a, b) => b.at.localeCompare(a.at));
-  const shown = pageOf(rows, page, PAGE_SIZE);
+  const shown = recent ? { items: rows.slice(0, recent), page: 0, pages: 1 } : pageOf(rows, page, PAGE_SIZE);
 
   return (
     <div className="space-y-3">

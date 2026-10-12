@@ -10,13 +10,19 @@ Source: the same Figma file, frames "MacBook Air - 1" (welcome), "- 2" (create a
   landing divided three ways, on deep teal. The right half runs the same steps as the phone:
   welcome, email, 6-digit code. The frame's password field becomes the emailed code (no passwords),
   and its Google button waits until Google sign-in is built. The wordmark stands in for the logo.
-- **Signed-in screens** get a teal side rail (`components/app/side-rail.tsx`): Home, Send, Profile,
-  then About and Sign out at the bottom. It replaces the floating nav, which is phone-only now.
-- **Home** is two columns. Left: greeting, balance, the automatic-split card, saved splits. Right,
-  sticky: Send money and Receive, then recent transfers. On a phone the order is v4's, kept with
-  `order-*` classes over `contents` column wrappers.
-- **Other signed-in screens** (Send, Profile, payments, rules) stay one readable column, 36rem wide.
-  The designer drew no desktop version of them.
+- **Signed-in screens** get the frame's teal icon rail (`components/app/side-rail.tsx`): Home,
+  Profile, History, About; Settings and Sign out at the bottom. Send is the Home button, as in the
+  frame. Closed, icons name themselves on hover and focus; the menu button opens the rail with
+  labels on a darker teal (#0A7A73) so small white text reads at 5:1. The phone keeps its nav.
+- **Home**: the greeting has its own row; below it two columns with aligned tops. Left: balance,
+  the automatic-split card with Create a rule under it, saved splits. Right: Send money (light) and
+  Receive (filled) as in the frame, then Recent transfers, only the latest 4, with See all. On a
+  phone the order is v4's, kept with `order-*` classes over `contents` column wrappers.
+- **History** (`/history`): every payment sent and received, 8 to a page.
+- **Settings** (`/settings`): email alerts, change PIN, Face ID or fingerprint. On a phone it is
+  linked from Profile, which keeps the wallet, automatic split and account.
+- **About** is two columns on desktop, wide sections spanning both.
+- **Other signed-in screens** (Send, payments, rules) stay one readable column, 36rem wide.
 - Amounts stay in USD and the greeting uses the person's own name, as in v4 (the frame's
   "Hello, John" and naira balance are placeholders).
 

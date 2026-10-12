@@ -1,60 +1,85 @@
 "use client";
 
-import { Info, LogOut, type LucideIcon } from "lucide-react";
+import { Home, Info, LogOut, Menu, PanelsTopLeft, Settings, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; icon: LucideIcon };
-
-const itemClass =
-  "flex w-16 flex-col items-center gap-1 rounded-2xl py-2.5 text-xs font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A7A73] focus-visible:outline-none";
+const TOP: { href: string; label: string; icon: LucideIcon }[] = [
+  { href: "/home", label: "Home", icon: Home },
+  { href: "/profile", label: "Profile", icon: UserRound },
+  { href: "/history", label: "History", icon: PanelsTopLeft },
+  { href: "/about", label: "About", icon: Info },
+];
 
 /**
- * The desktop navigation (UI_BRIEF.md v5, frame "MacBook Air - 3"): a teal rail down the left edge
- * with the same places as the phone's floating nav, plus About and Sign out at the bottom.
- * Only shown from the `lg` breakpoint; phones keep the floating nav.
+ * The desktop navigation (UI_BRIEF.md v5, frame "MacBook Air - 3"): a teal rail of icons, Home,
+ * Profile, History and About at the top, Settings and Sign out at the bottom. The menu button opens
+ * it to show labels; closed, each icon names itself on hover and focus. Phones keep the floating nav.
+ *
+ * Closed, it is the frame's brand teal: white icons on it pass the 3:1 contrast graphics need.
+ * Open, labels are text, so it darkens to #0A7A73 where small white text reads at 5:1.
  */
-export function SideRail({ items, isCurrent }: { items: readonly Item[]; isCurrent: (href: string) => boolean }) {
+export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const current = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   async function signOut() {
     await api("/api/auth/logout", { method: "POST" }).catch(() => undefined);
     router.replace("/");
   }
 
+  const item = cn(
+    "group relative flex min-h-12 items-center gap-3 rounded-2xl text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:outline-none",
+    open ? "w-full px-4 focus-visible:ring-offset-[#0A7A73]" : "w-12 justify-center focus-visible:ring-offset-primary",
+  );
+  const label = (text: string) =>
+    open ? (
+      <span>{text}</span>
+    ) : (
+      <>
+        <span className="sr-only">{text}</span>
+        {/* Closed: the name appears beside the icon on hover and keyboard focus. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute left-full z-40 ml-3 rounded-lg bg-foreground px-2.5 py-1 text-xs font-semibold whitespace-nowrap text-background opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+        >
+          {text}
+        </span>
+      </>
+    );
+
   return (
-    // A shade darker than the brand teal so the small white labels read at 5:1 (WCAG AA).
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-24 flex-col items-center bg-[#0A7A73] py-6 text-white lg:flex">
-      {/* The wordmark stands in for the logo until it is ready. */}
-      <Link
-        href="/home"
-        className="rounded-xl px-2 py-1 text-lg font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A7A73] focus-visible:outline-none"
-      >
-        Splits
-      </Link>
-      <nav aria-label="Main" className="mt-10 flex flex-col items-center gap-2">
-        {items.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            aria-current={isCurrent(href) ? "page" : undefined}
-            className={cn(itemClass, "aria-[current=page]:bg-white aria-[current=page]:text-[#0A7A73]")}
-          >
-            <Icon className="h-5 w-5" aria-hidden="true" />
-            {label}
+    <aside
+      className={cn(
+        "fixed inset-y-0 left-0 z-30 hidden flex-col py-6 text-white transition-[width,background-color] duration-200 lg:flex",
+        open ? "w-56 items-stretch bg-[#0A7A73] px-4" : "w-20 items-center bg-primary",
+      )}
+    >
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"} className={item}>
+        <Menu className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {open && <span aria-hidden="true">Splits</span>}
+      </button>
+
+      <nav aria-label="Main" className={cn("mt-10 flex flex-col gap-2", !open && "items-center")}>
+        {TOP.map(({ href, label: text, icon: Icon }) => (
+          <Link key={href} href={href} aria-current={current(href) ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-[#0A7A73]")}>
+            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+            {label(text)}
           </Link>
         ))}
       </nav>
-      <div className="mt-auto flex flex-col items-center gap-2">
-        <Link href="/about" className={itemClass}>
-          <Info className="h-5 w-5" aria-hidden="true" />
-          About
+
+      <div className={cn("mt-auto flex flex-col gap-2", !open && "items-center")}>
+        <Link href="/settings" aria-current={current("/settings") ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-[#0A7A73]")}>
+          <Settings className="h-5 w-5 shrink-0" aria-hidden="true" />
+          {label("Settings")}
         </Link>
-        <button type="button" onClick={() => void signOut()} className={itemClass}>
-          <LogOut className="h-5 w-5" aria-hidden="true" />
-          Sign out
+        <button type="button" onClick={() => void signOut()} className={item}>
+          <LogOut className="h-5 w-5 shrink-0" aria-hidden="true" />
+          {label("Sign out")}
         </button>
       </div>
     </aside>

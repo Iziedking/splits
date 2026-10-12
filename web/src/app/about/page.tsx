@@ -34,9 +34,10 @@ export default function AboutPage() {
   return (
     <>
       <Backdrop />
-      <VisitorHeader />
-      <main className="mx-auto max-w-md space-y-6 px-5 pt-4 pb-[max(3rem,env(safe-area-inset-bottom))]">
-        <section className="enter">
+      <VisitorHeader wide />
+      {/* One column on a phone; on desktop (v5) a two-column page, wide sections spanning both. */}
+      <main className="mx-auto max-w-md space-y-6 px-5 pt-4 pb-[max(3rem,env(safe-area-inset-bottom))] lg:grid lg:max-w-5xl lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0 lg:px-10">
+        <section className="enter lg:col-span-2 lg:max-w-2xl lg:pb-4">
           <BackLink />
           <p className="mt-3 text-sm font-semibold text-primary">About Splits</p>
           <h1 className="mt-2 text-[2.4rem] leading-[1.08] font-extrabold">
@@ -100,11 +101,11 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <section aria-labelledby="also-heading" className="surface p-6">
+        <section aria-labelledby="also-heading" className="surface p-6 lg:col-span-2">
           <h2 id="also-heading" className="text-xl font-extrabold">
             The same engine splits other things
           </h2>
-          <dl className="mt-4 space-y-4">
+          <dl className="mt-4 space-y-4 lg:grid lg:grid-cols-3 lg:gap-x-8 lg:gap-y-5 lg:space-y-0">
             {ALSO.map(([title, text]) => (
               <div key={title}>
                 <dt className="font-bold">{title}</dt>
@@ -150,7 +151,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <div className="space-y-3 pt-2">
+        <div className="space-y-3 pt-2 lg:col-span-2 lg:mx-auto lg:w-full lg:max-w-sm">
           <Link
             href="/"
             className="flex min-h-[52px] items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)] hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"

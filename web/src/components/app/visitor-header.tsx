@@ -8,7 +8,7 @@ import { api, type VisitorConfig } from "@/lib/api";
  * The header on pages people use without an account: the Splits mark, and a badge whenever the
  * money isn't real (preview) or has no value (Arc Testnet), so nobody mistakes a test for mainnet.
  */
-export function VisitorHeader({ config }: { config?: VisitorConfig | null }) {
+export function VisitorHeader({ config, wide = false }: { config?: VisitorConfig | null; wide?: boolean }) {
   const [own, setOwn] = React.useState<VisitorConfig | null>(null);
   React.useEffect(() => {
     if (config !== undefined) return;
@@ -18,7 +18,7 @@ export function VisitorHeader({ config }: { config?: VisitorConfig | null }) {
   const badge = c && (!c.live ? "Preview" : c.network === "arc-testnet" ? "Testnet" : null);
 
   return (
-    <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2">
+    <header className={`mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2${wide ? " lg:max-w-5xl lg:px-10" : ""}`}>
       <Link
         href="/"
         className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

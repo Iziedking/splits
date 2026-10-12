@@ -46,8 +46,9 @@ export function useMe(): MeState {
  * The signed-in shell. Loads the user once, sends signed-out visitors to sign in and anyone
  * without a PIN to set one, and shows a Preview tag whenever money is simulated.
  *
- * Phones get a centred column and a floating nav (UI_BRIEF.md v4). From `lg` up, a teal side rail
- * replaces the nav (v5); `wide` screens (Home) use the extra width, the rest stay a readable column.
+ * Phones get a centred column and a floating nav (UI_BRIEF.md v4). From `lg` up, the teal rail
+ * replaces the nav (v5); `wide` screens (Home, History) use the extra width beside it, the rest stay
+ * a readable column.
  */
 export function AppFrame({ children, requirePin = true, wide = false }: { children: React.ReactNode; requirePin?: boolean; wide?: boolean }) {
   const router = useRouter();
@@ -56,6 +57,27 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
   const [error, setError] = React.useState<string | null>(null);
   const [tone, setTone] = React.useState<Tone>("day");
   const night = tone === "night";
+  const [railOpen, setRailOpen] = React.useState(false);
+
+  // Whether the desktop rail shows labels is a per-browser preference; storage may be unavailable.
+  React.useEffect(() => {
+    try {
+      setRailOpen(localStorage.getItem("splits:rail") === "open");
+    } catch {
+      // Private window or blocked storage: start closed.
+    }
+  }, []);
+  const toggleRail = () =>
+    setRailOpen((open) => {
+      try {
+        localStorage.setItem("splits:rail", open ? "closed" : "open");
+      } catch {
+        // Not remembered; still toggles.
+      }
+      return !open;
+    });
+  // Home sits beside the rail like the frame; other screens are a centred, readable column.
+  const width = wide ? "lg:mx-0 lg:max-w-7xl lg:px-12" : "lg:max-w-xl lg:px-10";
 
   const refresh = React.useCallback(async () => {
     try {
@@ -74,15 +96,15 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
   }, [refresh]);
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-500 lg:pl-24", night && "text-white")}>
+    <div className={cn("min-h-screen transition-[padding,color] duration-200", railOpen ? "lg:pl-56" : "lg:pl-20", night && "text-white")}>
       <Backdrop tone={tone} />
-      {me && pathname !== "/setup" && <SideRail items={NAV} isCurrent={(href) => isCurrent(pathname, href)} />}
-      <header className={cn("mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:px-10 lg:pt-8", wide ? "lg:max-w-6xl" : "lg:max-w-xl")}>
+      {me && pathname !== "/setup" && <SideRail open={railOpen} onToggle={toggleRail} />}
+      <header className={cn("mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:pt-8", width)}>
         <Link
           href="/home"
           className={cn(
             "inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            // The rail carries the wordmark on desktop, except where it is hidden (PIN setup).
+            // The desktop frame has no wordmark beside the rail (the logo slot comes later).
             pathname !== "/setup" && "lg:invisible",
           )}
         >
@@ -101,7 +123,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
         </div>
       </header>
 
-      <main className={cn("mx-auto max-w-md px-5 pb-32 lg:px-10 lg:pb-16", wide ? "lg:max-w-6xl" : "lg:max-w-xl")}>
+      <main className={cn("mx-auto max-w-md px-5 pb-32 lg:pb-16", width)}>
         {error && !me && (
           <div className="mt-16 space-y-4">
             <Notice tone="error">{error}</Notice>
