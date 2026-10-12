@@ -18,6 +18,8 @@ export function WelcomePanel() {
       <div className="absolute -right-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-[#9B8CF2]/45 blur-[110px]" />
       <div className="absolute bottom-1/3 left-1/4 h-[18rem] w-[18rem] rounded-full bg-[#F2896D]/30 blur-[100px]" />
 
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src="/brand/logo-white.svg" alt="" className="absolute top-10 left-10 h-9 w-auto" />
       <div className="relative w-[min(26rem,80%)]">
         <p className="text-sm font-semibold tracking-wide text-white">London → Lagos</p>
         <div className="mt-3 rounded-[24px] bg-white/95 p-6 text-foreground shadow-[0_30px_60px_-20px_rgb(14_28_43/0.45)]">

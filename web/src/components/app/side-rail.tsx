@@ -60,7 +60,8 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
     >
       <button type="button" onClick={onToggle} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"} className={item}>
         <Menu className="h-5 w-5 shrink-0" aria-hidden="true" />
-        {open && <span aria-hidden="true">Splits</span>}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {open && <img src="/brand/logo-white.svg" alt="" aria-hidden="true" className="h-6 w-auto" />}
       </button>
 
       <nav aria-label="Main" className={cn("mt-10 flex flex-col gap-2", !open && "items-center")}>

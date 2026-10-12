@@ -1,9 +1,9 @@
 /**
- * Every Splits email: the wordmark in the app's teal, a title, short paragraphs, an optional
- * button, and a plain text part. The logo image goes in LOGO_URL once the designer delivers it;
- * until then the wordmark stands alone. Inline styles only: mail clients ignore style sheets.
+ * Every Splits email: the Splits logo (a PNG served by the app itself, since many mail clients
+ * don't show SVG), a title, short paragraphs, an optional button, and a plain text part. Without
+ * the app's address the wordmark is set in text. Inline styles only: mail clients ignore style sheets.
  */
-export const LOGO_URL = "";
+export const LOGO_PATH = "/brand/logo-email.png";
 
 const TEAL = "#0FA39A";
 const INK = "#0E1C2B";
@@ -13,12 +13,13 @@ const FONT = "Manrope, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans
 const escape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const safeUrl = (url: string) => (/^https?:\/\//i.test(url) ? url : null);
 
-export type BrandedEmail = { title: string; body: string[]; button?: { label: string; url: string }; footer?: string };
+export type BrandedEmail = { title: string; body: string[]; button?: { label: string; url: string }; footer?: string; appUrl?: string };
 
-export function brandedEmail({ title, body, button, footer }: BrandedEmail): { html: string; text: string } {
+export function brandedEmail({ title, body, button, footer, appUrl }: BrandedEmail): { html: string; text: string } {
   const url = button ? safeUrl(button.url) : null;
-  const mark = LOGO_URL
-    ? `<img src="${escape(LOGO_URL)}" alt="Splits" height="28" style="display:block;border:0">`
+  const base = appUrl ? safeUrl(appUrl.replace(/\/+$/, "")) : null;
+  const mark = base
+    ? `<img src="${escape(base + LOGO_PATH)}" alt="Splits" width="120" height="37" style="display:block;border:0;height:37px;width:120px">`
     : `<span style="font-size:22px;font-weight:800;letter-spacing:-0.02em;color:${TEAL}">Splits</span>`;
   const paragraphs = body.map((p) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.55;color:${INK}">${escape(p)}</p>`).join("");
   const cta = url

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
 import { Backdrop } from "@/components/app/backdrop";
+import { Logo } from "@/components/app/logo";
 import { NotificationBell } from "@/components/app/notification-bell";
 import { SideRail } from "@/components/app/side-rail";
 import { Button } from "@/components/ui/button";
@@ -104,12 +105,10 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
         <Link
           href="/home"
           className={cn(
-            "inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-            // The desktop frame has no wordmark beside the rail (the logo slot comes later).
-            pathname !== "/setup" && "lg:invisible",
+            "inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
         >
-          Splits
+          <Logo tone={night ? "white" : "teal"} />
         </Link>
         <div className="flex items-center gap-2">
           {me && (me.mode === "preview" || me.network === "arc-testnet") && (

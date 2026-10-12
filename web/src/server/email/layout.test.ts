@@ -11,6 +11,13 @@ describe("branded email", () => {
     expect(e.text).toBe("Your $49.99 is ready\n\nIt arrived from Base.\n\nYou can split it now.\n\nOpen Splits: https://mysplits.xyz/home");
   });
 
+  it("shows the Splits logo from the app's own address, and never from anywhere unsafe", () => {
+    const e = brandedEmail({ title: "Hi", body: ["x"], appUrl: "https://mysplits.xyz" });
+    expect(e.html).toContain('<img src="https://mysplits.xyz/brand/logo-email.png" alt="Splits"');
+    expect(brandedEmail({ title: "Hi", body: ["x"], appUrl: "javascript:alert(1)" }).html).not.toContain("<img");
+    expect(brandedEmail({ title: "Hi", body: ["x"] }).html).toContain(">Splits<");
+  });
+
   it("escapes anything a person typed", () => {
     const e = brandedEmail({ title: "<b>x</b>", body: ['for "rent" & <script>'] });
     expect(e.html).not.toContain("<script>");

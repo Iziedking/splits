@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Logo } from "@/components/app/logo";
 import * as React from "react";
 import { api, type VisitorConfig } from "@/lib/api";
 
@@ -21,9 +22,9 @@ export function VisitorHeader({ config, wide = false }: { config?: VisitorConfig
     <header className={`mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2${wide ? " lg:max-w-5xl lg:px-10" : ""}`}>
       <Link
         href="/"
-        className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
-        Splits
+        <Logo />
       </Link>
       {badge && (
         <span

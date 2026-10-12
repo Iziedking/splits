@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Logo } from "@/components/app/logo";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { Backdrop } from "@/components/app/backdrop";
@@ -44,9 +45,9 @@ export default async function ReceiptPage({ params }: Props) {
       <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2">
         <Link
           href="/"
-          className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          Splits
+          <Logo />
         </Link>
         {(receipt.simulated || receipt.network === "arc-testnet") && (
           <span

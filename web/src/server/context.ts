@@ -226,7 +226,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
       router,
       usdc: config.USDC_ADDRESS,
     }),
-    email: screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM),
+    email: screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM, config.APP_URL),
     router,
     usdc: config.USDC_ADDRESS,
     treasuryWalletId: config.CIRCLE_TREASURY_WALLET_ID!,

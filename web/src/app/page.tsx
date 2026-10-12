@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 import { Backdrop } from "@/components/app/backdrop";
 import { WelcomePanel } from "@/components/app/welcome-panel";
+import { Logo } from "@/components/app/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type Me, type UserView } from "@/lib/api";
@@ -74,7 +75,8 @@ export default function SignIn() {
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-6 pt-8 pb-[max(2rem,env(safe-area-inset-bottom))] lg:px-10 lg:py-12">
         <Backdrop />
         <header className="flex items-center justify-between">
-          <p className="text-xl font-extrabold tracking-tight">Splits</p>
+          {/* On desktop the panel beside this carries the logo. */}
+          <Logo className="h-8 lg:invisible" />
           {/* Deliberately quiet: the welcome screen's job is getting started. */}
           <Link
             href="/about"

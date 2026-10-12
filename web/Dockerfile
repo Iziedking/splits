@@ -35,6 +35,8 @@ ENV NODE_ENV=production \
 # Code stays root-owned and read-only to the app user; only Next's cache dir is writable.
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
+# Standalone output leaves public/ out; the logo, icons and the emailed logo are served from it.
+COPY --from=build /app/public ./public
 COPY --from=build /app/drizzle ./drizzle
 RUN mkdir -p .next/cache && chown node:node .next/cache
 USER node

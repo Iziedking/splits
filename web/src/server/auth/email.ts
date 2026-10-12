@@ -35,7 +35,7 @@ export class PreviewEmail implements EmailSender {
   }
 }
 
-export function createResendEmail(apiKey: string, from: string): EmailSender {
+export function createResendEmail(apiKey: string, from: string, appUrl?: string): EmailSender {
   const resend = new Resend(apiKey);
   const send = async (to: string, subject: string, content: { html: string; text: string }) => {
     const { error } = await resend.emails.send({ from, to, subject, ...content });
@@ -52,6 +52,7 @@ export function createResendEmail(apiKey: string, from: string): EmailSender {
         email,
         `Your Splits code is ${code}`,
         brandedEmail({
+          appUrl,
           title: `Your code is ${code}`,
           body: ["Enter it on the Splits sign-in screen. It expires in 10 minutes.", "If you didn't ask for it, you can ignore this email."],
           footer: "Splits never asks for this code by phone, chat or email.",
@@ -66,11 +67,11 @@ export function createResendEmail(apiKey: string, from: string): EmailSender {
       await send(
         to,
         `Your Splits receipt for $${r.amount}`,
-        brandedEmail({ title: `Your $${r.amount} payment landed`, body: ["See it, and each person's receipt."], button: { label: "View receipt", url: r.url } }),
+        brandedEmail({ title: `Your $${r.amount} payment landed`, body: ["See it, and each person's receipt."], button: { label: "View receipt", url: r.url }, appUrl }),
       );
     },
     async sendAlert(to, a) {
-      await send(to, a.subject, brandedEmail({ title: a.title, body: [a.body], button: a.url ? { label: "Open Splits", url: a.url } : undefined }));
+      await send(to, a.subject, brandedEmail({ title: a.title, body: [a.body], button: a.url ? { label: "Open Splits", url: a.url } : undefined, appUrl }));
     },
   };
 }
@@ -81,6 +82,7 @@ export function paymentNoticeEmail(n: PaymentNotice): { subject: string; text: s
     title: `You received $${n.amount}`,
     body: [`${n.from} sent you $${n.amount} USDC for "${n.purpose}".`, `Sign in with this email at ${n.appUrl} to use it. There's nothing to install and no password.`],
     button: { label: "Open Splits", url: n.appUrl },
+    appUrl: n.appUrl,
   });
   return { subject: `You received $${n.amount} on Splits`, ...email };
 }
