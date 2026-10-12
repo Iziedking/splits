@@ -138,6 +138,8 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 
 The mainnet router was deployed in [`0x4e6e…750f`](https://explorer.arc.io/tx/0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f) from the app's Circle treasury wallet, with gas paid by Gas Station.
 
+The first payment on mainnet split $0.03 between three addresses from an email account's wallet, approved with a PIN, in [one transaction](https://explorer.arc.io/tx/0x3bdef0852fbf7493e030b1affec7f9b34e42f8937dc179e05d112a83828a28c2): one `SplitSent` and three `LegPaid` receipts, with about $0.007 of gas paid by Gas Station.
+
 The first live giveaway on testnet paid 20 people, 15 Arc addresses and 5 email recipients, 0.10 USDC each from a 2.00 pot, in [one transaction](https://explorer.testnet.arc.io/tx/0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2): one `SplitSent` with split id 0 and 20 `LegPaid` receipts, each marked "giveaway prize".
 
 ## Roadmap
