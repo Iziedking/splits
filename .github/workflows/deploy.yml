@@ -28,6 +28,15 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Production runs on Postgres through postgres-js; PGlite (the default in tests) accepted a raw
+    # Date parameter that postgres-js rejects, so the suite also runs against the production image.
+    services:
+      postgres:
+        image: postgres:17.6-alpine
+        env:
+          POSTGRES_PASSWORD: test
+        ports: ["55432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Install Arc Foundry (sha256 pinned)
@@ -71,8 +80,13 @@ jobs:
       - name: Typecheck
         working-directory: web
         run: npx tsc --noEmit
-      - name: Test
+      - name: Test (PGlite, as in preview mode)
         working-directory: web
+        run: npx vitest run
+      - name: Test (Postgres, as in production)
+        working-directory: web
+        env:
+          TEST_DATABASE_URL: postgres://postgres:test@127.0.0.1:55432/postgres
         run: npx vitest run
       - name: Build
         working-directory: web

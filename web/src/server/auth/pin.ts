@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, lte, or, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { users } from "../db/schema";
 import { badRequest, conflict, forbidden } from "../errors";
@@ -57,7 +57,8 @@ export async function verifyPin(db: Db, userId: string, pin: string, now: Date):
       and(
         eq(users.id, userId),
         sql`${users.pinHash} is not null`,
-        sql`(${users.pinLockedUntil} is null or ${users.pinLockedUntil} <= ${now})`,
+        // Typed operators, not a raw template: postgres-js rejects a raw Date parameter.
+        or(isNull(users.pinLockedUntil), lte(users.pinLockedUntil, now)),
         sql`${users.pinFailures} < ${MAX_FAILURES}`,
       ),
     )
