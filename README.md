@@ -2,81 +2,90 @@
 
 Split any payment, to anyone, in one transaction on Arc.
 
+**Live on Arc mainnet at [mysplits.xyz](https://mysplits.xyz).** The router contract is
+[verified on Sourcify and the Arc explorer](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2?tab=contract).
+
 Splits started with one problem, and it is still the lead example. Someone in London supporting family in Lagos rarely sends money for one thing. Part of it is rent, part is a sibling's school fees, the rest is upkeep. Today they either send one lump sum and hope it gets divided the way they meant, or they make several transfers and pay fees on each.
 
-With Splits, the sender sets up a split once: who gets paid, how much, and what for. Every payment through it lands already divided, in one USDC transaction on [Arc](https://arc.io), with an onchain receipt that records what each part was for.
+With Splits, the sender says who gets paid, how much, and what for. The payment lands already divided, in one USDC transaction on [Arc](https://arc.io), with an onchain receipt that records what each part was for.
 
 Recipients don't need to install anything. Their email address is their wallet.
 
-The same engine pays anyone who needs a payment divided: twenty giveaway winners from one pot, a
-team's revenue share, or one person paid by email or Arc address. Paste the list, check it, approve
-once, and everyone is paid in a single transaction, or nobody is.
+The same engine pays anyone who needs a payment divided: twenty giveaway winners from one pot, a team's revenue share, or one person paid by email or Arc address. Paste the list (or describe it, or drop in a screenshot), check it, approve once, and everyone is paid in a single transaction, or nobody is.
+
+## What you can do today
+
+| | |
+| --- | --- |
+| **Pay one person or many** | By email or Arc address. Split a pot equally (to the cent) or set each amount. Up to 50 people in one transaction. |
+| **Saved splits** | "40% rent, 35% school fees, 25% upkeep", registered onchain once and reused every month. |
+| **Pay without an account** | Open [mysplits.xyz/send](https://mysplits.xyz/send) and pay straight from your own wallet: browser wallets or any WalletConnect wallet. You keep a private status link for the payment. |
+| **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. Claude Haiku 5.5 on Amazon Bedrock fills in the list; you check it and pay as usual. |
+| **Receipts per person** | Every recipient gets a private receipt showing only their part and what it was for. The sender chooses whose receipt to share. |
+| **Automatic splits** | A recipient can divide what they receive, such as "30% of everything into savings". It runs by itself when money arrives. |
+| **Activity** | Money in and out, each with its receipt, paged. |
 
 ## How a payment moves
 
 ```mermaid
 flowchart LR
-  A["Sender pays £10<br/>by card (simulated)"] --> B["12.70 USDC<br/>in the sender's wallet"]
-  B --> C["SplitsRouter on Arc<br/>one transaction"]
+  A["Sender<br/>email wallet or own wallet"] --> C["SplitsRouter on Arc<br/>one transaction"]
   C --> D["Landlord<br/>5.08 USDC, rent"]
   C --> E["School<br/>4.44 USDC, school fees"]
   C --> F["Sister<br/>3.18 USDC, upkeep"]
+  C --> X["Splits fee<br/>0.19 USDC"]
   F -. "her own automatic split" .-> G["Savings pocket<br/>0.95 USDC"]
 ```
 
-1. The sender signs in with an email code. A Circle wallet is created for them, and for every recipient named by email.
-2. They create a split, for example 40% rent, 35% school fees and 25% upkeep. They approve it with their PIN or Face ID / fingerprint, and it is registered onchain.
-3. They send £10. The app shows exactly what each person gets before anything moves.
-4. After approval, the app tops up the sender's wallet, approves the exact amount, and calls the router. The router pays every recipient in a single transaction, or pays nobody if any leg fails.
-5. The app reads the receipt back from Arc and checks every payout against what the sender approved, before it shows "Delivered".
-6. A recipient can set their own automatic split, such as "put 30% of everything I receive into savings". It runs by itself when money arrives.
+1. **Check.** The list is read before anything moves: duplicates, your own wallet, malformed lines and addresses that can't receive USDC right now (a free simulated 1-cent transfer) are marked, and the list can't be approved until they're fixed. The screen shows exactly what each person gets, the Splits fee and the total.
+2. **Approve.** Signed-in senders approve with a 6-digit PIN or a passkey (Face ID, fingerprint). Senders without an account approve in their own wallet: the exact total, then the payment.
+3. **Pay.** The router pays every recipient in one transaction, or nobody if any leg fails. Each person's part is a `LegPaid` event with its purpose.
+4. **Verify.** The app reads the receipt back from Arc and checks every payout against what was approved before it says "Landed".
+5. **Tell.** People paid by email get a "you received money" email and find it in their balance when they sign in.
 
-### Paying many people at once
-
-1. On **Pay**, paste one person per line: an email or an Arc address, and optionally an amount and a label. Choose "Split a pot equally" or "Set each amount".
-2. **Check** reads every line before anything moves. Duplicates, your own wallet, malformed lines and addresses that can't receive USDC right now (a free simulated 1-cent transfer) are marked, and the list can't be approved until they're fixed. Email recipients get a wallet here.
-3. The checked list is saved as a draft. Approving with your PIN or passkey pays exactly that list, once; a second click or a changed list is refused.
-4. The router's `pay` function pays everyone in one transaction with a `LegPaid` receipt per person. People paid by email get a "you received money" email and find it in their balance when they sign in.
-
-An equal pot is split to the cent: $100 across 7 winners pays four of them $14.29 and three $14.28. No two winners differ by more than a cent.
+An equal pot is split to the cent: $100 across 7 winners pays four of them $14.29 and three $14.28.
 
 ## Why Arc
 
-- **USDC is the gas token.** Fees are small and in dollars, which matters for a product whose point is avoiding unpredictable transfer costs.
-- **Transactions are final when they are included.** "Your family has it" can appear seconds after the sender approves.
+- **USDC is the gas token.** Fees are small and in dollars, which matters for a product whose point is avoiding unpredictable transfer costs. Paying 10 people costs about a cent of gas.
+- **Transactions are final when they are included.** "Your family has it" appears seconds after the sender approves.
 - **The split is a contract, not a promise.** Dividing one payment between several people with a purpose attached to each part is a smart contract job. A normal wallet or remittance app doesn't do it.
-- **It connects to Circle's stack.** Circle wallets on Arc give email-based accounts with gas paid by the app (Gas Station). CCTP and Circle's onramp give a route from local money in and out of Arc.
+- **It connects to Circle's stack.** Circle wallets on Arc give email-based accounts whose gas the app pays through Gas Station. Circle's App Kit gives the routes in and out of local money (see the roadmap).
 
-## What's in the repo
-
-| Path | What it is |
-| --- | --- |
-| [`contracts/`](contracts) | `SplitsRouter`, the Solidity contract, with Foundry tests, a mutation check and a fork test against Arc mainnet state |
-| [`web/`](web) | The Next.js 16 app. The UI is in `src/app`; the backend (Circle wallets, chain reads, payment state machine) is in `src/server` |
-| [`deployments/`](deployments) | The exact contract build used for deployment, and deployment records |
-
-### The contract
+## The contract
 
 [`SplitsRouter.sol`](contracts/src/SplitsRouter.sol) is small on purpose:
 
-- **It never holds money.** USDC goes straight from the payer to each recipient with `transferFrom`. There is no owner, no admin, no fee and no rescue function, so there is nothing to drain and no key that can redirect a payment.
+- **It never holds money.** USDC goes straight from the payer to each recipient with `transferFrom`. There is no owner, no admin and no rescue function, so there is nothing to drain and no key that can redirect a payment.
 - **All or nothing.** If any recipient can't be paid, for example an address on Arc's blocklist, the whole payment reverts.
-- **No double payments.** Each payment carries a reference, and the router refuses to use the same reference twice for the same payer, so a retried request can never pay twice.
-- **No recipient limit.** Neither `send` nor `pay` caps the number of recipients; a long list only costs its caller gas. The app's limit is a setting, `MAX_PAYOUT_RECIPIENTS` (default 50), bounded by what one Arc transaction can carry: measured on a mainnet fork at 49,160 gas per recipient against a 30,000,000 block gas limit, so the app allows at most 300.
-- **One-off payments.** `pay(legs, amount, ref)` pays a list once without storing it, under the same rules, and emits split id 0.
-- **No surprise edits.** A payment names the split version the sender saw. If the split changed in between, the payment reverts instead of paying the new recipients.
-- **Whole cents only.** Each share is rounded down to a cent, and the leftover cent goes to the last share. Nobody is ever paid a fraction of a cent.
-- **Purpose receipts.** Every payout emits `LegPaid` with the recipient, the amount and the purpose label.
+- **No double payments.** Each payment carries a reference, and the router refuses the same reference twice from the same payer, so a retried request can never pay twice.
+- **No fee logic.** The Splits fee is set by the app and travels as one more leg in the same transaction, visible to the payer before they approve. The contract treats it like any other recipient.
+- **One-off and saved splits.** `pay(legs, amount, ref)` pays a list once without storing it. Saved splits are versioned: a payment names the version the sender saw, and reverts if the split changed in between.
+- **Whole cents only.** Nobody is ever paid a fraction of a cent.
+- **No recipient limit in the contract.** One transaction's gas is the real limit: measured on a mainnet fork at 49,160 gas per recipient, so the app allows at most 300 and defaults to 50.
 
 It is deployed through the standard CREATE2 factory, so testnet and mainnet share one address.
 
-### The app
+## The app
 
 - **Accounts:** email sign-in with one-time codes. No passwords or seed phrases.
-- **Wallets:** [Circle developer-controlled wallets](https://developers.circle.com/wallets/dev-controlled) on Arc, as smart contract accounts, so Circle Gas Station pays the gas.
-- **Approvals:** every new split and every payment must be approved with a 6-digit PIN or a passkey (Face ID, fingerprint). Five wrong PINs lock approvals for 15 minutes.
-- **Payment engine:** each payment is a resumable state machine: funding, then approval, then sending, then verifying. Every Circle request carries a key derived from the payment, so a retry returns the original transaction instead of sending a second one. A background sweeper finishes payments nobody is watching.
+- **Wallets:** [Circle developer-controlled wallets](https://developers.circle.com/wallets/dev-controlled) on Arc, as smart contract accounts, with gas sponsored by Circle Gas Station.
+- **Paying from your own wallet:** [Reown AppKit](https://reown.com/appkit) with browser wallets and WalletConnect, loaded only on the pages that need it. The payment is reserved for 30 minutes and verified onchain by its reference, so a closed tab or a slow wallet never loses or doubles a payment.
+- **Splits fee:** 1.5% (2% from 10 recipients), paid by the sender on top and shown before approval. Set by the server's settings, fixed per payment when it is quoted, and never in the contract.
+- **Send limit:** until identity verification is added, nobody sends more than 500 USDC per payment or per rolling 24 hours, fee included. Visitors without an account have the same limit, tracked by wallet and email.
+- **Agentic mode:** signed-in only, 20 drafts a day per account and a global hourly cap. The model can only fill the list form: it never sees balances and never pays. Pasted text and screenshots are never stored or logged. Claude Haiku 5.5 was chosen over Nova 2 Lite after scoring 10 of 10 on a fixed test set that includes screenshots and an injection attempt.
+- **Payment engine:** each payment is a resumable state machine. Every Circle request carries a key derived from the payment, so a retry returns the original transaction instead of sending a second one. A background sweeper finishes payments nobody is watching.
 - **Preview mode:** with no keys at all, the app runs against an in-memory copy of Arc and the router that applies the same rules, so anyone can try the full flow.
+
+## Repo
+
+| Path | What it is |
+| --- | --- |
+| [`contracts/`](contracts) | `SplitsRouter` with Foundry tests, a mutation check and fork tests against Arc mainnet state |
+| [`web/`](web) | The Next.js 16 app. UI in `src/app`; backend (Circle wallets, chain reads, payment engine, agentic mode) in `src/server` |
+| [`deploy/`](deploy) | Production: Docker Compose (app and Postgres), the deploy script with automatic rollback |
+| [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) | One push to `main` tests, builds and deploys |
+| [`deployments/`](deployments) | The exact contract build used for deployment, and deployment records |
 
 ## Run it
 
@@ -88,7 +97,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. Preview mode shows the sign-in code on screen.
+Open http://localhost:3000. Preview mode shows the sign-in code on screen, and agentic mode uses a built-in stand-in instead of Bedrock.
 
 Tests:
 
@@ -97,46 +106,70 @@ cd web && npm test
 cd contracts && forge soldeer install && forge test
 ```
 
-Contract tests that fork Arc need [Arc Foundry](https://github.com/circlefin/arc-foundry) and `--network arc`, because USDC on Arc checks a blocklist precompile that stock Foundry doesn't know about:
+Fork tests need [Arc Foundry](https://github.com/circlefin/arc-foundry), because USDC on Arc checks a blocklist precompile that stock Foundry doesn't know about:
 
 ```bash
 ARC_FORK_RPC=https://rpc.mainnet.arc.io arc-forge test --network arc --match-contract ArcForkTest
 ```
 
-### Live setup (testnet or mainnet)
+### Production
 
-1. Copy [`web/.env.example`](web/.env.example) and set `SPLITS_MODE=live` and the network values.
-2. Add your Circle API key, then run `node scripts/circle-setup.mjs <env file>`. It registers an entity secret if you don't have one, then creates a wallet set and a treasury wallet. It never prints a secret.
-3. Fund the treasury wallet with USDC.
-4. Deploy the router with `node scripts/deploy-router.mjs <env file> ../deployments/artifacts/SplitsRouter.json ../deployments`. It checks the deployed code onchain before writing the record.
-5. Set `SPLITS_ROUTER_ADDRESS` and start the app.
+Every push to `main` runs the [deploy workflow](.github/workflows/deploy.yml): typecheck, the full test suite and a build (the contract compiled with the checksum-pinned Arc Foundry), then a Docker image. The image is copied to the server, started next to its own Postgres, and kept only if it reports healthy within two minutes; otherwise the previous release is restored. A database dump is taken before every release. Details are in [`deploy/README.md`](deploy/README.md).
 
-Live mode won't start with a missing key, a mismatched chain id, or (on mainnet) the testnet-only shortcuts.
+To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API key, run `node scripts/circle-setup.mjs <env file>` (it creates the wallet set and treasury wallet and never prints a secret), activate a Gas Station policy for Arc, and deploy the router with `node scripts/deploy-router.mjs <env file> ../deployments/artifacts/SplitsRouter.json ../deployments`, which checks the deployed code onchain before writing the record. Live mode won't start with a missing key, a mismatched chain id, or testnet-only shortcuts on mainnet.
 
 ## Status
 
 | Part | State |
 | --- | --- |
-| Contract | Tested: 46 unit and fuzz tests, 14 of 14 deliberate bugs caught by the mutation check, 4 fork tests on Arc mainnet state (including the gas measurement) |
-| App, preview mode | Tested: 89 tests, 12 of 12 deliberate bugs caught, an end-to-end API check that pays a 20-person giveaway, and a browser walkthrough at desktop and phone width |
-| Arc Testnet deployment | Live. Payments run end to end with Circle wallets and Gas Station, and are checked onchain |
-| Arc mainnet deployment | Not yet |
-| Card payments and currency exchange | Simulated. The card isn't charged and the rate is fixed. The USDC leg is real in live mode. |
-| Payout to bank or mobile money | Not built. Shown in the app as "Coming soon". Recipients hold USDC. |
+| Contract | 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. |
+| App | 224 tests; 28 of 28 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP; both build modes; the production image started and checked healthy before release. |
+| Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
+| Arc Testnet | Live staging, used for every change before mainnet. |
+| Card checkout (onramp) | Simulated on testnet; switched off on mainnet. See the roadmap. |
+| Cash-out to bank or mobile money (offramp) | Not built. Shown in the app as "Coming soon"; recipients hold USDC. |
 
 ## Deployments
 
 | Network | SplitsRouter | Record |
 | --- | --- | --- |
+| Arc mainnet (5042) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`arc-mainnet.json`](deployments/arc-mainnet.json) |
 | Arc Testnet (5042002) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.testnet.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`arc-testnet.json`](deployments/arc-testnet.json) |
-| Arc mainnet (5042) | not deployed yet (same address once deployed) | |
+
+The mainnet router was deployed in [`0x4e6e…750f`](https://explorer.arc.io/tx/0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f) from the app's Circle treasury wallet, with gas paid by Gas Station.
 
 The first live giveaway on testnet paid 20 people, 15 Arc addresses and 5 email recipients, 0.10 USDC each from a 2.00 pot, in [one transaction](https://explorer.testnet.arc.io/tx/0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2): one `SplitSent` with split id 0 and 20 `LegPaid` receipts, each marked "giveaway prize".
 
-The first live payment, on the earlier router without `pay` ([`0xEAE0…f41F`](https://explorer.testnet.arc.io/address/0xEAE06dFe0B89816BB8a04CA33474388D9B59f41F)): £1 became 1.27 USDC, paid as 0.50 for rent, 0.44 for school fees and 0.33 for upkeep in [one transaction](https://explorer.testnet.arc.io/tx/0x826b56a479d420f1b46294ba78e4e4e1fd1f70ce314104ae231006137f8d0f0f), with each part's purpose in its `LegPaid` event.
+## Roadmap
+
+Each item is designed and built the same way as everything above: a written design, a plan, tests first, a fresh review, then staging before mainnet.
+
+### 1. Onramp: pay by card, Apple Pay, Google Pay or bank transfer
+
+Today a sender needs USDC, in their Splits balance or in their own wallet. With [Circle's App Kit Onramp](https://developers.circle.com/) (`@circle-fin/onramp-kit`), a sender in London pays by card, Apple Pay, Google Pay or bank transfer, and the USDC lands directly in their Splits wallet on Arc, ready to be split. It stays behind a switch until Circle's business verification (KYB) for Splits clears, and the simulated card on testnet is replaced by it.
+
+### 2. Offramp: cash out to a bank or mobile money
+
+Recipients hold USDC today. The next step is letting the sister in Lagos turn her part into naira in her bank account or mobile money wallet, through a licensed payout partner, from the same balance screen where "Bank or mobile money" now says "Coming soon". A split can then end in local money, not only in a wallet.
+
+### 3. Earning pocket with Arc Earn Kit
+
+Money that sits in a Splits balance between payments could earn. An opt-in **Earning pocket** uses [Arc Earn Kit](https://community.arc.io/home/blogs/earn-kit-on-arc-embedded-usdc-and-eurc-lending-opportunities-2026-09-28) (`@circle-fin/earn-kit`, lending through Morpho vaults on Arc):
+
+- Off by default. Turning it on shows the vault, the current rate, that it is variable and not guaranteed, and how to withdraw.
+- Works with automatic splits: "30% of everything I receive goes to my Earning pocket".
+- Move money in and out with the same PIN or passkey approval as a payment; withdrawals go back to the spendable balance.
+- The first step is a check that the vaults are live on Arc mainnet with enough liquidity, before any build.
+
+### Also planned
+
+- **Usernames:** pay `@tunde` instead of an email or address. Already recognised in lists, where they show "coming soon".
+- **Identity verification in the profile,** with names moving from sign-up to the profile, to raise the 500 USDC limit.
+- **Google sign-in,** landing on the same email account.
+- **Brand and desktop design:** logo, branded emails and favicon, and a desktop layout from the design team.
 
 ## Things to know
 
-- **The app holds the keys.** Circle developer-controlled wallets are custodial: the app's Circle account controls the wallets, and the PIN or passkey is the gate before it acts. This is not a non-custodial wallet.
-- **Card funding is simulated.** In live mode, a simulated card payment releases real USDC from the app's treasury. Per-payment, per-user and global daily limits cap that spend, and `FUNDING_ENABLED=false` switches it off.
-- **Built for the [Arc Microgrants](https://dorahacks.io/hackathon/arc-microgrants/detail) program.** Its scope is one corridor (UK or US to Nigeria) and a working proof, not a licensed money transmitter.
+- **The app holds the keys for email wallets.** Circle developer-controlled wallets are custodial: the app's Circle account controls them, and the PIN or passkey is the gate before it acts. People who want to keep their own keys can pay from their own wallet at [/send](https://mysplits.xyz/send).
+- **The app pays the gas for email wallets** through Circle Gas Station, within daily limits set in the Circle console.
+- **Built for the [Arc Microgrants](https://dorahacks.io/hackathon/arc-microgrants/detail) program.** It is a working product on mainnet with a 500 USDC send limit, not yet a licensed money transmitter; the limit stays until identity verification is in place.
