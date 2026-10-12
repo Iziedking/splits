@@ -57,13 +57,49 @@ describe("moving a deposit from another chain to Arc", () => {
     const { ctx, clock, arc } = await testCtx();
     const user = await ensureUser(ctx, "bola@example.com", "active");
     const main = await ensureMainWallet(ctx, user);
-    // Bola copied the address from Home and sent from Arbitrum: no deposit wallet was ever opened.
+    // Bola copied the address from Home and sent from Arbitrum: no deposit wallet was ever opened,
+    // so Circle never lists this transfer. The chain's balance is what finds it.
     arc.simulateDeposit("arb", main.address as Address, 5_000_000n);
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 40; i++) {
       await sweep(ctx);
       clock.advance(6_000);
     }
     expect(await ctx.chain.usdcBalance(main.address as Address)).toBe(4_999_500n);
+  });
+
+  it("counts a deposit once when Circle reports it after its balance was already moved", async () => {
+    const { ctx, clock, arc } = await testCtx();
+    const user = await ensureUser(ctx, "bola@example.com", "active");
+    const main = await ensureMainWallet(ctx, user);
+    const tx = arc.simulateDeposit("arb", main.address as Address, 5_000_000n);
+    for (let i = 0; i < 40; i++) {
+      await sweep(ctx);
+      clock.advance(6_000);
+    }
+    const wallet = await ensureDepositWallet(ctx, user, SOURCE_CHAINS.arb);
+    await recordInbound(ctx, { walletId: wallet.providerWalletId, txHash: tx });
+    for (let i = 0; i < 6; i++) {
+      await sweep(ctx);
+      clock.advance(6_000);
+    }
+    const rows = await ctx.db.select().from(deposits).where(eq(deposits.depositWalletId, wallet.id));
+    expect(rows.reduce((sum, d) => sum + BigInt(d.amount), 0n)).toBe(5_000_000n);
+    expect(rows.every((d) => d.status === "ready")).toBe(true);
+    expect((await notes(ctx)).map((n) => n.key).filter((k) => k.includes("waiting"))).toEqual([]);
+    expect(await ctx.chain.usdcBalance(main.address as Address)).toBe(4_999_500n);
+  });
+
+  it("waits before trusting a balance Circle hasn't explained yet", async () => {
+    const { ctx, clock, arc } = await testCtx();
+    const user = await ensureUser(ctx, "bola@example.com", "active");
+    const main = await ensureMainWallet(ctx, user);
+    arc.simulateDeposit("arb", main.address as Address, 5_000_000n);
+    for (let i = 0; i < 10; i++) {
+      await sweep(ctx);
+      clock.advance(6_000);
+    }
+    // Under two minutes in: nothing recorded on the balance alone yet.
+    expect(await ctx.db.select().from(deposits)).toHaveLength(0);
   });
 
   it("records a reported deposit at once when the sweeper opened the address first", async () => {

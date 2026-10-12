@@ -148,5 +148,8 @@ mutate_in "payment-notified-on-every-advance" src/server/services/rules.ts   '  
 mutate_in "cleared-notifications-reappear" src/server/services/notifications.ts   '    .where(and(eq(notifications.userId, userId), isNull(notifications.clearedAt)))
     .orderBy(desc(notifications.createdAt))' '    .where(eq(notifications.userId, userId))
     .orderBy(desc(notifications.createdAt))'   src/server/services/notifications.test.ts "clears the feed for good"
+mutate_in "unlisted-balance-ignored" src/server/services/deposits.ts   '      if (await recordUnlisted(ctx, w)) found++;' ''   src/server/services/deposits.test.ts "moves a deposit sent to someone who never opened Receive"
+mutate_in "unlisted-no-grace" src/server/services/deposits.ts   '  if (since === undefined || now - since < UNLISTED_GRACE_MS) return false;' '  if (false) return false;'   src/server/services/deposits.test.ts "waits before trusting a balance"
+mutate_in "unlisted-counted-twice" src/server/services/deposits.ts   '    const left = BigInt(u.amount) - seen.amount;' '    const left = -1n;'   src/server/services/deposits.test.ts "counts a deposit once when Circle reports it after"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

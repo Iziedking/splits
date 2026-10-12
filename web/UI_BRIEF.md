@@ -22,7 +22,12 @@ Source: the same Figma file, frames "MacBook Air - 1" (welcome), "- 2" (create a
 - **Settings** (`/settings`): email alerts, change PIN, Face ID or fingerprint. On a phone it is
   linked from Profile, which keeps the wallet, automatic split and account.
 - **About** is two columns on desktop, wide sections spanning both.
-- **Other signed-in screens** (Send, payments, rules) stay one readable column, 36rem wide.
+- **Payment done** ("Landed, divided.", signed in and visitor): the summary, links, actions and the
+  visitor's receipt email stay in view on the left; the people paid fill the right, two to a row.
+- **Send** (signed in) and **Pay from your wallet** (visitor): the list on the left, its review and
+  Pay on the right.
+- **Other screens** (Profile, Settings, History, a saved split's amount) are one column, 48rem wide.
+  A single receipt and PIN setup stay centred cards, the usual desktop form for one document.
 - Amounts stay in USD and the greeting uses the person's own name, as in v4 (the frame's
   "Hello, John" and naira balance are placeholders).
 

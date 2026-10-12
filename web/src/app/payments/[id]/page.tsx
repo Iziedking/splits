@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 export default function PaymentPage() {
   return (
-    <AppFrame>
+    <AppFrame wide>
       <Payment />
     </AppFrame>
   );
@@ -100,7 +100,14 @@ function Payment() {
     );
   }
 
-  if (moving) return <Sending t={t} error={error} />;
+  // The settled view uses the width (UI_BRIEF.md v5); in-flight and failed stay a readable column.
+  if (moving) {
+    return (
+      <div className="lg:max-w-xl">
+        <Sending t={t} error={error} />
+      </div>
+    );
+  }
   if (t.status === "settled") {
     const again = t.splitId ? `/send/${t.splitId}` : `/pay${t.recipients > 1 ? "?mode=many" : ""}`;
     return (
@@ -121,7 +128,11 @@ function Payment() {
       />
     );
   }
-  return <NotSent t={t} />;
+  return (
+    <div className="lg:max-w-xl">
+      <NotSent t={t} />
+    </div>
+  );
 }
 
 /** S7: the live screen. Each step lights only when the server says it happened. */

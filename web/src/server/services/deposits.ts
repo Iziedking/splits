@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 import type { Address, Hex } from "viem";
 import { encodeApprove, encodeDepositForBurn, encodeReceiveMessage, maxFeeFor, nonceOf, parseBurnMessage } from "../crosschain/cctp";
 import { SOURCE_CHAINS, type ChainKey, type SourceChain } from "../crosschain/chains";
@@ -33,6 +33,13 @@ const UNSEEN_BURN_MS = 15 * 60_000;
 const MAX_ATTEMPTS = 8;
 const backoffMs = (attempts: number) => Math.min(30_000 * 2 ** (attempts - 1), 60 * 60_000);
 const ACTIVE = ["burning", "attesting", "minting"] as const;
+/**
+ * How long a balance Circle hasn't explained must hold before it counts as a deposit. Circle lists
+ * only transfers that arrive after it knows the wallet, and webhooks can be late or lost; the chain
+ * balance is the truth, but a transfer that is about to be reported gets this long to show up.
+ */
+const UNLISTED_GRACE_MS = 2 * 60_000;
+const unexplainedSince = new Map<string, number>();
 
 type Move = typeof depositMoves.$inferSelect;
 type DepositRow = typeof deposits.$inferSelect;
@@ -55,6 +62,40 @@ export async function recordInbound(ctx: Ctx, input: { walletId: string; txHash:
   if (!seen.ok) {
     console.warn(`[deposits] ${chain.name} ${input.txHash} isn't a USDC transfer to ${wallet.address}; ignored`);
     return "ignored";
+  }
+  // Already counted from the balance (Circle reported it late): take its share of that record, so
+  // the money is counted once and keeps the record's place (moving or ready).
+  for (const u of await ctx.db
+    .select()
+    .from(deposits)
+    .where(and(eq(deposits.depositWalletId, wallet.id), like(deposits.sourceTxId, `${chain.key}:unlisted:%`)))
+    .orderBy(asc(deposits.createdAt))) {
+    const left = BigInt(u.amount) - seen.amount;
+    if (left < 0n) continue;
+    const [took] = await ctx.db
+      .update(deposits)
+      .set({ amount: left.toString(), updatedAt: ctx.now() })
+      .where(and(eq(deposits.id, u.id), eq(deposits.amount, u.amount)))
+      .returning({ id: deposits.id });
+    if (!took) continue; // someone else took it first; look again next report
+    const rows = await ctx.db
+      .insert(deposits)
+      .values({
+        userId: wallet.userId,
+        depositWalletId: wallet.id,
+        chain: chain.key,
+        sourceTxId,
+        sourceTxHash: input.txHash,
+        amount: seen.amount.toString(),
+        status: u.status,
+        moveId: u.moveId,
+        createdAt: u.createdAt,
+        updatedAt: ctx.now(),
+      })
+      .onConflictDoNothing()
+      .returning({ id: deposits.id });
+    if (left === 0n) await ctx.db.delete(deposits).where(and(eq(deposits.id, u.id), eq(deposits.amount, "0")));
+    return rows.length ? "recorded" : "duplicate";
   }
   const rows = await ctx.db
     .insert(deposits)
@@ -108,11 +149,61 @@ export async function pollDepositWallets(ctx: Ctx, limit = 10): Promise<number> 
       for (const tx of await ctx.wallets.listInbound(w.providerWalletId, 10, { confirmed: true })) {
         if ((await recordInbound(ctx, { walletId: w.providerWalletId, txHash: tx.txHash })) === "recorded") found++;
       }
+      if (await recordUnlisted(ctx, w)) found++;
     } catch (err) {
       console.error(`[deposits] polling ${w.chain} wallet ${w.id} failed`, err);
     }
   }
   return found;
+}
+
+/**
+ * Money on the chain that no recorded deposit explains (sent before Circle knew the wallet, or a
+ * lost webhook): once it has held for UNLISTED_GRACE_MS, it is recorded as one deposit. Never while
+ * a move is in flight, when the balance is between burns.
+ */
+async function recordUnlisted(ctx: Ctx, w: typeof depositWallets.$inferSelect): Promise<boolean> {
+  const chain = chainOf(w.chain);
+  const [busy] = await ctx.db
+    .select({ id: depositMoves.id })
+    .from(depositMoves)
+    .where(and(eq(depositMoves.depositWalletId, w.id), inArray(depositMoves.status, [...ACTIVE])))
+    .limit(1);
+  if (busy) return false;
+  const balance = await ctx.crossChain.reader.usdcBalance(chain, w.address as Address);
+  const pending = await ctx.db
+    .select({ amount: deposits.amount })
+    .from(deposits)
+    .where(and(eq(deposits.depositWalletId, w.id), inArray(deposits.status, ["detected", "waiting"])));
+  const surplus = balance - pending.reduce((sum, d) => sum + BigInt(d.amount), 0n);
+  const now = ctx.now().getTime();
+  if (surplus <= 0n) {
+    unexplainedSince.delete(w.id);
+    return false;
+  }
+  const since = unexplainedSince.get(w.id);
+  if (since === undefined) unexplainedSince.set(w.id, now);
+  if (since === undefined || now - since < UNLISTED_GRACE_MS) return false;
+  unexplainedSince.delete(w.id);
+  const moves = await ctx.db.select({ id: depositMoves.id }).from(depositMoves).where(eq(depositMoves.depositWalletId, w.id));
+  console.warn(`[deposits] ${chain.name} ${w.address} holds ${surplus} units no transfer explains; recording it`);
+  const rows = await ctx.db
+    .insert(deposits)
+    .values({
+      userId: w.userId,
+      depositWalletId: w.id,
+      chain: chain.key,
+      // One per wallet, per move so far and per pending count: polling again never records it twice.
+      sourceTxId: `${chain.key}:unlisted:${w.id}:${moves.length}:${pending.length}`,
+      sourceTxHash: "",
+      amount: surplus.toString(),
+      status: "detected",
+      createdAt: ctx.now(),
+      updatedAt: ctx.now(),
+    })
+    .onConflictDoNothing()
+    .returning({ id: deposits.id });
+  return rows.length > 0;
 }
 
 /** Opens moves for wallets with new deposits, then steps every active move under a lease. */

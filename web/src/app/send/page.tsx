@@ -71,64 +71,75 @@ export default function VisitorPay() {
   return (
     <div className="min-h-screen">
       <Backdrop />
-      <VisitorHeader config={config} />
-      <main className="enter mx-auto max-w-md space-y-6 px-5 pt-4 pb-16">
-        <div>
-          <BackLink />
-          <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
-          <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
-        </div>
-
-        <div role="tablist" aria-label="Who gets paid" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
-          {(["one", "many"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              role="tab"
-              aria-selected={mode === m}
-              onClick={() => {
-                setMode(m);
-                onChecked(null);
-              }}
-              className={cn(
-                "min-h-11 rounded-full text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {m === "one" ? "One person" : "Many people"}
-            </button>
-          ))}
-        </div>
-
-        <div className="surface p-5">
-          <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" />
-        </div>
-
-        {check && <ReviewTable check={check} />}
-
-        {check?.ready && !prepared && (
-          <div className="surface space-y-4 p-5">
-            <Field label="Email for your receipt (optional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
-            {!config?.live ? (
-              <Notice>Wallet payments need a live server. This one is a preview.</Notice>
-            ) : !projectId ? (
-              <Notice>Wallet payments aren&apos;t set up on this server yet.</Notice>
-            ) : (
-              <Button className="w-full" busy={busy} onClick={() => void connectAndReserve()}>
-                Pay ${check.charge ?? check.total} from your wallet
-              </Button>
-            )}
+      <VisitorHeader config={config} wide />
+      {/* One column on a phone. From lg (UI_BRIEF.md v5): the list on the left, its review and the
+          payment on the right, so both stay in view. */}
+      <main className="enter mx-auto max-w-md px-5 pt-4 pb-16 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-10 lg:px-10">
+        <div className="space-y-6">
+          <div>
+            <BackLink />
+            <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
+            <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
           </div>
-        )}
 
-        {prepared && config && (
+          <div role="tablist" aria-label="Who gets paid" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
+            {(["one", "many"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                role="tab"
+                aria-selected={mode === m}
+                onClick={() => {
+                  setMode(m);
+                  onChecked(null);
+                }}
+                className={cn(
+                  "min-h-11 rounded-full text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {m === "one" ? "One person" : "Many people"}
+              </button>
+            ))}
+          </div>
+
           <div className="surface p-5">
-            <WalletSteps config={config} prepared={prepared} onSent={(h) => void sent(h)} />
+            <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" />
           </div>
-        )}
+        </div>
 
-        {error && (error.limit ? <VisitorLimit message={error.text} signedIn={false} /> : <Notice tone="error">{error.text}</Notice>)}
+        <div className="mt-6 space-y-6 lg:sticky lg:top-6 lg:mt-0">
+          {!check && !prepared && (
+            <p className="surface hidden p-5 text-sm text-muted-foreground lg:block">
+              Check the list and the review appears here: who gets what, the fee, and the total your wallet pays.
+            </p>
+          )}
+          {check && <ReviewTable check={check} />}
+
+          {check?.ready && !prepared && (
+            <div className="surface space-y-4 p-5">
+              <Field label="Email for your receipt (optional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
+              {!config?.live ? (
+                <Notice>Wallet payments need a live server. This one is a preview.</Notice>
+              ) : !projectId ? (
+                <Notice>Wallet payments aren&apos;t set up on this server yet.</Notice>
+              ) : (
+                <Button className="w-full" busy={busy} onClick={() => void connectAndReserve()}>
+                  Pay ${check.charge ?? check.total} from your wallet
+                </Button>
+              )}
+            </div>
+          )}
+
+          {prepared && config && (
+            <div className="surface p-5">
+              <WalletSteps config={config} prepared={prepared} onSent={(h) => void sent(h)} />
+            </div>
+          )}
+
+          {error && (error.limit ? <VisitorLimit message={error.text} signedIn={false} /> : <Notice tone="error">{error.text}</Notice>)}
+        </div>
       </main>
     </div>
   );

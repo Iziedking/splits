@@ -54,8 +54,8 @@ export default function VisitorPayment() {
   return (
     <div className={cn("min-h-screen", night && "text-white")}>
       <Backdrop tone={night ? "night" : "day"} />
-      <VisitorHeader />
-      <main className="mx-auto max-w-md px-5 pt-4 pb-16" aria-live="polite">
+      <VisitorHeader wide />
+      <main className="mx-auto max-w-md px-5 pt-4 pb-16 lg:max-w-5xl lg:px-10" aria-live="polite">
         {!p ? (
           error ? (
             <div className="enter space-y-3 pt-6">
@@ -86,8 +86,8 @@ export default function VisitorPayment() {
                   Pay someone else
                 </Link>
               }
+              aside={<EmailReceipt token={token} />}
             />
-            <EmailReceipt token={token} />
           </>
         ) : p.status === "verifying" ? (
           <div className="enter pt-6">
@@ -176,7 +176,7 @@ function EmailReceipt({ token }: { token: string }) {
   }
 
   return (
-    <form onSubmit={send} className="surface mt-6 space-y-3 p-5">
+    <form onSubmit={send} className="surface space-y-3 p-5">
       <Field label="Email me my receipt" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
       <Button type="submit" variant="secondary" className="w-full" busy={state.busy}>
         Send receipt

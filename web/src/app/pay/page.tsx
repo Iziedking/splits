@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 export default function PayPage() {
   return (
-    <AppFrame>
+    <AppFrame wide>
       <Pay />
     </AppFrame>
   );
@@ -154,8 +154,9 @@ function Pay() {
   const count = check?.lines.length ?? 0;
   const payLabel = charge ? (count === 1 ? `Pay $${charge}` : `Pay ${count} people $${charge}`) : "Pay";
 
+  // One column on a phone; from lg (UI_BRIEF.md v5) the composer left, its review and Pay right.
   return (
-    <div className="enter space-y-6 pt-4">
+    <div className="enter space-y-6 pt-4 lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-10 lg:space-y-0">
       <div>
         <h1 className="text-[2rem] leading-tight font-extrabold">Send money</h1>
         <p className="mt-2 text-muted-foreground">
@@ -246,7 +247,7 @@ function Pay() {
         </div>
       </div>
 
-      <div className="space-y-4" aria-live="polite">
+      <div className="space-y-4 lg:sticky lg:top-6" aria-live="polite">
         {!agentOn && mode !== "saved" && !check && (
           <div className="rounded-[20px] border border-dashed border-border p-6 text-muted-foreground">
             <Ribbon height={10} parts={[1, 1, 1, 1, 1].map((w, i) => ({ label: `Person ${i + 1}`, weight: w }))} />

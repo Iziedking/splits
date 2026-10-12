@@ -78,7 +78,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
     });
   // Home uses the whole width beside the rail like the frame; other screens are a centred,
   // readable column. The header always spans the page, its badge and bell at the far right.
-  const width = wide ? "lg:mx-0 lg:max-w-[110rem] lg:px-12" : "lg:max-w-xl lg:px-10";
+  const width = wide ? "lg:mx-0 lg:max-w-[110rem] lg:px-12" : "lg:max-w-3xl lg:px-10";
 
   const refresh = React.useCallback(async () => {
     try {

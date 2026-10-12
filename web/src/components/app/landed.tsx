@@ -9,18 +9,25 @@ import type { TransferView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
-/** S8: one card per person with what they got and what it was for. */
+/**
+ * S8: one card per person with what they got and what it was for. On a phone, one column. From
+ * `lg` (UI_BRIEF.md v5) the summary, links and actions stay in view on the left and the people
+ * paid fill the right, two cards to a row; `contents` wrappers keep the phone order.
+ */
 export function Landed({
   t,
   preview,
   returnTo,
   actions,
+  aside,
 }: {
   t: TransferView;
   preview: boolean;
   /** Where "Back to payment" on a receipt leads: /payments/<id> or /p/<token>. */
   returnTo: string;
   actions: React.ReactNode;
+  /** More for the summary column, after the actions (the visitor's "Email me my receipt"). */
+  aside?: React.ReactNode;
 }) {
   const compact = t.legs.length > 6;
   const [picking, setPicking] = React.useState(false);
@@ -36,20 +43,51 @@ export function Landed({
   }
 
   return (
-    <div className="enter space-y-6 pt-6">
-      <div>
-        <h1 className="text-[2rem] leading-tight font-extrabold">{t.recipients === 1 ? "Landed." : "Landed, divided."}</h1>
-        <p className="mt-1 text-muted-foreground">
-          <CountUp value={t.amount} /> reached {t.recipients === 1 ? (t.legs[0]?.name ?? "their wallet") : `${t.recipients} wallets`}.
-        </p>
-        {t.fee !== "0.00" && (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Plus a ${t.fee} Splits fee ({t.feePercent}%).
+    <div className="enter flex flex-col gap-6 pt-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
+      <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-6">
+        <div className="order-1 lg:order-none">
+          <h1 className="text-[2rem] leading-tight font-extrabold">{t.recipients === 1 ? "Landed." : "Landed, divided."}</h1>
+          <p className="mt-1 text-muted-foreground">
+            <CountUp value={t.amount} /> reached {t.recipients === 1 ? (t.legs[0]?.name ?? "their wallet") : `${t.recipients} wallets`}.
           </p>
+          {t.fee !== "0.00" && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Plus a ${t.fee} Splits fee ({t.feePercent}%).
+            </p>
+          )}
+        </div>
+
+        <p className="order-3 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary lg:order-none">
+          {t.explorerUrl && (
+            <a href={t.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
+              View on Arc explorer
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </a>
+          )}
+          {t.explorerUrl && hasReceipts && <span aria-hidden="true">·</span>}
+          {hasReceipts && (
+            <button type="button" onClick={() => void share()} className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
+              {shared === "copied" ? "Receipt link copied" : t.legs.length === 1 ? "Share receipt" : "Share a receipt"}
+              <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </p>
+        {shared === "failed" && t.legs[0]?.receipt && (
+          <div role="status" className="order-3 -mt-3 text-sm lg:order-none">
+            <span className="font-semibold">Copy this link to share it:</span>
+            <ManualLink path={t.legs[0].receipt} />
+          </div>
         )}
+        {!t.explorerUrl && preview && (
+          <p className="order-3 text-sm text-muted-foreground lg:order-none">Preview mode: these receipts are simulated, so there is no explorer link.</p>
+        )}
+        <ShareReceipts legs={t.legs} returnTo={returnTo} open={picking} onClose={() => setPicking(false)} />
+
+        <div className="order-4 space-y-3 lg:order-none">{actions}</div>
+        {aside && <div className="order-5 lg:order-none">{aside}</div>}
       </div>
 
-      <ul className={cn(compact ? "surface divide-y divide-white/80 p-1" : "space-y-3")}>
+      <ul className={cn("order-2 lg:order-none", compact ? "surface divide-y divide-white/80 p-1" : "space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0")}>
         {t.legs.map((leg, i) => (
           <li key={i} className={cn(compact ? "flex items-center justify-between gap-3 px-4 py-3" : "surface p-4")}>
             {compact ? (
@@ -97,34 +135,6 @@ export function Landed({
           </li>
         ))}
       </ul>
-
-      <p className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary">
-        {t.explorerUrl && (
-          <a href={t.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
-            View on Arc explorer
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </a>
-        )}
-        {t.explorerUrl && hasReceipts && <span aria-hidden="true">·</span>}
-        {hasReceipts && (
-          <button type="button" onClick={() => void share()} className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
-            {shared === "copied" ? "Receipt link copied" : t.legs.length === 1 ? "Share receipt" : "Share a receipt"}
-            <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        )}
-      </p>
-      {shared === "failed" && t.legs[0]?.receipt && (
-        <div role="status" className="-mt-3 text-sm">
-          <span className="font-semibold">Copy this link to share it:</span>
-          <ManualLink path={t.legs[0].receipt} />
-        </div>
-      )}
-      {!t.explorerUrl && preview && (
-        <p className="text-sm text-muted-foreground">Preview mode: these receipts are simulated, so there is no explorer link.</p>
-      )}
-      <ShareReceipts legs={t.legs} returnTo={returnTo} open={picking} onClose={() => setPicking(false)} />
-
-      <div className="space-y-3">{actions}</div>
     </div>
   );
 }

@@ -76,10 +76,12 @@ export class PreviewArc {
   private externalCount = 0;
 
   // Other chains, for deposits: each derived wallet keeps its Arc address on that chain.
-  private derived = new Map<string, { address: Address; chain: ChainKey }>();
+  /** `since`: like Circle, a derived wallet lists only transfers that arrived after it was derived. */
+  private derived = new Map<string, { address: Address; chain: ChainKey; since: number }>();
   private chainBalances = new Map<string, bigint>();
   private chainAllowances = new Map<string, bigint>();
-  private chainInbound = new Map<string, { chain: ChainKey; to: string; amount: bigint }>();
+  private chainInbound = new Map<string, { chain: ChainKey; to: string; amount: bigint; seq: number }>();
+  private inboundSeq = 0;
   private burns = new Map<string, Hex>();
   private usedNonces = new Set<string>();
   private crossCount = 0;
@@ -115,7 +117,7 @@ export class PreviewArc {
     const txHash = keccak256(stringToHex(`preview:deposit:${this.crossCount++}`));
     const key = `${chain}:${to.toLowerCase()}`;
     this.chainBalances.set(key, (this.chainBalances.get(key) ?? 0n) + amount);
-    this.chainInbound.set(txHash, { chain, to: to.toLowerCase(), amount });
+    this.chainInbound.set(txHash, { chain, to: to.toLowerCase(), amount, seq: this.inboundSeq++ });
     return txHash;
   }
 
@@ -169,7 +171,7 @@ export class PreviewArc {
       if (!found) throw new Error(`Preview cannot derive onto ${blockchain}`);
       const providerWalletId = `${walletId}@${blockchain}`;
       const address = this.requireWallet(walletId);
-      this.derived.set(providerWalletId, { address, chain: found.chain.key });
+      if (!this.derived.has(providerWalletId)) this.derived.set(providerWalletId, { address, chain: found.chain.key, since: this.inboundSeq });
       return { providerWalletId, address };
     },
 
@@ -195,7 +197,7 @@ export class PreviewArc {
       const onChain = this.derived.get(walletId);
       if (onChain) {
         return [...this.chainInbound]
-          .filter(([, t]) => t.chain === onChain.chain && t.to === onChain.address.toLowerCase())
+          .filter(([, t]) => t.chain === onChain.chain && t.to === onChain.address.toLowerCase() && t.seq >= onChain.since)
           .reverse()
           .slice(0, limit)
           .map(([txHash, t]) => ({ txHash: txHash as Hex, from: zeroAddress, amount: t.amount, at: new Date() }));
