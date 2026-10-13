@@ -175,7 +175,7 @@ Each item is designed and built the same way as everything above: a written desi
 
 ### 1. Onramp: pay by card, Apple Pay, Google Pay or bank transfer
 
-Today a sender needs USDC, in their Splits balance or in their own wallet. With [Circle's App Kit Onramp](https://developers.circle.com/) (`@circle-fin/onramp-kit`), a sender in London pays by card, Apple Pay, Google Pay or bank transfer, and the USDC lands directly in their Splits wallet on Arc, ready to be split. It stays behind a switch until Circle's business verification (KYB) for Splits clears, and the simulated card on testnet is replaced by it.
+Today a sender needs USDC, in their Splits balance or in their own wallet. With [Arc App Kit Onramp](https://docs.arc.io/app-kit/onramp) (`@circle-fin/onramp-kit`), a sender in London pays by card, Apple Pay, Google Pay or bank transfer, and the USDC lands directly in their Splits wallet on Arc, ready to be split. It stays behind a switch until Circle's business verification (KYB) for Splits clears, and the simulated card on testnet is replaced by it.
 
 ### 2. Offramp: cash out to a bank or mobile money
 
@@ -183,7 +183,7 @@ Recipients hold USDC today. The next step is letting the sister in Lagos turn he
 
 ### 3. Earning pocket with Arc Earn Kit
 
-Money that sits in a Splits balance between payments could earn. An opt-in **Earning pocket** uses [Arc Earn Kit](https://community.arc.io/home/blogs/earn-kit-on-arc-embedded-usdc-and-eurc-lending-opportunities-2026-09-28) (`@circle-fin/earn-kit`, lending through Morpho vaults on Arc):
+Money that sits in a Splits balance between payments could earn. An opt-in **Earning pocket** uses [Arc Earn Kit](https://docs.arc.io/app-kit/earn) (`@circle-fin/earn-kit`, lending through Morpho vaults on Arc):
 
 - Off by default. Turning it on shows the vault, the current rate, that it is variable and not guaranteed, and how to withdraw.
 - Works with automatic splits: "30% of everything I receive goes to my Earning pocket".
