@@ -169,6 +169,8 @@ The first live giveaway on testnet paid 20 people, 15 Arc addresses and 5 email 
 
 ## Roadmap
 
+Splits on mainnet today is a working proof of concept. It proves the core idea with real USDC: one payment divided between many people, with the purpose of each part recorded on Arc, in a single transaction. The roadmap takes it from an app people use to infrastructure other products build on.
+
 Each item is designed and built the same way as everything above: a written design, a plan, tests first, a fresh review, then staging before mainnet.
 
 ### 1. Onramp: pay by card, Apple Pay, Google Pay or bank transfer
@@ -187,6 +189,16 @@ Money that sits in a Splits balance between payments could earn. An opt-in **Ear
 - Works with automatic splits: "30% of everything I receive goes to my Earning pocket".
 - Move money in and out with the same PIN or passkey approval as a payment; withdrawals go back to the spendable balance.
 - The first step is a check that the vaults are live on Arc mainnet with enough liquidity, before any build.
+
+### 4. Splits for developers and agents: an API and an MCP server
+
+The engine behind the app checks a list, quotes the fee, pays everyone in one transaction and verifies the receipt on Arc. The same engine can work inside other products:
+
+- **Developer API.** Fintech, payroll and remittance apps create, check and send splits for their own users, and follow each payment to "Landed" with webhooks. They get divided payments and per-person receipts without building the contract or the payment engine themselves.
+- **MCP server.** AI agents and assistants (Claude, ChatGPT, agent frameworks) can draft a split from a conversation, check it and show the person exactly who gets what and the fee. The payment only goes out after the person approves it. This keeps the rule agentic mode follows today: the model fills in the list, and only the person can pay.
+- **The same guarantees everywhere.** Everyone is paid in one transaction or nobody is, each part keeps its purpose onchain, and the same limits apply.
+
+Dividing a payment then becomes a building block that any payment flow can call, with programmable USDC on Arc underneath.
 
 ### Also planned
 
