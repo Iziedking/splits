@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { purposeFill } from "@/lib/palette";
 
 const LEGS = [
@@ -13,14 +14,19 @@ const LEGS = [
  */
 export function WelcomePanel() {
   return (
-    <aside aria-hidden="true" className="relative hidden overflow-hidden bg-[#0A7A73] lg:flex lg:items-center lg:justify-center">
-      <div className="absolute -top-32 -left-24 h-[30rem] w-[30rem] rounded-full bg-[#2BC4BA]/60 blur-[100px]" />
-      <div className="absolute -right-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-[#9B8CF2]/45 blur-[110px]" />
-      <div className="absolute bottom-1/3 left-1/4 h-[18rem] w-[18rem] rounded-full bg-[#F2896D]/30 blur-[100px]" />
+    <aside className="relative hidden overflow-hidden bg-[#0A7A73] lg:flex lg:items-center lg:justify-center">
+      <div aria-hidden="true" className="absolute -top-32 -left-24 h-[30rem] w-[30rem] rounded-full bg-[#2BC4BA]/60 blur-[100px]" />
+      <div aria-hidden="true" className="absolute -right-32 bottom-0 h-[28rem] w-[28rem] rounded-full bg-[#9B8CF2]/45 blur-[110px]" />
+      <div aria-hidden="true" className="absolute bottom-1/3 left-1/4 h-[18rem] w-[18rem] rounded-full bg-[#F2896D]/30 blur-[100px]" />
 
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/brand/logo-white.svg" alt="" className="absolute top-10 left-10 h-9 w-auto" />
-      <div className="relative w-[min(26rem,80%)]">
+      <Link
+        href="/"
+        className="absolute top-8 left-8 z-10 inline-flex min-h-11 items-center rounded-lg p-2 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/logo-white.svg" alt="Splits home" className="h-9 w-auto" />
+      </Link>
+      <div aria-hidden="true" className="relative w-[min(26rem,80%)]">
         <p className="text-sm font-semibold tracking-wide text-white">London → Lagos</p>
         <div className="mt-3 rounded-[24px] bg-white/95 p-6 text-foreground shadow-[0_30px_60px_-20px_rgb(14_28_43/0.45)]">
           <p className="text-sm text-muted-foreground">One payment</p>

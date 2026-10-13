@@ -53,11 +53,17 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
         open ? "w-56 items-stretch bg-[#0A7A73] px-4" : "w-20 items-center bg-primary",
       )}
     >
-      <button type="button" onClick={onToggle} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"} className={item}>
-        <Menu className="h-5 w-5 shrink-0" aria-hidden="true" />
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {open && <img src="/brand/logo-white.svg" alt="" aria-hidden="true" className="h-6 w-auto" />}
-      </button>
+      <div className={cn("flex items-center gap-1", !open && "justify-center")}>
+        <button type="button" onClick={onToggle} aria-expanded={open} aria-label={open ? "Close menu" : "Open menu"} className={cn(item, open && "w-auto")}>
+          <Menu className="h-5 w-5 shrink-0" aria-hidden="true" />
+        </button>
+        {open && (
+          <Link href="/" className="inline-flex min-h-11 items-center rounded-lg px-1 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/logo-white.svg" alt="Splits home" className="h-6 w-auto" />
+          </Link>
+        )}
+      </div>
 
       <nav aria-label="Main" className={cn("mt-10 flex flex-col gap-2", !open && "items-center")}>
         {TOP.map(({ href, label: text, icon: Icon }) => (

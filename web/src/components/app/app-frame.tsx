@@ -105,7 +105,8 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
       {pathname !== "/setup" && <SideRail open={railOpen} onToggle={toggleRail} />}
       <header className="mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2 lg:max-w-none lg:px-12 lg:pt-8">
         <Link
-          href="/home"
+          href="/"
+          aria-label="Splits home"
           className={cn(
             "inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}

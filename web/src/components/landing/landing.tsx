@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 
 const ROUTER = "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2";
 const EXPLORER = `https://explorer.arc.io/address/${ROUTER}?tab=contract`;
-const GITHUB = "https://github.com/Iziedking/splits";
 const LIMIT = 500;
 
 /** The scene's payment: within the live 500 USDC limit, split the way the app would. */
@@ -76,10 +75,10 @@ function CtaLink({ href, children, tone = "primary", className }: { href: string
   );
 }
 
-function Nav() {
+function Nav({ signedIn }: { signedIn: boolean }) {
   return (
     <header className="fixed inset-x-0 top-0 z-40 bg-background/60 pt-[env(safe-area-inset-top)] backdrop-blur-[14px]">
-      <div className="mx-auto flex h-16 w-[min(1120px,calc(100%-2rem))] items-center justify-between gap-4">
+      <div className="flex h-16 w-full px-[clamp(16px,5vw,72px)] items-center justify-between gap-4">
         <Link href="#top" aria-label="Splits home" className="inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Logo />
         </Link>
@@ -89,21 +88,19 @@ function Nav() {
           <a href="#arc" className="hover:text-foreground">Built on Arc</a>
           <a href="#next" className="hover:text-foreground">Roadmap</a>
         </nav>
-        <div className="flex items-center gap-2">
-          <Link href="/signin" className="hidden min-h-10 items-center rounded-full px-4 text-[15px] font-bold text-foreground hover:bg-white/60 sm:inline-flex">
-            Sign in
-          </Link>
-          <CtaLink href="/signin" className="min-h-10 px-5">
-            Open Splits
-          </CtaLink>
-        </div>
+        <Link
+          href={signedIn ? "/home" : "/signin"}
+          className="inline-flex min-h-10 items-center rounded-full border border-border bg-white/60 px-5 text-[15px] font-bold text-foreground transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          {signedIn ? "Home" : "Sign in"}
+        </Link>
       </div>
     </header>
   );
 }
 
 /** The pinned scene: one card, then three panes, then three receipts. */
-function Scene() {
+function Scene({ signedIn }: { signedIn: boolean }) {
   const sceneRef = React.useRef<HTMLElement>(null);
   const gridRef = React.useRef<HTMLDivElement>(null);
   const wholeRef = React.useRef<HTMLDivElement>(null);
@@ -185,7 +182,7 @@ function Scene() {
               One USDC payment on Arc, divided between everyone it is for: rent to the landlord, school fees to the school, upkeep to family. Each part lands with its purpose, in a single transaction, and the people you pay only need an email.
             </p>
             <div className="mt-2 flex flex-wrap gap-3">
-              <CtaLink href="/signin">
+              <CtaLink href={signedIn ? "/home" : "/signin"}>
                 Open Splits <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </CtaLink>
               <CtaLink href="/send" tone="glass" className="max-sm:hidden">
@@ -365,7 +362,7 @@ const NEXT = [
   { title: "Splits for developers and agents", body: "A developer API and an MCP server, so fintech apps and AI agents can send divided payments too.", color: "var(--purpose-5)" },
 ];
 
-export function Landing() {
+export function Landing({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <div id="top" className="landing min-h-screen overflow-x-clip text-foreground">
       <svg width="0" height="0" className="absolute" aria-hidden="true" focusable="false">
@@ -376,10 +373,10 @@ export function Landing() {
       </svg>
       <Haze />
       <Grain />
-      <Nav />
+      <Nav signedIn={signedIn} />
 
       <main>
-        <Scene />
+        <Scene signedIn={signedIn} />
 
         <Section id="how">
           <H2>From your balance to everyone&apos;s, in one pass</H2>
@@ -466,13 +463,13 @@ export function Landing() {
           <H2>What comes next</H2>
           <Lede>Splits today is a working proof of concept on mainnet. These are planned, not live yet.</Lede>
           <div className="mt-12 grid grid-cols-4 gap-4 max-[1000px]:grid-cols-2 max-sm:grid-cols-1">
-            {NEXT.map((n) => (
-              <div key={n.title} className={cn(glass, "min-w-0 rounded-3xl p-6")} style={{ "--c": n.color } as React.CSSProperties}>
-                <div className="h-2 rounded-full bg-(--c)" />
-                <span className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#fdf1d6] px-2.5 py-0.5 text-[12px] font-bold text-[#7a5200]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#f5b83d]" /> Planned
-                </span>
-                <h3 className="mt-3 text-[19px] font-extrabold tracking-[-0.01em]">{n.title}</h3>
+            {NEXT.map((n, i) => (
+              <div key={n.title} className="min-w-0 rounded-3xl border border-border bg-card p-6" style={{ "--c": n.color } as React.CSSProperties}>
+                <div className="flex items-baseline justify-between gap-3 border-b border-border pb-4">
+                  <span className="text-[28px] leading-none font-extrabold tracking-[-0.02em] text-(--c) tabular-nums">0{i + 1}</span>
+                  <span className="text-[12px] font-bold tracking-[0.14em] text-muted-foreground uppercase">Planned</span>
+                </div>
+                <h3 className="mt-4 text-[19px] font-extrabold tracking-[-0.01em]">{n.title}</h3>
                 <p className="mt-2 text-[15px] text-muted-foreground">{n.body}</p>
               </div>
             ))}
@@ -486,7 +483,7 @@ export function Landing() {
               <Lede>Live on Arc mainnet. Up to {LIMIT} USDC per payment while identity verification is built.</Lede>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-              <CtaLink href="/signin">
+              <CtaLink href={signedIn ? "/home" : "/signin"}>
                 Open Splits <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </CtaLink>
               <CtaLink href="/send" tone="glass">
@@ -498,14 +495,13 @@ export function Landing() {
       </main>
 
       <footer className="pt-10 pb-14 text-sm text-muted-foreground">
-        <div className="mx-auto flex w-[min(1120px,calc(100%-2rem))] flex-wrap items-center justify-between gap-4">
+        <div className="flex w-full px-[clamp(16px,5vw,72px)] flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Logo className="h-6" />
             <span>Send once. It lands divided.</span>
           </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-5 font-semibold">
             <Link href="/about" className="hover:text-foreground">About</Link>
-            <a href={GITHUB} target="_blank" rel="noreferrer" className="hover:text-foreground">GitHub</a>
             <a href={EXPLORER} target="_blank" rel="noreferrer" className="hover:text-foreground">Contract</a>
           </nav>
         </div>

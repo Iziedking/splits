@@ -76,7 +76,13 @@ export default function SignIn() {
         <Backdrop />
         <header className="flex items-center justify-between">
           {/* On desktop the panel beside this carries the logo. */}
-          <Logo className="h-8 lg:invisible" />
+          <Link
+            href="/"
+            aria-label="Splits home"
+            className="inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:invisible"
+          >
+            <Logo className="h-8" />
+          </Link>
           {/* Deliberately quiet: the welcome screen's job is getting started. */}
           <Link
             href="/about"
