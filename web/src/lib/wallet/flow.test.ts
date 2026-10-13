@@ -25,6 +25,12 @@ describe("wallet errors", () => {
     );
   });
 
+  it("says a reverted approval paid nobody and cost only the network fee", () => {
+    expect(walletError(new Error("reverted"), testnet)).toBe(
+      "Arc reverted the approval, so nothing was paid. Only Arc's network fee for the attempt left your wallet. Try again.",
+    );
+  });
+
   it("gives the exact network details when the wallet won't switch to Arc", () => {
     const text = walletError(new Error("Chain not configured"), testnet);
     expect(text).toContain("Arc Testnet");

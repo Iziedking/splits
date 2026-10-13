@@ -538,7 +538,7 @@ describe("paying a checked list in one transaction", () => {
     expect(await code(quoteTransfer(ctx, user, { draftId: draft.id, draftHash: draft.hash, fundWith: "card" }))).toBe("LIST_CHANGED");
   });
 
-  it("sends nothing when a winner is blocked after the check, and keeps the top-up in the balance", async () => {
+  it("pays nobody when a winner is blocked after the check, says the reverted attempt's fee was covered, and keeps the top-up", async () => {
     const { ctx, arc } = await testCtx();
     const { user } = await signedInUser(ctx, "host@example.com");
     const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
@@ -546,22 +546,22 @@ describe("paying a checked list in one transaction", () => {
     const t = await payDraft(ctx, user, draft);
     expect(t.status).toBe("failed");
     expect(t.lastError).toBe(
-      "One recipient can't receive USDC right now. Nothing was sent. $2.00 from the demo card is still in your balance.",
+      "One recipient can't receive USDC right now. Arc reverted it, so nobody was paid. Splits covered Arc's network fee for the attempt. $2.00 from the demo card is still in your balance.",
     );
     expect(await ctx.chain.usdcBalance(winner(1))).toBe(0n);
     expect(await balanceOf(ctx, "host@example.com")).toBe(2_000_000n);
   });
 
-  it("says nothing was sent when the provider gives only a generic reason", async () => {
+  it("says nothing was sent when the call never reached Arc and the provider gives only a generic reason", async () => {
     const { ctx, arc } = await testCtx();
     const { user } = await signedInUser(ctx, "host@example.com");
     const draft = await checkedDraft(ctx, user, [winner(1), winner(2)].join("\n"), "2");
     arc.setBlocked(winner(2), true);
-    // Circle reports a failed contract call without the revert's name.
+    // Circle refuses the call at estimation, before broadcast: no hash, and no revert name.
     const getTx = ctx.wallets.getTx;
     ctx.wallets.getTx = async (id) => {
       const tx = await getTx(id);
-      return tx.status === "failed" ? { ...tx, error: "ESTIMATION_ERROR" } : tx;
+      return tx.status === "failed" ? { status: tx.status, rawState: tx.rawState, error: "ESTIMATION_ERROR" } : tx;
     };
     const t = await payDraft(ctx, user, draft);
     expect(t.status).toBe("failed");

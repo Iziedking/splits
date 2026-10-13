@@ -33,7 +33,7 @@ export function walletError(err: unknown, net: NetworkInfo): string {
       `chain ID ${net.chainId}, RPC ${net.rpcUrl}, currency USDC, explorer ${net.explorerUrl}. Then try again.`
     );
   }
-  if (text === "reverted") return "Arc rejected the approval. Nothing moved. Try again.";
+  if (text === "reverted") return "Arc reverted the approval, so nothing was paid. Only Arc's network fee for the attempt left your wallet. Try again.";
   return "Your wallet couldn't finish this step. Nothing moved. Try again.";
 }
 

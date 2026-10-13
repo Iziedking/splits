@@ -492,7 +492,7 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       if (await ctx.chain.refUsed(payer.address, t.ref as Hex)) {
         return row.txHash ? { status: "verifying", patch: { txHash: row.txHash } } : "wait";
       }
-      return fail(notSent(t, row.error ?? row.rawState));
+      return fail(notSent(t, row.error ?? row.rawState, await minedAndReverted(ctx, row.txHash)));
     }
 
     case "verifying":
@@ -512,7 +512,7 @@ async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
   const receipt = await ctx.chain.receipt(t.txHash as Hex);
   if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt))) return recoverOwnWallet(ctx, t, receipt);
   if (!receipt) return "wait";
-  if (receipt.status !== "success") return fail("The payment reverted onchain");
+  if (receipt.status !== "success") return fail(`Arc reverted the payment, so nobody was paid. ${SPONSORED_FEE}`);
   if (!receiptMatches(t, receipt) || !(await ctx.chain.refUsed(t.payerAddress as Address, t.ref as Hex))) {
     return fail("Onchain receipt does not match what was approved. Flagged for review.");
   }
@@ -539,7 +539,7 @@ async function recoverOwnWallet(ctx: Ctx, t: Transfer, receipt: RouterReceipt | 
   const expired = t.expiresAt !== null && t.expiresAt <= ctx.now();
   const reopen = (lastError: string): StepResult =>
     expired ? { status: "cancelled", patch: { txHash: null, lastError } } : { status: "awaiting_wallet", patch: { txHash: null, lastError } };
-  if (receipt?.status === "reverted") return reopen("The send reverted onchain. Nothing moved from your wallet.");
+  if (receipt?.status === "reverted") return reopen(`Arc reverted the send, so nobody was paid. ${OWN_WALLET_FEE}`);
   if (receipt) return fail("Onchain receipt does not match what was approved. Flagged for review.");
   if (t.expiresAt && t.expiresAt.getTime() + UNSEEN_HASH_GRACE_MS <= ctx.now().getTime()) {
     return reopen("That transaction never appeared on Arc. Nothing moved from your wallet.");
@@ -561,14 +561,28 @@ function receiptMatches(t: Transfer, receipt: RouterReceipt): boolean {
 }
 
 /**
+ * A failed payment costs gas only if Arc mined it, so the messages say which happened. Splits pays
+ * the gas of email wallets (Circle Gas Station); a visitor's own wallet pays its own.
+ */
+const SPONSORED_FEE = "Splits covered Arc's network fee for the attempt.";
+export const OWN_WALLET_FEE = "Only Arc's network fee for the attempt left your wallet.";
+
+/** Whether the provider's failed call reached Arc: mined, then reverted. */
+async function minedAndReverted(ctx: Ctx, txHash: string | null): Promise<boolean> {
+  if (!txHash) return false;
+  return (await ctx.chain.receipt(txHash as Hex))?.status === "reverted";
+}
+
+/**
  * What the sender reads when the payout call failed. The caller has already checked onchain that
- * the ref is unused, so nothing moved; the provider often reports only a generic reason, so the
+ * the ref is unused, so nobody was paid; the provider often reports only a generic reason, so the
  * revert name is a bonus, not a requirement. A card top-up that already landed stays with them.
  */
-function notSent(t: Transfer, error: string): string {
+function notSent(t: Transfer, error: string, reverted = false): string {
   const topUp = BigInt(t.topUp);
   const kept = topUp > 0n ? ` $${formatUsdc(topUp)} from the demo card is still in your balance.` : "";
-  return `${revertReason(error)} Nothing was sent.${kept}`;
+  const what = reverted ? `Arc reverted it, so nobody was paid. ${SPONSORED_FEE}` : "Nothing was sent.";
+  return `${revertReason(error)} ${what}${kept}`;
 }
 
 function revertReason(error: string): string {

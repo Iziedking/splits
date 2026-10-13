@@ -108,10 +108,11 @@ export default function VisitorPayment() {
           </div>
         ) : p.status === "awaiting_wallet" ? (
           p.expiresAt && new Date(p.expiresAt) < new Date() ? (
-            <Expired />
+            <Expired error={p.error} />
           ) : (
             <div className="enter space-y-3 pt-6">
               <h1 className="text-[2rem] leading-tight font-extrabold">Waiting for your wallet</h1>
+              {p.error && <LastTry error={p.error} />}
               <p className="text-muted-foreground">
                 Finish both steps on the page where you started. This page updates by itself as soon as the payment reaches Arc,
                 and this link keeps working if you close it.
@@ -122,7 +123,7 @@ export default function VisitorPayment() {
             </div>
           )
         ) : p.status === "cancelled" && !p.txHash ? (
-          <Expired />
+          <Expired error={p.error} />
         ) : (
           <div className="enter space-y-4 pt-6">
             <h1 className="text-[2rem] leading-tight font-extrabold">Not sent</h1>
@@ -142,10 +143,21 @@ export default function VisitorPayment() {
   );
 }
 
-function Expired() {
+/** Why the last send from this link didn't go through, while the person can still try again. */
+function LastTry({ error }: { error: string }) {
+  return (
+    <Notice tone="error" className="flex items-start gap-2">
+      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+      {error}
+    </Notice>
+  );
+}
+
+function Expired({ error }: { error?: string | null }) {
   return (
     <div className="enter space-y-3 pt-6">
       <h1 className="text-[2rem] leading-tight font-extrabold">This took longer than 30 minutes</h1>
+      {error && <LastTry error={error} />}
       <p className="text-muted-foreground">
         No payment has reached Arc for this link yet. If you did send it, this page will show it as soon as it lands; otherwise,
         check the list again to pay.

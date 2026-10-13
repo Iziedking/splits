@@ -7,6 +7,7 @@ import { notices, users } from "../db/schema";
 import { AppError } from "../errors";
 import type { PreviewArc } from "../preview/previewArc";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
+import { visitorPaymentView } from "../views";
 import { checkPayout } from "./payouts";
 import { receiptByToken, receiptLinks } from "./receipts";
 import { advanceWithRules } from "./rules";
@@ -175,7 +176,7 @@ describe("paying from your own wallet", () => {
     expect(t.txHash).toBe(real);
   });
 
-  it("goes back to waiting when the send reverted and nothing moved", async () => {
+  it("goes back to waiting when the send reverted, and says only the network fee was spent", async () => {
     const { ctx, arc } = await testCtx();
     const p = await prepared(ctx, `${friend}, 2`); // no USDC yet: the send reverts
     const reverted = payFromWallet(arc, p);
@@ -183,6 +184,9 @@ describe("paying from your own wallet", () => {
     let t = await advanceWithRules(ctx, p.transfer.id);
     expect(t.status).toBe("awaiting_wallet");
     expect(t.txHash).toBeNull();
+    expect(t.lastError).toBe("Arc reverted the send, so nobody was paid. Only Arc's network fee for the attempt left your wallet.");
+    // The status page shows why while the payer tries again.
+    expect(visitorPaymentView(ctx, t, null).error).toBe(t.lastError);
     arc.mint(me, 10_000_000n);
     await submitVisitorPayment(ctx, p.transfer.visitorToken!, payFromWallet(arc, p));
     t = await drive(ctx, p.transfer.id);
