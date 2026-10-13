@@ -150,7 +150,7 @@ export function AboutSignUp() {
   return (
     <div className="mx-auto w-full max-w-sm space-y-3">
       <Link
-        href="/"
+        href="/signin"
         className="flex min-h-[52px] items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)] hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Get started

@@ -125,7 +125,7 @@ export function paymentNoticeEmail(n: PaymentNotice): { subject: string; text: s
     ],
     preheader: `${n.from} sent you $${n.amount} for "${n.purpose}".`,
     body: [`${n.from} sent you $${n.amount} USDC for "${n.purpose}".`, `Sign in with this email at ${n.appUrl} to use it. There's nothing to install and no password.`],
-    button: { label: "Open Splits", url: n.appUrl },
+    button: { label: "Open Splits", url: `${n.appUrl}/signin` },
     footer: "You're getting this because someone paid this email address through Splits.",
   });
   return { subject: `You received $${n.amount} on Splits`, ...email };

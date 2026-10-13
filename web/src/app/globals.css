@@ -224,3 +224,37 @@
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
 }
+
+/* Landing page (components/landing): the haze drifts slowly; reduced motion holds it still. */
+@theme {
+  --animate-drift-a: drift-a 38s ease-in-out infinite alternate;
+  --animate-drift-b: drift-b 46s ease-in-out infinite alternate;
+  --animate-drift-c: drift-c 52s ease-in-out infinite alternate;
+  @keyframes drift-a {
+    to {
+      transform: translate(8vw, 6vw);
+    }
+  }
+  @keyframes drift-b {
+    to {
+      transform: translate(-8vw, 8vw);
+    }
+  }
+  @keyframes drift-c {
+    to {
+      transform: translate(6vw, -6vw);
+    }
+  }
+}
+
+/* Where the browser can, the landing scene's glass bends the haze behind it a little. */
+.has-water .pane {
+  -webkit-backdrop-filter: url(#water) blur(10px) saturate(150%);
+  backdrop-filter: url(#water) blur(10px) saturate(150%);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.landing) {
+    scroll-behavior: smooth;
+  }
+}

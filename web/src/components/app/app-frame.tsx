@@ -89,7 +89,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
       setError(null);
       if (requirePin && !data.user.hasPin) router.replace("/setup");
     } catch (err) {
-      if (err instanceof ApiError && err.status === 401) router.replace("/");
+      if (err instanceof ApiError && err.status === 401) router.replace("/signin");
       else setError(errorMessage(err));
     }
   }, [requirePin, router]);
