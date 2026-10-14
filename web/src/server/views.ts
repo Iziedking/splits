@@ -1,5 +1,6 @@
 import type { Ctx } from "./context";
 import type { Action } from "./services/actions";
+import type { EarnMove } from "./services/earn";
 import type { ProviderTxRow } from "./services/providerTx";
 import type { Split } from "./services/splits";
 import type { Transfer } from "./services/transfers";
@@ -25,6 +26,20 @@ export function walletView(ctx: Ctx, w: Wallet & { balance?: bigint }) {
     address: w.address,
     explorerUrl: addressUrl(ctx, w.address),
     balance: w.balance === undefined ? null : formatUsdc(w.balance),
+    /** The Earning pocket: its balance here leaves out what is in the vault (see /api/earn). */
+    earn: w.earn,
+  };
+}
+
+export function earnMoveView(ctx: Ctx, m: EarnMove) {
+  return {
+    id: m.id,
+    kind: m.kind,
+    amount: formatUsdc(BigInt(m.amount)),
+    status: m.status,
+    error: m.status === "failed" ? m.lastError : null,
+    txUrl: m.txHash ? `${ctx.explorerUrl}/tx/${m.txHash}` : null,
+    createdAt: m.createdAt.toISOString(),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TransferView } from "./api";
-import { addUsdc, greetingName, initials, percentToBps, sentThisMonth } from "./format";
+import { addUsdc, cents, greetingName, nearestCents, initials, percentToBps, sentThisMonth } from "./format";
 
 describe("client formatting", () => {
   it("makes initials from names", () => {
@@ -38,5 +38,24 @@ describe("greetingName", () => {
     expect(greetingName("noble+test@x.io")).toBe("Noble");
     expect(greetingName("giveaway-host@example.com")).toBe("Giveaway");
     expect(greetingName("123@example.com")).toBe("There");
+  });
+});
+
+describe("cents", () => {
+  it("shows vault amounts in cents, rounded down", () => {
+    expect(cents("1.199999")).toBe("1.19");
+    expect(cents("40.00")).toBe("40.00");
+    expect(cents("12")).toBe("12.00");
+    expect(cents("0.5")).toBe("0.50");
+  });
+});
+
+describe("nearestCents", () => {
+  it("shows a finished move to the nearest cent", () => {
+    expect(nearestCents("1.199999")).toBe("1.20");
+    expect(nearestCents("1.194999")).toBe("1.19");
+    expect(nearestCents("1.995")).toBe("2.00");
+    expect(nearestCents("40")).toBe("40.00");
+    expect(nearestCents("0.004")).toBe("0.00");
   });
 });

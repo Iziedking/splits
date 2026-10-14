@@ -10,6 +10,8 @@ import { CCTP, enabledChains, type CrossNetwork, type SourceChain } from "./cros
 import { httpIris, type Iris } from "./crosschain/iris";
 import { createSourceReader, type SourceReader } from "./crosschain/reader";
 import { createPgliteDb, createPostgresDb, type Db } from "./db/client";
+import { createLiveEarn } from "./earn/circle";
+import type { EarnProvider } from "./earn/types";
 import type { FeeRule } from "./domain/fees";
 import { ratesFromConfig, type FxRates } from "./domain/fx";
 import { parseUsdc } from "./domain/money";
@@ -32,6 +34,8 @@ export type Limits = {
   visitorChecksGlobalPerHour: number;
   agentDraftsPerDay: number;
   agentDraftsGlobalPerHour: number;
+  /** Idle Earning-pocket USDC below this stays out of the vault. */
+  earnDepositMin: bigint;
 };
 
 /** Everything a service needs. Built once per process; tests build their own. */
@@ -64,6 +68,8 @@ export type Ctx = {
   agent: DraftModel | null;
   /** Deposits from other chains: the enabled chains, their reader, Circle's attestations, CCTP. */
   crossChain: CrossChain;
+  /** The Earning pocket's vault; null keeps every Earn screen and route off. */
+  earn: EarnProvider | null;
   /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
   showCodes: boolean;
   now: () => Date;
@@ -90,6 +96,7 @@ export function limitsFromConfig(config: Config): Limits {
     visitorChecksGlobalPerHour: config.VISITOR_CHECKS_GLOBAL_PER_HOUR,
     agentDraftsPerDay: config.AGENT_DRAFTS_PER_DAY,
     agentDraftsGlobalPerHour: config.AGENT_DRAFTS_GLOBAL_PER_HOUR,
+    earnDepositMin: parseUsdc(config.EARN_DEPOSIT_MIN_USDC),
   };
 }
 
@@ -182,6 +189,7 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     ...chainSettings(config, treasuryAddress),
     showCodes: true,
     agent: previewModel(),
+    earn: config.EARN_ENABLED ? arc.earnProvider : null,
     crossChain: {
       network: "testnet",
       chains: enabledChains(config.DEPOSIT_CHAINS ? splitList(config.DEPOSIT_CHAINS) : ["base", "arb", "op"]),
@@ -240,6 +248,17 @@ async function buildCtx(config: Config): Promise<Ctx> {
     showCodes: screenCodes,
     agent: config.AGENT_MODEL_ID ? bedrockModel({ modelId: config.AGENT_MODEL_ID, region: config.AWS_REGION }) : null,
     crossChain: await liveCrossChain(config),
+    earn:
+      config.EARN_ENABLED && config.EARN_VAULT_ADDRESS
+        ? await createLiveEarn({
+            apiKey: config.CIRCLE_API_KEY!,
+            entitySecret: config.CIRCLE_ENTITY_SECRET!,
+            chain: config.CIRCLE_BLOCKCHAIN === "ARC" ? "Arc" : "Arc_Testnet",
+            vault: config.EARN_VAULT_ADDRESS,
+            minLiquidity: parseUsdc(config.EARN_MIN_LIQUIDITY_USDC),
+            requireVetted: config.EARN_REQUIRE_CIRCLE_VETTED,
+          })
+        : null,
     now: () => new Date(),
     webhookKey: (keyId) => fetchCircleWebhookKey(config.CIRCLE_API_KEY!, keyId),
   };

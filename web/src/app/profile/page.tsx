@@ -96,6 +96,23 @@ function Profile() {
             </>
           )}
         </section>
+
+        {me.earn && (
+          <section aria-labelledby="earn-heading" className="surface p-6">
+            <h2 id="earn-heading" className="text-lg font-extrabold">
+              Earning pocket
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Keep part of your money earning a variable return through a vetted vault on Arc. Move it back whenever you like.
+            </p>
+            <Link
+              href="/earn"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
+              Open
+            </Link>
+          </section>
+        )}
       </div>
 
       <div className="space-y-6">

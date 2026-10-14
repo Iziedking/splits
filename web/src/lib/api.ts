@@ -1,4 +1,5 @@
-import type { actionView, receiptView, splitView, transferView, userView, visitorPaymentView, walletView } from "@/server/views";
+import type { actionView, earnMoveView, receiptView, splitView, transferView, userView, visitorPaymentView, walletView } from "@/server/views";
+import type { EarnStatus } from "@/server/services/earn";
 
 /** Response shapes, taken from the server's own view functions so the two can't drift apart. */
 export type UserView = ReturnType<typeof userView>;
@@ -8,6 +9,8 @@ export type TransferView = ReturnType<typeof transferView>;
 export type ActionView = ReturnType<typeof actionView>;
 export type ReceiptView = ReturnType<typeof receiptView>;
 export type VisitorPaymentView = ReturnType<typeof visitorPaymentView>;
+export type EarnMoveView = ReturnType<typeof earnMoveView>;
+export type { EarnStatus };
 /** What a visitor's browser needs to pay on Arc (GET /api/visitor/config). */
 export type VisitorConfig = {
   live: boolean;
@@ -25,7 +28,7 @@ import type { ReceivedItem } from "@/server/services/activity";
 export type { ReceivedItem };
 export type { CheckLine, PayoutCheck } from "@/server/services/payouts";
 export type ActivityView = { sent: TransferView[]; received: ReceivedItem[]; receivedError: string | null };
-export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; agent: boolean; user: UserView; wallets: WalletView[] };
+export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; agent: boolean; earn: boolean; user: UserView; wallets: WalletView[] };
 export type { ComposerFill } from "@/server/agent/draft";
 import type { depositView } from "@/server/services/depositView";
 import type { listNotifications } from "@/server/services/notifications";

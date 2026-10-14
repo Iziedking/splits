@@ -17,6 +17,7 @@ import { burnAbi, FAST, parseBurnMessage, toBytes32, transmitterAbi } from "../c
 import { ARC_DOMAIN, CCTP, chainByCircleCode, SOURCE_CHAINS, type ChainKey, type SourceChain } from "../crosschain/chains";
 import type { Iris } from "../crosschain/iris";
 import type { SourceReader } from "../crosschain/reader";
+import type { EarnProvider } from "../earn/types";
 import type { ProviderTx, WalletProvider } from "../wallets/types";
 
 /**
@@ -145,6 +146,63 @@ export class PreviewArc {
   inboundFor(address: Address) {
     return this.inbound.get(address.toLowerCase()) ?? [];
   }
+
+  // ---------------------------------------------------------------- Earn: one simulated vault
+
+  readonly earnVaultAddress = getAddress("0x5911750000000000000000000000000000000e4e");
+  private earnAssets = new Map<string, bigint>();
+  private earnPrincipal = new Map<string, bigint>();
+  private earnCount = 0;
+  /** Every vault call, for tests. */
+  readonly earnCalls: { kind: "deposit" | "withdraw"; owner: string; amount: bigint }[] = [];
+  /** Test hook: a withdrawal returns this many base units less, like a vault rounding shares down. */
+  earnShortfall = 0n;
+
+  /** Interest for tests and demos: grows a position (the vault is credited too). */
+  earnAccrue(owner: Address, amount: bigint) {
+    const key = owner.toLowerCase();
+    this.earnAssets.set(key, (this.earnAssets.get(key) ?? 0n) + amount);
+    this.mint(this.earnVaultAddress, amount);
+  }
+
+  readonly earnProvider: EarnProvider = {
+    vault: async () => ({
+      address: this.earnVaultAddress,
+      name: "Preview USDC Vault",
+      apy: 0.042,
+      status: "active",
+      circleGuarded: true,
+      liquidity: 1_000_000_000_000n,
+      asset: "USDC",
+    }),
+    position: async (owner) => {
+      const key = owner.toLowerCase();
+      return { assets: this.earnAssets.get(key) ?? 0n, principal: this.earnPrincipal.get(key) ?? 0n };
+    },
+    deposit: async (owner, amount) => {
+      const fx = this.fork();
+      this.move(fx, owner, this.earnVaultAddress, amount);
+      this.commit(fx);
+      const key = owner.toLowerCase();
+      this.earnAssets.set(key, (this.earnAssets.get(key) ?? 0n) + amount);
+      this.earnPrincipal.set(key, (this.earnPrincipal.get(key) ?? 0n) + amount);
+      this.earnCalls.push({ kind: "deposit", owner: key, amount });
+      return { txHash: keccak256(stringToHex(`preview:earn:${this.earnCount++}`)) };
+    },
+    withdraw: async (owner, amount) => {
+      const key = owner.toLowerCase();
+      const held = this.earnAssets.get(key) ?? 0n;
+      if (amount > held) throw new Error(`Withdrawal of ${amount} exceeds the position of ${held}`);
+      const fx = this.fork();
+      this.move(fx, this.earnVaultAddress, owner, amount - this.earnShortfall);
+      this.commit(fx);
+      this.earnAssets.set(key, held - amount);
+      const principal = this.earnPrincipal.get(key) ?? 0n;
+      this.earnPrincipal.set(key, principal > amount ? principal - amount : 0n);
+      this.earnCalls.push({ kind: "withdraw", owner: key, amount });
+      return { txHash: keccak256(stringToHex(`preview:earn:${this.earnCount++}`)) };
+    },
+  };
 
   // ---------------------------------------------------------------- adapters
 

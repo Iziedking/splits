@@ -59,3 +59,17 @@ export function greetingName(email: string): string {
   const word = (email.split("@")[0] ?? "").split(/[._+\-\d]+/).find(Boolean) ?? "there";
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
+
+/** Vault amounts carry six decimals ("1.199999"); people read them in cents, rounded down. */
+export function cents(amount: string): string {
+  const [whole = "0", fraction = ""] = amount.split(".");
+  return `${whole}.${fraction.padEnd(2, "0").slice(0, 2)}`;
+}
+
+/** A finished move in cents, to the nearest cent ("1.199999" -> "1.20"), as people expect of history. */
+export function nearestCents(amount: string): string {
+  const [whole = "0", fraction = ""] = amount.split(".");
+  const micros = BigInt(whole) * 1_000_000n + BigInt(fraction.padEnd(6, "0").slice(0, 6));
+  const total = (micros + 5_000n) / 10_000n;
+  return `${total / 100n}.${(total % 100n).toString().padStart(2, "0")}`;
+}

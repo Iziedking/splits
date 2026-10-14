@@ -13,8 +13,8 @@ import { Ribbon } from "@/components/app/ribbon";
 import { StartSomething } from "@/components/app/start-something";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
-import { api, errorMessage, type ActivityView, type SplitView } from "@/lib/api";
-import { greetingName, isFinal } from "@/lib/format";
+import { api, errorMessage, type ActivityView, type EarnStatus, type SplitView } from "@/lib/api";
+import { cents, greetingName, isFinal } from "@/lib/format";
 
 export default function HomePage() {
   return (
@@ -32,6 +32,14 @@ function Home() {
   const [activity, setActivity] = React.useState<ActivityView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [receiving, setReceiving] = React.useState(false);
+  // The Earning pocket's chain balance leaves out what is in the vault; its total comes from /api/earn.
+  const [earning, setEarning] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!me.earn) return;
+    api<{ status: EarnStatus }>("/api/earn")
+      .then((r) => setEarning(r.status.available && r.status.pocket ? r.status.pocket.total : null))
+      .catch(() => undefined);
+  }, [me.earn, me.wallets]);
   const transfers = activity?.sent ?? [];
 
   const load = React.useCallback(async () => {
@@ -86,11 +94,21 @@ function Home() {
               <CountUp value={main?.balance ?? "0.00"} />
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              {pockets.map((p) => (
-                <span key={p.id} className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border">
-                  {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
-                </span>
-              ))}
+              {pockets.map((p) =>
+                p.earn ? (
+                  <Link
+                    key={p.id}
+                    href="/earn"
+                    className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border hover:ring-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    Earning <span className="font-semibold tabular-nums">≈ ${cents(earning ?? p.balance ?? "0.00")}</span>
+                  </Link>
+                ) : (
+                  <span key={p.id} className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border">
+                    {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
+                  </span>
+                ),
+              )}
               {main && <CopyAddress address={main.address} tone="dark" className="ml-auto" />}
             </div>
           </section>

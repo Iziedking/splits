@@ -3,6 +3,7 @@ import type { Ctx } from "../context";
 import { actions, splits } from "../db/schema";
 import { pruneStale } from "./housekeeping";
 import { advanceDeposits, pollDepositWallets } from "./deposits";
+import { sweepEarn } from "./earn";
 import { openMissingDepositWallets } from "./depositWallets";
 import { sendDueAlerts } from "./notifications";
 import { sendDueNotices } from "./notices";
@@ -93,6 +94,13 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
   } catch (err) {
     result.errors++;
     console.error("[sweep] alerts", err);
+  }
+
+  try {
+    await sweepEarn(ctx, limit);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] earn", err);
   }
 
   // Deposits from other chains last: they read other chains' RPCs, which can be slow, and must not

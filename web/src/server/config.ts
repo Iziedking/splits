@@ -102,6 +102,16 @@ const schema = z
     SOURCE_RPCS: z.string().default(""),
     // Circle's attestation service; defaults to mainnet or sandbox to match the network.
     IRIS_URL: z.url().optional(),
+
+    // Earning pocket (Arc Earn Kit). Off unless EARN_ENABLED=true. A live server also pins one vault,
+    // checked at start (USDC, active, vetted by Circle, enough liquidity) or Earn stays off.
+    EARN_ENABLED: bool.default(false),
+    EARN_VAULT_ADDRESS: address.optional(),
+    EARN_MIN_LIQUIDITY_USDC: usdcAmount.default("10000"),
+    // Arc Testnet has no vault vetted by Circle; a testnet server may set this to false. Mainnet never may.
+    EARN_REQUIRE_CIRCLE_VETTED: bool.default(true),
+    // Idle USDC in an Earning pocket below this waits, so small amounts don't cost gas.
+    EARN_DEPOSIT_MIN_USDC: usdcAmount.default("1"),
   })
   .superRefine((env, ctx) => {
     if (env.SPLITS_MODE !== "live") return;
@@ -133,6 +143,12 @@ const schema = z
     const expectedChain = testnet ? 5042002 : 5042;
     if (env.ARC_CHAIN_ID !== expectedChain) {
       ctx.addIssue({ code: "custom", path: ["ARC_CHAIN_ID"], message: `must be ${expectedChain} for ${env.CIRCLE_BLOCKCHAIN}` });
+    }
+    if (!testnet && !env.EARN_REQUIRE_CIRCLE_VETTED) {
+      ctx.addIssue({ code: "custom", path: ["EARN_REQUIRE_CIRCLE_VETTED"], message: "must stay true on mainnet" });
+    }
+    if (env.EARN_ENABLED && !env.EARN_VAULT_ADDRESS) {
+      ctx.addIssue({ code: "custom", path: ["EARN_VAULT_ADDRESS"], message: "required when EARN_ENABLED=true on a live server" });
     }
   });
 

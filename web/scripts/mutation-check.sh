@@ -156,5 +156,8 @@ mutate_in "stale-node-trusted" src/server/chain/freshness.ts   '  const current 
 mutate_in "partial-split-last-takes-rest" src/server/domain/allocation.ts   '    if (i === lastShare && whole) return remainder - shared;' '    if (i === lastShare) return remainder - shared;'   src/server/domain/domain.test.ts "give each person exactly their percentage"
 mutate_in "rule-allows-partial-shares" src/server/services/splits.ts   '{ partialShares: !input.autoForWalletId }' '{ partialShares: true }'   src/server/services/flow.test.ts "still requires 100% for an automatic split"
 mutate_in "wallet-close-hangs" src/lib/wallet/flow.ts   '      finish(() => (account ? resolve(account) : reject(new Error("closed"))));' '      if (!account) finish(() => reject(new Error("closed")));'   src/lib/wallet/flow.test.ts "uses a wallet that reconnected"
+mutate_in "earn-withdraws-again" src/server/services/earn.ts   '    const short = wanted > idle ? wanted - idle : 0n;' '    const short = wanted;'   src/server/services/earn.test.ts "never withdraws twice"
+mutate_in "earn-deposits-while-leaving" src/server/services/earn.ts   '  if (leaving) return null;' ''   src/server/services/earn.test.ts "leaves the pocket alone"
+mutate_in "earn-moves-without-pin" src/server/services/earn.ts   '  if (!(ACTIVE as readonly string[]).includes(move.status)) return move;' '  if (move.status === "done") return move;'   src/server/services/earn.test.ts "moves money in only after the PIN"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

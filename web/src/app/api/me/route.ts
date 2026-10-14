@@ -9,6 +9,7 @@ export const GET = api(async ({ ctx }) => {
     mode: ctx.mode,
     network: ctx.network,
     agent: ctx.agent !== null,
+    earn: ctx.earn !== null,
     user: userView(user, await hasPasskey(ctx, user.id)),
     wallets: wallets.map((w) => walletView(ctx, w)),
   });

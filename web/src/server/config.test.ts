@@ -59,6 +59,19 @@ describe("config", () => {
     expect(() => parseConfig({ ...mainnet, RESEND_API_KEY: undefined })).toThrow(/RESEND_API_KEY/);
   });
 
+  it("keeps the Earning pocket's vault vetted on mainnet, and needs a pinned vault to turn it on", () => {
+    const mainnet = {
+      ...liveKeys,
+      DATABASE_URL: "postgres://x",
+      RESEND_API_KEY: "r",
+      FEE_WALLET_ADDRESS: "0x0000000000000000000000000000000000000002",
+    };
+    expect(() => parseConfig({ ...mainnet, EARN_REQUIRE_CIRCLE_VETTED: "false" })).toThrow(/must stay true on mainnet/);
+    expect(() => parseConfig({ ...mainnet, EARN_ENABLED: "true" })).toThrow(/EARN_VAULT_ADDRESS/);
+    const testnet = { ...liveKeys, CIRCLE_BLOCKCHAIN: "ARC-TESTNET", ARC_CHAIN_ID: "5042002", PGLITE_DIR: "/tmp/s", EMAIL_PROVIDER: "screen" };
+    expect(parseConfig({ ...testnet, EARN_REQUIRE_CIRCLE_VETTED: "false" }).EARN_REQUIRE_CIRCLE_VETTED).toBe(false);
+  });
+
   it("refuses malformed spend limits and addresses", () => {
     expect(() => parseConfig({ FUNDING_MAX_PER_TOPUP_USDC: "-5" })).toThrow();
     expect(() => parseConfig({ SPLITS_ROUTER_ADDRESS: "0x123" })).toThrow();

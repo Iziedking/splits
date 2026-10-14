@@ -64,6 +64,13 @@
       "when": 1791840740724,
       "tag": "0008_chunky_rocket_racer",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791936497958,
+      "tag": "0009_early_pestilence",
+      "breakpoints": true
     }
   ]
 }

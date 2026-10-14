@@ -44,6 +44,10 @@ export const wallets = pgTable(
      * two payments from one wallet must not interleave there.
      */
     busyTransferId: uuid("busy_transfer_id"),
+    /** An Earning pocket: idle USDC here is kept in the Earn vault. */
+    earn: boolean("earn").notNull().default(false),
+    /** One worker at a time moves an Earning pocket's money (deposit, withdraw, return). */
+    earnLeaseUntil: timestamp("earn_lease_until", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex("wallets_one_main_per_user").on(t.userId).where(sql`${t.kind} = 'main'`)],
@@ -124,7 +128,7 @@ export const splits = pgTable(
 export const actions = pgTable("actions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),
-  type: text("type", { enum: ["create_split", "transfer"] }).notNull(),
+  type: text("type", { enum: ["create_split", "transfer", "earn_move"] }).notNull(),
   subjectId: uuid("subject_id").notNull(),
   summary: jsonb("summary").$type<Record<string, unknown>>().notNull(),
   challenge: text("challenge").notNull(),
@@ -421,4 +425,29 @@ export const notifications = pgTable(
     index("notifications_user_created").on(t.userId, t.createdAt),
     index("notifications_email").on(t.email),
   ],
+);
+
+export const EARN_MOVE_STATUSES = ["awaiting_confirmation", "confirmed", "withdrawing", "returning", "done", "failed"] as const;
+
+/**
+ * Money moving into or out of an Earning pocket. "in" comes from the spendable balance, "out" goes
+ * back to it (vault first if needed), "deposit" is idle pocket USDC the sweeper put into the vault.
+ */
+export const earnMoves = pgTable(
+  "earn_moves",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    pocketWalletId: uuid("pocket_wallet_id").notNull().references(() => wallets.id),
+    kind: text("kind", { enum: ["in", "out", "deposit"] }).notNull(),
+    /** USDC base units. For "out", the amount actually sent back once it is known. */
+    amount: text("amount").notNull(),
+    status: text("status", { enum: EARN_MOVE_STATUSES }).notNull(),
+    txHash: text("tx_hash"),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    doneAt: timestamp("done_at", { withTimezone: true }),
+  },
+  (t) => [index("earn_moves_user").on(t.userId, t.createdAt), index("earn_moves_status").on(t.status)],
 );

@@ -147,10 +147,11 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 | Part | State |
 | --- | --- |
 | Contract | 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. |
-| App | 292 tests, run on both PGlite and Postgres; 42 of 42 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
+| App | 321 tests, run on both PGlite and Postgres; 48 of 48 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
 | Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |
+| Earning pocket (Arc Earn Kit) | Live on testnet behind a switch: money moved in, put in the vault and brought back on Arc Testnet. Off on mainnet. See the roadmap. |
 | Card checkout (onramp) | Simulated on testnet; switched off on mainnet. See the roadmap. |
 | Cash-out to bank or mobile money (offramp) | Not built. Shown in the app as "Coming soon"; recipients hold USDC. |
 
@@ -183,12 +184,13 @@ Recipients hold USDC today. The next step is letting the sister in Lagos turn he
 
 ### 3. Earning pocket with Arc Earn Kit
 
-Money that sits in a Splits balance between payments could earn. An opt-in **Earning pocket** uses [Arc Earn Kit](https://docs.arc.io/app-kit/earn) (`@circle-fin/earn-kit`, lending through Morpho vaults on Arc):
+Money that sits in a Splits balance between payments could earn. The opt-in **Earning pocket** uses [Arc Earn Kit](https://docs.arc.io/app-kit/earn) (`@circle-fin/earn-kit`, lending through Morpho vaults on Arc). It is built and running on Arc Testnet behind a switch:
 
-- Off by default. Turning it on shows the vault, the current rate, that it is variable and not guaranteed, and how to withdraw.
-- Works with automatic splits: "30% of everything I receive goes to my Earning pocket".
-- Move money in and out with the same PIN or passkey approval as a payment; withdrawals go back to the spendable balance.
-- The first step is a check that the vaults are live on Arc mainnet with enough liquidity, before any build.
+- Off by default. Turning it on shows the vault, the current rate, that it is variable and not guaranteed, and how to move money back.
+- Works with automatic splits: "30% of everything I receive goes to my Earning pocket". Whatever lands in the pocket is put in the vault on its own.
+- Money moves in and out with the same PIN or passkey approval as a payment, with no Splits fee. Moving out comes back to the spendable balance.
+- On mainnet Splits only offers a vault Circle has vetted, with enough money in it to pay people out. Any other vault keeps the pocket switched off. Arc Testnet has no Circle-vetted vault, so staging relaxes the vetting check, and the app refuses to start on mainnet with it relaxed. On testnet, a full run moved $1.20 in, [put it in the vault](https://explorer.testnet.arc.io/tx/0x28bbfc2c55a5fad0edc06d8b6895704c5c9c1af760f10a5c7a3fcca88b9373bb) and [brought all of it back](https://explorer.testnet.arc.io/tx/0xd097a2bf53280148badfb3dbad3a94702e26f811afd7b6fbb33dfe20f53c8e2f).
+- On mainnet it will use Steakhouse Prime USDC, a Circle-vetted vault, once a small real deposit has been checked end to end.
 
 ### 4. Splits for developers and agents: an API and an MCP server
 

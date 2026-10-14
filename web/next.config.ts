@@ -5,8 +5,13 @@ const X402_ABSENT = "./src/lib/wallet/x402-absent.ts";
 const X402_MODULES = ["@x402/core/client", "@x402/evm", "@x402/evm/exact/client", "@x402/evm/upto/client", "@x402/svm/exact/client"];
 
 const config: NextConfig = {
-  // PGlite ships WASM and the Circle SDK uses Node crypto; keep both out of the bundler.
-  serverExternalPackages: ["@electric-sql/pglite", "@circle-fin/developer-controlled-wallets"],
+  // PGlite ships WASM and the Circle SDKs (wallets, Earn Kit) use Node crypto; keep them out of the bundler.
+  serverExternalPackages: [
+    "@electric-sql/pglite",
+    "@circle-fin/developer-controlled-wallets",
+    "@circle-fin/earn-kit",
+    "@circle-fin/adapter-circle-wallets",
+  ],
   poweredByHeader: false,
   // The production image (web/Dockerfile) sets SPLITS_STANDALONE=1 to get a self-contained
   // .next/standalone server. Plain `next build` / `next start` and `next build --webpack` are unchanged.
