@@ -157,6 +157,18 @@ export class PreviewArc {
   readonly earnCalls: { kind: "deposit" | "withdraw"; owner: string; amount: bigint }[] = [];
   /** Test hook: a withdrawal returns this many base units less, like a vault rounding shares down. */
   earnShortfall = 0n;
+  /**
+   * Test hook for the next withdrawal only: it is sent but the wait for it times out. "pending"
+   * holds it until earnSettlePending() lands it; "dropped" means it never lands.
+   */
+  earnStall: "pending" | "dropped" | null = null;
+  private earnPending: (() => void) | null = null;
+
+  /** Lands a withdrawal held by earnStall = "pending". */
+  earnSettlePending() {
+    this.earnPending?.();
+    this.earnPending = null;
+  }
 
   /** Interest for tests and demos: grows a position (the vault is credited too). */
   earnAccrue(owner: Address, amount: bigint) {
@@ -193,13 +205,22 @@ export class PreviewArc {
       const key = owner.toLowerCase();
       const held = this.earnAssets.get(key) ?? 0n;
       if (amount > held) throw new Error(`Withdrawal of ${amount} exceeds the position of ${held}`);
-      const fx = this.fork();
-      this.move(fx, this.earnVaultAddress, owner, amount - this.earnShortfall);
-      this.commit(fx);
-      this.earnAssets.set(key, held - amount);
-      const principal = this.earnPrincipal.get(key) ?? 0n;
-      this.earnPrincipal.set(key, principal > amount ? principal - amount : 0n);
+      const land = () => {
+        const fx = this.fork();
+        this.move(fx, this.earnVaultAddress, owner, amount - this.earnShortfall);
+        this.commit(fx);
+        this.earnAssets.set(key, (this.earnAssets.get(key) ?? 0n) - amount);
+        const principal = this.earnPrincipal.get(key) ?? 0n;
+        this.earnPrincipal.set(key, principal > amount ? principal - amount : 0n);
+      };
       this.earnCalls.push({ kind: "withdraw", owner: key, amount });
+      const stall = this.earnStall;
+      this.earnStall = null;
+      if (stall) {
+        if (stall === "pending") this.earnPending = land;
+        throw new Error("Timed out waiting for the withdrawal to confirm");
+      }
+      land();
       return { txHash: keccak256(stringToHex(`preview:earn:${this.earnCount++}`)) };
     },
   };

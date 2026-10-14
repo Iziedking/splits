@@ -444,6 +444,9 @@ export const earnMoves = pgTable(
     amount: text("amount").notNull(),
     status: text("status", { enum: EARN_MOVE_STATUSES }).notNull(),
     txHash: text("tx_hash"),
+    /** For "out": the vault position (base units) just before a withdrawal was sent, and when. */
+    withdrawFrom: text("withdraw_from"),
+    withdrawAt: timestamp("withdraw_at", { withTimezone: true }),
     lastError: text("last_error"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

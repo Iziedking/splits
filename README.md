@@ -147,7 +147,7 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 | Part | State |
 | --- | --- |
 | Contract | 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. |
-| App | 321 tests, run on both PGlite and Postgres; 48 of 48 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
+| App | 323 tests, run on both PGlite and Postgres; 49 of 49 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
 | Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |

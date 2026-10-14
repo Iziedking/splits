@@ -31,6 +31,8 @@ export type EarnStatus =
     };
 
 const LEASE_MS = 60_000;
+/** How long a sent withdrawal that hasn't shown up is given to land before it is sent again. */
+const WITHDRAW_PENDING_MS = 10 * 60_000;
 const ACTIVE = ["confirmed", "withdrawing", "returning"] as const;
 const max = (a: bigint, b: bigint) => (a > b ? a : b);
 const min = (a: bigint, b: bigint) => (a < b ? a : b);
@@ -242,10 +244,15 @@ async function stepOut(ctx: Ctx, earn: EarnProvider, move: EarnMove): Promise<Ea
     const idle = await ctx.chain.usdcBalance(owner);
     const short = wanted > idle ? wanted - idle : 0n;
     if (short > 0n) {
-      move = await update(ctx, move, { status: "withdrawing" });
       const { assets } = await earn.position(owner);
+      // A withdrawal already sent whose wait never finished (a timeout or a crash). Only this
+      // pocket's leased worker withdraws, so the position dropping means it landed.
+      const sent = move.withdrawAt !== null && move.withdrawFrom !== null;
+      const landed = sent && assets < BigInt(move.withdrawFrom!);
+      if (sent && !landed && ctx.now().getTime() - move.withdrawAt!.getTime() < WITHDRAW_PENDING_MS) return move;
       const need = min(short, assets);
-      if (need > 0n) {
+      if (!landed && need > 0n) {
+        move = await update(ctx, move, { status: "withdrawing", withdrawFrom: assets.toString(), withdrawAt: ctx.now() });
         const { txHash } = await earn.withdraw(owner, need);
         move = await update(ctx, move, { txHash });
       }

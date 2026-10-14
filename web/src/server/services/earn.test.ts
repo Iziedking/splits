@@ -116,6 +116,42 @@ describe("the Earning pocket", () => {
     expect(await balance(t, t.main.address)).toBe(usdc(70));
   });
 
+  it("never withdraws again while a timed-out withdrawal may still land", async () => {
+    const t = await setup();
+    await openEarningPocket(t.ctx, t.user);
+    await moveIn(t, "40");
+    await sweepEarn(t.ctx);
+    const { action } = await startMove(t.ctx, t.user, "out", "10");
+    const move = await confirmMove(t.ctx, t.user, action.id, { pin: TEST_PIN });
+    t.arc.earnStall = "pending";
+    await advanceMove(t.ctx, move.id); // sent, but the wait for it timed out
+    t.clock.advance(5 * 60_000);
+    await advanceMove(t.ctx, move.id); // still not landed, and only five minutes on
+    expect(t.arc.earnCalls.filter((c) => c.kind === "withdraw")).toHaveLength(1);
+    t.arc.earnSettlePending();
+    t.clock.advance(20 * 60_000);
+    for (let i = 0; i < 4; i++) await advanceMove(t.ctx, move.id);
+    expect(t.arc.earnCalls.filter((c) => c.kind === "withdraw")).toHaveLength(1);
+    expect((await t.ctx.db.select().from(earnMoves).where(eq(earnMoves.id, move.id)))[0]!.status).toBe("done");
+    expect(await balance(t, t.main.address)).toBe(usdc(70));
+  });
+
+  it("withdraws again once a timed-out withdrawal clearly never landed", async () => {
+    const t = await setup();
+    await openEarningPocket(t.ctx, t.user);
+    await moveIn(t, "40");
+    await sweepEarn(t.ctx);
+    const { action } = await startMove(t.ctx, t.user, "out", "10");
+    const move = await confirmMove(t.ctx, t.user, action.id, { pin: TEST_PIN });
+    t.arc.earnStall = "dropped";
+    await advanceMove(t.ctx, move.id);
+    t.clock.advance(11 * 60_000);
+    for (let i = 0; i < 4; i++) await advanceMove(t.ctx, move.id);
+    expect(t.arc.earnCalls.filter((c) => c.kind === "withdraw")).toHaveLength(2);
+    expect((await t.ctx.db.select().from(earnMoves).where(eq(earnMoves.id, move.id)))[0]!.status).toBe("done");
+    expect(await balance(t, t.main.address)).toBe(usdc(70));
+  });
+
   it("leaves the pocket alone while money is on its way out", async () => {
     const t = await setup();
     const pocket = await openEarningPocket(t.ctx, t.user);

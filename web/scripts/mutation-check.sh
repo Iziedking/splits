@@ -159,5 +159,6 @@ mutate_in "wallet-close-hangs" src/lib/wallet/flow.ts   '      finish(() => (acc
 mutate_in "earn-withdraws-again" src/server/services/earn.ts   '    const short = wanted > idle ? wanted - idle : 0n;' '    const short = wanted;'   src/server/services/earn.test.ts "never withdraws twice"
 mutate_in "earn-deposits-while-leaving" src/server/services/earn.ts   '  if (leaving) return null;' ''   src/server/services/earn.test.ts "leaves the pocket alone"
 mutate_in "earn-moves-without-pin" src/server/services/earn.ts   '  if (!(ACTIVE as readonly string[]).includes(move.status)) return move;' '  if (move.status === "done") return move;'   src/server/services/earn.test.ts "moves money in only after the PIN"
+mutate_in "earn-retry-ignores-pending-withdraw" src/server/services/earn.ts   '      if (sent && !landed && ctx.now().getTime() - move.withdrawAt!.getTime() < WITHDRAW_PENDING_MS) return move;' ''   src/server/services/earn.test.ts "never withdraws again while a timed-out withdrawal may still land"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"
