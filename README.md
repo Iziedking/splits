@@ -180,7 +180,7 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 
 | Network | SplitsRouter | SplitsCrossPay | Record |
 | --- | --- | --- | --- |
-| Arc mainnet (5042) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | Not deployed yet | [`arc-mainnet.json`](deployments/arc-mainnet.json) |
+| Arc mainnet (5042) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79`](https://explorer.arc.io/address/0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79) | [`arc-mainnet.json`](deployments/arc-mainnet.json) |
 | Arc Testnet (5042002) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.testnet.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79`](https://explorer.testnet.arc.io/address/0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79) | [`arc-testnet.json`](deployments/arc-testnet.json) |
 
 The mainnet router was deployed in [`0x4e6e…750f`](https://explorer.arc.io/tx/0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f) from the app's Circle treasury wallet, with gas paid by Gas Station.

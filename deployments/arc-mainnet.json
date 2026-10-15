@@ -9,5 +9,20 @@
   "runtimeCodeHash": "0x2067237657cf43f47c068327d702712d53db5db358762d117d29e846c1dd71cc",
   "deployTx": "0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f",
   "nextSplitId": "1",
-  "verifiedAt": "2026-10-12T07:15:10.554Z"
+  "verifiedAt": "2026-10-12T07:15:10.554Z",
+  "crossPay": {
+    "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
+    "deployTx": "0xdc9ab7be82042785f7e7f51470195af55b75582ad655ab29f3c1e72e63742eb9",
+    "block": 26087705,
+    "constructor": {
+      "usdc": "0x3600000000000000000000000000000000000000",
+      "transmitter": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
+      "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
+      "tokenMessenger": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d"
+    },
+    "runtimeCodeKeccak": "0x3b8fa30c85b097887098845940810dd7b8c2403351602d498f4c157c8cd61883",
+    "note": "Same address as on Arc Testnet: same deployer account and nonce. Runtime code differs only in the immutable CCTP addresses.",
+    "deployer": "owner's Foundry keystore (no power over the contract: it has no owner)",
+    "verifiedAt": "2026-10-15T11:30:00Z"
+  }
 }
