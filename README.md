@@ -24,7 +24,7 @@ The same engine pays anyone who needs a payment divided: twenty giveaway winners
 | **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. An agent fills in the list; you check it and pay as usual. |
 | **Receipts per person** | Every recipient gets a private receipt showing only their part and what it was for. The sender chooses whose receipt to share. |
 | **Automatic splits** | A recipient can divide what they receive, such as "30% of everything into savings". It runs by itself when money arrives, deposits included. |
-| **Add money from other chains** | Your Splits address is the same on Arc, Base, Arbitrum and Optimism. Send USDC to it from any of them and it lands in your Arc balance by itself, moved with Circle's CCTP. |
+| **Add money from other chains** | Your Splits address is the same on Arc, Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche, Unichain and Monad. Send USDC to it from any of them and it lands in your Arc balance by itself, moved with Circle's CCTP. |
 | **Notifications** | A bell for everything that happens to your money (deposits arriving and ready, payments landed or failed, money received), with the moments that matter also by email. Clear them any time. |
 | **History** | Money in and out, each with its receipt, paged. Home shows the latest few. |
 
@@ -58,14 +58,14 @@ flowchart LR
   D -. "your automatic split" .-> E["Savings pocket"]
 ```
 
-Circle wallets keep the same address on every EVM chain, so the person's Arc address is also their deposit address on Base, Arbitrum and Optimism. When USDC arrives there:
+Circle wallets keep the same address on every EVM chain, so the person's Arc address is also their deposit address on Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche, Unichain and Monad. When USDC arrives there:
 
 1. **It is checked on its own chain** before it counts: the receipt must show a USDC transfer to that address. A webhook or a list from Circle is a hint, never the truth.
 2. **Nothing is missed.** Circle's webhook is the fast path, a sweeper polls as a backup, and the chain balance itself is the final check: money that no reported transfer explains (sent before the address was set up, or a lost webhook) is found after two minutes and moved too, and counted once if Circle reports it later.
 3. **It is moved to Arc** with CCTP V2: approve and burn from the person's wallet (gas paid by Gas Station), Circle attests, and the app's treasury mints on Arc. Every step carries a key derived from the move, so a crash or retry resumes the same transaction; a mint only counts once Arc marks its message used; and a failing step backs off instead of retrying forever.
 4. **The person is told** when it arrives and when it is ready, and their automatic split runs on it.
 
-Deposits under $1 wait until there is enough to move. Proven end to end on testnet from all three chains, and switched on for mainnet.
+Deposits under $1 wait until there is enough to move ($20 on Ethereum, where moving costs more). Proven end to end on testnet from Base, Arbitrum and Optimism; all eight chains are switched on for mainnet.
 
 ## Paying from another chain
 
@@ -169,7 +169,7 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 | Contract | `SplitsRouter`: 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. `SplitsCrossPay`: 28 unit tests, a 20,000-run fuzz test, an invariant (the contract only ever holds refunds it owes) and 2 fork tests; reviewed twice; deployed on Arc Testnet and mainnet. |
 | App | 381 tests, run on both PGlite and Postgres; 55 of 55 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
 | Pay from another chain | Live on Arc Testnet with all eight chains switched on: a payment from Base Sepolia paid three people on Arc in [one relay](https://explorer.testnet.arc.io/tx/0xa0a830ccae5ebc5ccdbc439f51d5bd31aac67f8419938e5a0ee3d2cbc68ac13f), with the unused part of Circle's fee sent back to the payer. Every failure case is tested in preview and the contract against Arc mainnet state. Live on mainnet with the same eight chains. |
-| Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
+| Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc). On mainnet all eight chains are switched on, each with its own Gas Station policy. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |
 | Earning pocket (Arc Earn Kit) | Live on testnet behind a switch: money moved in, put in the vault and brought back on Arc Testnet. Off on mainnet. See the roadmap. |
