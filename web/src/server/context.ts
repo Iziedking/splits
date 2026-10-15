@@ -6,7 +6,7 @@ import type { RelyingParty } from "./auth/passkeys";
 import type { ChainReader } from "./chain/types";
 import { createViemChain } from "./chain/viemChain";
 import { getConfig, type Config } from "./config";
-import { CCTP, enabledChains, type CrossNetwork, type SourceChain } from "./crosschain/chains";
+import { CCTP, crossPayChains, enabledChains, type CrossNetwork, type SourceChain } from "./crosschain/chains";
 import { httpIris, type Iris } from "./crosschain/iris";
 import { createSourceReader, type SourceReader } from "./crosschain/reader";
 import { createPgliteDb, createPostgresDb, type Db } from "./db/client";
@@ -68,6 +68,11 @@ export type Ctx = {
   agent: DraftModel | null;
   /** Deposits from other chains: the enabled chains, their reader, Circle's attestations, CCTP. */
   crossChain: CrossChain;
+  /**
+   * Cross-chain pay; null when off. `chains` are every configured chain, so payments already in flight
+   * keep moving; `open` are the ones that passed the startup check and take new payments.
+   */
+  crossPay: { address: Address; chains: SourceChain[]; open: SourceChain[] } | null;
   /** The Earning pocket's vault; null keeps every Earn screen and route off. */
   earn: EarnProvider | null;
   /** Sign-in codes are returned to the screen instead of emailed (preview, or testnet on request). */
@@ -150,6 +155,50 @@ async function liveCrossChain(config: Config): Promise<CrossChain> {
   };
 }
 
+/**
+ * Cross-chain pay: the contract must be SplitsCrossPay wired to this USDC, this network's
+ * transmitter and TokenMessenger, and this router, or the feature stays off. Each chain must answer
+ * with its CCTP domain and EVM id; one that doesn't is left out and logged.
+ */
+async function liveCrossPay(config: Config, chain: ChainReader, crossChain: CrossChain, router: Address): Promise<Ctx["crossPay"]> {
+  const keys = splitList(config.CROSS_PAY_CHAINS);
+  if (keys.length === 0 || !config.CROSS_PAY_ADDRESS) return null;
+  const configured = crossPayChains(keys);
+  let wiring: Awaited<ReturnType<ChainReader["crossPayWiring"]>>;
+  try {
+    wiring = await chain.crossPayWiring(config.CROSS_PAY_ADDRESS);
+  } catch (err) {
+    // Arc couldn't be read just now: keep payments in flight moving, take no new ones until restart.
+    console.error(`[cross-pay] couldn't read ${config.CROSS_PAY_ADDRESS} (${err instanceof Error ? err.message : err}); no new cross-chain payments`);
+    return { address: config.CROSS_PAY_ADDRESS, chains: configured, open: [] };
+  }
+  const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+  const ok =
+    wiring &&
+    same(wiring.usdc, config.USDC_ADDRESS) &&
+    same(wiring.transmitter, crossChain.cctp.messageTransmitter) &&
+    same(wiring.tokenMessenger, crossChain.cctp.tokenMessenger) &&
+    same(wiring.router, router);
+  if (!ok) {
+    console.error(`[cross-pay] ${config.CROSS_PAY_ADDRESS} is not SplitsCrossPay for this router, USDC and CCTP; cross-chain pay is off`);
+    return null;
+  }
+  const checked = await Promise.all(
+    configured.map(async (c) => {
+      try {
+        const [domain, id] = await Promise.all([crossChain.reader.cctpDomain(c), crossChain.reader.chainId(c)]);
+        if (domain === c.domain && id === c.chainId[crossChain.network]) return c;
+        console.error(`[cross-pay] ${c.name}: domain ${domain}/${c.domain}, chain id ${id}/${c.chainId[crossChain.network]}; chain left out`);
+      } catch (err) {
+        console.error(`[cross-pay] ${c.name}: check failed (${err instanceof Error ? err.message : err}); chain left out`);
+      }
+      return null;
+    }),
+  );
+  // A chain that failed its check takes no new payments, but its payments in flight still finish.
+  return { address: config.CROSS_PAY_ADDRESS, chains: configured, open: checked.filter((c): c is SourceChain => c !== null) };
+}
+
 function networkOf(config: Config): Ctx["network"] {
   return config.CIRCLE_BLOCKCHAIN === "ARC-TESTNET" ? "arc-testnet" : "arc";
 }
@@ -197,6 +246,10 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
       iris: arc.iris,
       cctp: CCTP.testnet,
     },
+    crossPay: (() => {
+      const chains = crossPayChains(config.CROSS_PAY_CHAINS ? splitList(config.CROSS_PAY_CHAINS) : ["base", "eth", "arb", "op"]);
+      return { address: arc.crossPay, chains, open: chains };
+    })(),
     now: () => new Date(),
     webhookKey: async () => {
       throw new Error("Webhooks are not used in preview mode");
@@ -223,17 +276,19 @@ async function buildCtx(config: Config): Promise<Ctx> {
     usdcTokenId: config.CIRCLE_USDC_TOKEN_ID,
   });
   const treasuryAddress = await wallets.walletAddress(config.CIRCLE_TREASURY_WALLET_ID!);
+  const chain = createViemChain({
+    chainId: config.ARC_CHAIN_ID,
+    rpcUrls: config.rpcUrls,
+    explorerUrl: config.ARC_EXPLORER_URL,
+    router,
+    usdc: config.USDC_ADDRESS,
+  });
+  const crossChain = await liveCrossChain(config);
   return {
     mode: "live",
     db: config.DATABASE_URL ? await createPostgresDb(config.DATABASE_URL) : await createPgliteDb(config.PGLITE_DIR),
     wallets,
-    chain: createViemChain({
-      chainId: config.ARC_CHAIN_ID,
-      rpcUrls: config.rpcUrls,
-      explorerUrl: config.ARC_EXPLORER_URL,
-      router,
-      usdc: config.USDC_ADDRESS,
-    }),
+    chain,
     email: screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM, config.APP_URL),
     router,
     usdc: config.USDC_ADDRESS,
@@ -247,7 +302,8 @@ async function buildCtx(config: Config): Promise<Ctx> {
     ...chainSettings(config, treasuryAddress),
     showCodes: screenCodes,
     agent: config.AGENT_MODEL_ID ? bedrockModel({ modelId: config.AGENT_MODEL_ID, region: config.AWS_REGION }) : null,
-    crossChain: await liveCrossChain(config),
+    crossChain,
+    crossPay: await liveCrossPay(config, chain, crossChain, router),
     earn:
       config.EARN_ENABLED && config.EARN_VAULT_ADDRESS
         ? await createLiveEarn({

@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SplitsRouter} from "../src/SplitsRouter.sol";
+import {SplitsCrossPay, IMessageTransmitterV2} from "../src/SplitsCrossPay.sol";
+import {CctpMessage} from "./helpers/CctpMessage.sol";
 
 /// @dev Runs the router against the real USDC interface on a fork of Arc. Needs arc-forge, since
 ///      stock forge does not model Arc's native USDC. Skipped unless ARC_FORK_RPC is set.
@@ -111,5 +113,76 @@ contract ArcForkTest is Test {
         assertTrue(router.refUsed(payer, ref));
         assertEq(ARC_USDC.allowance(payer, address(router)), 0);
         assertEq(ARC_USDC.balanceOf(landlord), 2e6);
+    }
+
+    IMessageTransmitterV2 constant ARC_TRANSMITTER = IMessageTransmitterV2(0x81D40F21F12A8F0E3252Bccb954D722d4c464B64);
+    address constant ARC_TOKEN_MESSENGER = 0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d;
+
+    function test_Fork_CrossPayRejectsAForgedAttestation() public {
+        SplitsCrossPay cross = new SplitsCrossPay(ARC_USDC, ARC_TRANSMITTER, router, ARC_TOKEN_MESSENGER);
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](1);
+        legs[0] = SplitsRouter.Leg(landlord, uint96(1e6), 0, bytes32("rent"));
+        bytes memory m = CctpMessage.encodeTo(
+            CctpMessage.Burn({
+                sourceDomain: 6,
+                nonce: keccak256("fork-forged"),
+                destinationCaller: address(cross),
+                mintRecipient: address(cross),
+                amount: 1e6,
+                messageSender: payer,
+                maxFee: 0,
+                feeExecuted: 0,
+                hookData: abi.encode(uint8(1), address(0), legs, uint256(1e6), bytes32("fork"))
+            }),
+            ARC_TOKEN_MESSENGER
+        );
+        vm.expectRevert();
+        cross.relay(m, new bytes(65));
+        assertEq(ARC_USDC.balanceOf(landlord), 0);
+    }
+
+    function test_Fork_CrossPayPaysRealUsdcThroughTheRouter() public {
+        // A stand-in transmitter holding real USDC plays Circle's mint; the router and USDC are real.
+        ForkTransmitter t = new ForkTransmitter(ARC_USDC);
+        vm.deal(address(t), 20 ether); // 20 USDC
+        SplitsCrossPay cross =
+            new SplitsCrossPay(ARC_USDC, IMessageTransmitterV2(address(t)), router, ARC_TOKEN_MESSENGER);
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](2);
+        legs[0] = SplitsRouter.Leg(landlord, uint96(6e6), 0, bytes32("rent"));
+        legs[1] = SplitsRouter.Leg(school, uint96(4e6), 0, bytes32("school"));
+        bytes memory m = CctpMessage.encodeTo(
+            CctpMessage.Burn({
+                sourceDomain: 6,
+                nonce: keccak256("fork-real"),
+                destinationCaller: address(cross),
+                mintRecipient: address(cross),
+                amount: 10_002_000,
+                messageSender: payer,
+                maxFee: 2000,
+                feeExecuted: 1000,
+                hookData: abi.encode(uint8(1), address(0), legs, uint256(10e6), bytes32("fork-real"))
+            }),
+            ARC_TOKEN_MESSENGER
+        );
+        cross.relay(m, "ok");
+        assertEq(ARC_USDC.balanceOf(landlord), 6e6);
+        assertEq(ARC_USDC.balanceOf(school), 4e6);
+        assertEq(ARC_USDC.balanceOf(payer), 1000);
+        assertEq(ARC_USDC.balanceOf(address(cross)), 0);
+    }
+}
+
+/// @dev Plays MessageTransmitterV2 on the fork: sends real USDC it holds to the message's recipient.
+contract ForkTransmitter {
+    IERC20 immutable usdc;
+
+    constructor(IERC20 usdc_) {
+        usdc = usdc_;
+    }
+
+    function receiveMessage(bytes calldata message, bytes calldata) external returns (bool) {
+        address recipient = address(uint160(uint256(bytes32(message[184:216]))));
+        uint256 amount = uint256(bytes32(message[216:248])) - uint256(bytes32(message[312:344]));
+        return usdc.transfer(recipient, amount);
     }
 }

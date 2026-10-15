@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { BackLink } from "@/components/app/back-link";
+import { ChainPicker, type ChainOption } from "@/components/app/chain-picker";
+import { CrossWalletSteps } from "@/components/app/cross-wallet-steps";
 import { Backdrop } from "@/components/app/backdrop";
 import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
@@ -12,11 +14,31 @@ import { VisitorLimit } from "@/components/app/visitor-limit";
 import { WalletSteps } from "@/components/app/wallet-steps";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
-import { api, ApiError, errorMessage, type ContractLeg, type Me, type PayoutCheck, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
+import { api, ApiError, errorMessage, type ContractLeg, type CrossCall, type CrossChainOption, type CrossCost, type Me, type PayoutCheck, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
 import { loadWalletBridge } from "@/lib/wallet/bridge";
+import { toUnits } from "@/lib/wallet/flow";
+import { pickChain, readFunds, type ChainFunds } from "@/lib/wallet/sourceChains";
 import { cn } from "@/lib/utils";
 
 type Prepared = { payment: VisitorPaymentView; legs: ContractLeg[]; balance: string; allowance: string };
+type CrossPrepared = { payment: VisitorPaymentView; cost: CrossCost; call: CrossCall };
+
+/** Arc first, then every chain cross-chain pay is on, as the picker and the balance reader need them. */
+function payOptions(config: VisitorConfig): (ChainOption & { source: CrossChainOption })[] {
+  const arcName = config.network === "arc" ? "Arc" : "Arc testnet";
+  const arc: CrossChainOption = {
+    key: "arc",
+    name: arcName,
+    chainId: config.chainId,
+    rpcUrl: config.rpcUrl,
+    usdc: config.usdc,
+    tokenMessenger: config.router,
+    explorerUrl: config.explorerUrl,
+    gas: "USDC",
+    fast: true,
+  };
+  return [arc, ...(config.crossPay?.chains ?? [])].map((c) => ({ key: c.key, name: c.name, gas: c.gas, fast: c.fast, source: c }));
+}
 
 /** Pay without an account (spec §1): check the list, connect a wallet, sign twice. */
 export default function VisitorPay() {
@@ -26,6 +48,10 @@ export default function VisitorPay() {
   const [check, setCheck] = React.useState<PayoutCheck | null>(null);
   const [email, setEmail] = React.useState("");
   const [prepared, setPrepared] = React.useState<Prepared | null>(null);
+  const [crossPrepared, setCrossPrepared] = React.useState<CrossPrepared | null>(null);
+  const [payer, setPayer] = React.useState<`0x${string}` | null>(null);
+  const [funds, setFunds] = React.useState<ChainFunds[] | null>(null);
+  const [from, setFrom] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<{ text: string; limit: boolean } | null>(null);
   const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
@@ -38,20 +64,51 @@ export default function VisitorPay() {
   function onChecked(next: PayoutCheck | null) {
     setCheck(next);
     setPrepared(null);
+    setCrossPrepared(null);
+    setPayer(null);
+    setFunds(null);
+    setFrom(null);
     setError(null);
   }
 
-  async function connectAndReserve() {
+  /** What the payer needs where their USDC is: the charge on Arc, plus Circle's fee (about 0.02%) elsewhere. */
+  function needOn(key: string): bigint {
+    const charge = toUnits(check?.charge ?? check?.total ?? "0");
+    return key === "arc" ? charge : charge + charge / 5_000n + 1n;
+  }
+
+  async function connect() {
     if (!check?.draft || !config || !projectId) return;
     setBusy(true);
     setError(null);
     try {
-      const payer = await (await loadWalletBridge(config, projectId)).connect();
-      setPrepared(
-        await api<Prepared>("/api/visitor/prepare", {
-          body: { draftId: check.draft.id, draftHash: check.draft.hash, payer, email: email.trim() || null },
-        }),
+      const account = await (await loadWalletBridge(config, projectId)).connect();
+      if (!config.crossPay) return void (await reserve(account, "arc"));
+      setPayer(account);
+      const options = payOptions(config);
+      const read = await readFunds(
+        options.map((o) => o.source),
+        account,
       );
+      setFunds(read);
+      const ranked = options.map((o) => o.key);
+      setFrom(ranked.find((k) => pickChain(read.filter((f) => f.key === k), needOn(k)) === k) ?? null);
+    } catch (err) {
+      if (err instanceof Error && err.message === "closed") return;
+      setError({ text: errorMessage(err), limit: false });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reserve(account: `0x${string}`, key: string) {
+    if (!check?.draft) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const body = { draftId: check.draft.id, draftHash: check.draft.hash, payer: account, email: email.trim() || null };
+      if (key === "arc") setPrepared(await api<Prepared>("/api/visitor/prepare", { body }));
+      else setCrossPrepared(await api<CrossPrepared>("/api/visitor/prepare", { body: { ...body, sourceChain: key } }));
     } catch (err) {
       if (err instanceof Error && err.message === "closed") return;
       setError({ text: errorMessage(err), limit: err instanceof ApiError && err.code === "SEND_LIMIT" });
@@ -59,6 +116,13 @@ export default function VisitorPay() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function burned(hash: `0x${string}`) {
+    const token = crossPrepared!.payment.token!;
+    // The link works even if this report never arrives: the server finds the burn on its chain.
+    router.push(`/p/${token}`);
+    await api("/api/visitor/burn", { body: { token, txHash: hash } }).catch(() => undefined);
   }
 
   async function sent(hash: `0x${string}`) {
@@ -116,7 +180,7 @@ export default function VisitorPay() {
           )}
           {check && <ReviewTable check={check} />}
 
-          {check?.ready && !prepared && (
+          {check?.ready && !prepared && !crossPrepared && !payer && (
             <div className="surface space-y-4 p-5">
               <Field label="Email for your receipt (optional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
@@ -125,10 +189,34 @@ export default function VisitorPay() {
               ) : !projectId ? (
                 <Notice>Wallet payments aren&apos;t set up on this server yet.</Notice>
               ) : (
-                <Button className="w-full" busy={busy} onClick={() => void connectAndReserve()}>
+                <Button className="w-full" busy={busy} onClick={() => void connect()}>
                   Pay ${check.charge ?? check.total} from your wallet
                 </Button>
               )}
+            </div>
+          )}
+
+          {payer && config && !prepared && !crossPrepared && (
+            <div className="surface space-y-4 p-5">
+              <ChainPicker options={payOptions(config)} funds={funds} need={from ? needOn(from) : needOn("arc")} value={from} onChange={setFrom} />
+              <Button className="w-full" busy={busy} disabled={!from} onClick={() => from && void reserve(payer, from)}>
+                Continue
+              </Button>
+            </div>
+          )}
+
+          {crossPrepared && config && (
+            <div className="surface p-5">
+              <CrossWalletSteps
+                config={config}
+                payment={crossPrepared.payment}
+                call={crossPrepared.call}
+                cost={crossPrepared.cost}
+                chainName={crossPrepared.payment.cross?.chainName ?? "the source chain"}
+                gas={config.crossPay?.chains.find((c) => c.key === crossPrepared.payment.cross?.chain)?.gas ?? "gas"}
+                onBurned={(h) => void burned(h)}
+                onPending={() => router.push(`/p/${crossPrepared.payment.token}`)}
+              />
             </div>
           )}
 

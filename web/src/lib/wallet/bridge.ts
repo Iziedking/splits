@@ -1,4 +1,5 @@
-import type { Address, Hex } from "viem";
+import type { AppKitNetwork } from "@reown/appkit/networks";
+import { encodeFunctionData, type Address, type Hex } from "viem";
 import type { ContractLeg, VisitorConfig } from "@/lib/api";
 import { waitForAccount } from "@/lib/wallet/flow";
 
@@ -39,6 +40,22 @@ const approveAbi = [
   },
 ] as const;
 
+/** SplitsCrossPay.claim(): a held refund back to the caller (contracts/src/SplitsCrossPay.sol). */
+const claimAbi = [{ type: "function", name: "claim", stateMutability: "nonpayable", inputs: [], outputs: [] }] as const;
+
+const allowanceAbi = [
+  {
+    type: "function",
+    name: "allowance",
+    stateMutability: "view",
+    inputs: [
+      { name: "owner", type: "address" },
+      { name: "spender", type: "address" },
+    ],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
 export type WalletBridge = {
   connect(): Promise<Address>;
   /** The account the wallet has selected right now. */
@@ -49,6 +66,16 @@ export type WalletBridge = {
   pay(legs: ContractLeg[], amount: bigint, ref: Hex, from: Address): Promise<Hex>;
   waitFor(hash: Hex): Promise<"success" | "reverted">;
   disconnect(): Promise<void>;
+  // Cross-chain pay: the same wallet, on the chain where the payer's USDC is.
+  ensureChain(chainId: number): Promise<void>;
+  allowanceOn(chainId: number, token: Address, owner: Address, spender: Address): Promise<bigint>;
+  approveOn(chainId: number, token: Address, spender: Address, amount: bigint, from: Address): Promise<Hex>;
+  burnOn(chainId: number, tokenMessenger: Address, data: Hex, from: Address): Promise<Hex>;
+  /** Approve and burn in one confirmation where the wallet batches calls atomically (EIP-5792); null otherwise. */
+  batchApproveAndBurn(chainId: number, approve: { token: Address; spender: Address; amount: bigint }, burn: { to: Address; data: Hex }, from: Address): Promise<Hex | null>;
+  waitOn(chainId: number, hash: Hex): Promise<"success" | "reverted">;
+  /** A refund SplitsCrossPay is holding for this wallet, sent back to it on Arc. */
+  claimOnArc(crossPay: Address, from: Address): Promise<Hex>;
 };
 
 let loaded: Promise<WalletBridge> | null = null;
@@ -82,11 +109,24 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
     rpcUrls: { default: { http: [config.rpcUrl] } },
     blockExplorers: { default: { name: "Arc Explorer", url: config.explorerUrl } },
   });
-  const adapter = new WagmiAdapter({ networks: [arc], projectId, ssr: false });
+  // The chains a visitor can pay from, so the same session can switch to where their USDC is.
+  const sources = (config.crossPay?.chains ?? []).map((c) =>
+    defineChain({
+      id: c.chainId,
+      caipNetworkId: `eip155:${c.chainId}`,
+      chainNamespace: "eip155",
+      name: c.name,
+      nativeCurrency: { name: c.gas, symbol: c.gas, decimals: 18 },
+      rpcUrls: { default: { http: [c.rpcUrl] } },
+      blockExplorers: { default: { name: "Explorer", url: c.explorerUrl } },
+    }),
+  );
+  const networks: [AppKitNetwork, ...AppKitNetwork[]] = [arc, ...sources];
+  const adapter = new WagmiAdapter({ networks, projectId, ssr: false });
   const wagmi = adapter.wagmiConfig;
   const modal = createAppKit({
     adapters: [adapter],
-    networks: [arc],
+    networks,
     defaultNetwork: arc,
     projectId,
     metadata: {
@@ -147,5 +187,46 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
       return r.status;
     },
     disconnect: () => core.disconnect(wagmi),
+    async ensureChain(chainId) {
+      if (core.getAccount(wagmi).chainId !== chainId) await core.switchChain(wagmi, { chainId });
+    },
+    allowanceOn: (chainId, token, owner, spender) =>
+      core.readContract(wagmi, { address: token, abi: allowanceAbi, functionName: "allowance", args: [owner, spender], chainId }),
+    approveOn: (chainId, token, spender, amount, from) =>
+      core.writeContract(wagmi, { account: from, address: token, abi: approveAbi, functionName: "approve", args: [spender, amount], chainId }),
+    burnOn: (chainId, tokenMessenger, data, from) => core.sendTransaction(wagmi, { account: from, to: tokenMessenger, data, chainId }),
+    async batchApproveAndBurn(chainId, approve, burn, from) {
+      try {
+        const caps = (await core.getCapabilities(wagmi, { account: from })) as Record<number, { atomic?: { status?: string } }>;
+        const atomic = caps[chainId]?.atomic?.status;
+        if (atomic !== "supported" && atomic !== "ready") return null;
+      } catch {
+        return null;
+      }
+      const { id } = await core.sendCalls(wagmi, {
+        account: from,
+        chainId,
+        forceAtomic: true,
+        calls: [
+          { to: approve.token, data: encodeFunctionData({ abi: approveAbi, functionName: "approve", args: [approve.spender, approve.amount] }) },
+          { to: burn.to, data: burn.data },
+        ],
+      });
+      // Once the wallet has the bundle, never report "nothing was sent": it may still land.
+      const result = await core.waitForCallsStatus(wagmi, { id }).catch(() => {
+        throw new Error("bundle-pending");
+      });
+      const hash = result.receipts?.at(-1)?.transactionHash;
+      if (result.status !== "success" || !hash) throw new Error("burn-reverted");
+      return hash;
+    },
+    async waitOn(chainId, hash) {
+      const r = await core.waitForTransactionReceipt(wagmi, { hash, chainId });
+      return r.status;
+    },
+    async claimOnArc(crossPay, from) {
+      if (core.getAccount(wagmi).chainId !== config.chainId) await core.switchChain(wagmi, { chainId: config.chainId });
+      return core.writeContract(wagmi, { account: from, address: crossPay, abi: claimAbi, functionName: "claim", chainId: config.chainId });
+    },
   };
 }

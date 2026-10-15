@@ -160,5 +160,13 @@ mutate_in "earn-withdraws-again" src/server/services/earn.ts   '    const short 
 mutate_in "earn-deposits-while-leaving" src/server/services/earn.ts   '  if (leaving) return null;' ''   src/server/services/earn.test.ts "leaves the pocket alone"
 mutate_in "earn-moves-without-pin" src/server/services/earn.ts   '  if (!(ACTIVE as readonly string[]).includes(move.status)) return move;' '  if (move.status === "done") return move;'   src/server/services/earn.test.ts "moves money in only after the PIN"
 mutate_in "earn-retry-ignores-pending-withdraw" src/server/services/earn.ts   '      if (sent && !landed && ctx.now().getTime() - move.withdrawAt!.getTime() < WITHDRAW_PENDING_MS) return move;' ''   src/server/services/earn.test.ts "never withdraws again while a timed-out withdrawal may still land"
+C=src/server/services/crossPay.ts
+CT=src/server/services/crossPay.test.ts
+mutate_in "cross-skips-burn-check" "$C"   '    if (!receipt.burns.some((b) => checkBurn(b, want) === "ok")) {'   '    if (false) {'   "$CT" "refuses a burn whose hook doesn't match the draft"
+mutate_in "cross-trusts-any-amount" "$C"   '    burn.amount >= want.burnAmount &&'   '    true &&'   "$CT" "refuses a burn for less than the draft"
+mutate_in "cross-settles-before-crosspaid" "$C"   '  if (await ctx.chain.cctpNonceUsed(ctx.crossChain.cctp.messageTransmitter, cp.nonce as Hex)) return "wait";'   '  if (await ctx.chain.cctpNonceUsed(ctx.crossChain.cctp.messageTransmitter, cp.nonce as Hex)) return { status: "settled" };'   "$CT" "waits for SplitsCrossPay's events after the mint"
+mutate_in "cross-allows-disabled-chain" "$C"   '  if (chain) return chain;'   '  if (chain || key in SOURCE_CHAINS) return chain ?? SOURCE_CHAINS[key as ChainKey];'   "$CT" "refuses a chain that isn't switched on"
+mutate_in "cross-verify-raw-ref" src/server/services/transfers.ts   '  return { payer: ctx.crossPay!.address, ref: routerRefFor(chain.domain, t.payerAddress as Address, t.ref as Hex) };'   '  return { payer: ctx.crossPay!.address, ref: t.ref as Hex };'   "$CT" "pays every recipient exactly"
+mutate_in "cross-outcome-any-payer" src/server/preview/previewArc.ts   '      const e = this.crossEvents.find((x) => x.ref === ref.toLowerCase() && x.payer === payer.toLowerCase());'   '      const e = this.crossEvents.find((x) => x.ref === ref.toLowerCase());'   "$CT" "isn't fooled by another burner reusing this payment's public ref"
 if [ "$failures" -ne 0 ]; then echo "mutation check: $failures problem(s)"; exit 1; fi
 echo "mutation check: all mutations killed"

@@ -21,7 +21,24 @@ export type VisitorConfig = {
   router: `0x${string}`;
   usdc: `0x${string}`;
   limits: { perPayment: string; daily: string };
+  crossPay: { address: `0x${string}`; chains: CrossChainOption[] } | null;
 };
+/** A chain a visitor can pay from (cross-chain pay). */
+export type CrossChainOption = {
+  key: string;
+  name: string;
+  chainId: number;
+  rpcUrl: string;
+  usdc: `0x${string}`;
+  tokenMessenger: `0x${string}`;
+  explorerUrl: string;
+  gas: string;
+  fast: boolean;
+};
+/** The full cost of paying from another chain, as decimal USDC strings. */
+export type CrossCost = { amount: string; fee: string; circleMax: string; total: string; fast: boolean };
+/** The burn the visitor's wallet sends on the source chain. */
+export type CrossCall = { chainId: number; usdc: `0x${string}`; tokenMessenger: `0x${string}`; burnAmount: string; data: `0x${string}` };
 /** One router leg as the server hands it to the visitor's wallet. */
 export type ContractLeg = { recipient: `0x${string}`; fixedAmount: string; shareBps: 0; purpose: `0x${string}` };
 import type { ReceivedItem } from "@/server/services/activity";

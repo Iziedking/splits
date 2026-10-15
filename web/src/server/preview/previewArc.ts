@@ -3,8 +3,10 @@ import {
   encodePacked,
   erc20Abi,
   getAddress,
+  hexToNumber,
   keccak256,
   pad,
+  slice,
   stringToHex,
   zeroAddress,
   type Address,
@@ -13,7 +15,8 @@ import {
 import { splitsRouterAbi } from "../chain/abi";
 import type { ChainReader, OnchainSplit, RouterReceipt } from "../chain/types";
 import { allocate, SplitRuleError, validateLegs } from "../domain/allocation";
-import { burnAbi, FAST, parseBurnMessage, toBytes32, transmitterAbi } from "../crosschain/cctp";
+import { burnAbi, burnWithHookAbi, decodeHook, FAST, parseBurnMessage, routerRefFor, STANDARD, toBytes32, transmitterAbi, type BurnLog } from "../crosschain/cctp";
+import { crossPayAbi } from "../crosschain/crossPayAbi";
 import { ARC_DOMAIN, CCTP, chainByCircleCode, SOURCE_CHAINS, type ChainKey, type SourceChain } from "../crosschain/chains";
 import type { Iris } from "../crosschain/iris";
 import type { SourceReader } from "../crosschain/reader";
@@ -47,7 +50,13 @@ type Effects = {
   nextSplitId: bigint;
   receipt: Omit<RouterReceipt, "txHash" | "status" | "blockNumber">;
   moves: { from: Address; to: Address; amount: bigint }[];
+  /** SplitsCrossPay: refunds held for payers who couldn't receive them. */
+  owed: Map<string, bigint>;
+  /** SplitsCrossPay events this call emitted (stamped with the hash when it settles). */
+  cross: { ref: string; payer: string; kind: "paid" | "refunded"; feeBack: bigint; amount: bigint; owed: boolean }[];
 };
+
+type SourceTx = { chain: ChainKey; from: Address; nonce: number; burns: BurnLog[]; status: "success" | "reverted" | "dropped" | "pending" };
 
 export type PreviewArcOptions = {
   /** How many getTx polls report "pending" before the final state. */
@@ -56,6 +65,32 @@ export type PreviewArcOptions = {
 
 export class PreviewArc {
   readonly router = PREVIEW_ROUTER;
+  /** SplitsCrossPay in preview: the same rules as contracts/src/SplitsCrossPay.sol. */
+  readonly crossPay = getAddress("0x5911750000000000000000000000000000000c05");
+
+  // Visitors' own wallets on the source chains (cross-chain pay).
+  private sourceTxs = new Map<string, SourceTx>();
+  private sourceNonces = new Map<string, number>();
+  private sourceCount = 0;
+  private crossEvents: { ref: string; payer: string; kind: "paid" | "refunded"; txHash: Hex; feeBack: bigint; amount: bigint; owed: boolean }[] = [];
+  private owed = new Map<string, bigint>();
+  private reattested = new Set<string>();
+  /** Test hook: every attestation stays "missing" or "pending" while set. */
+  irisHold: "missing" | "pending" | null = null;
+  /** Test hook: Circle's Fast fee in basis points (default 1). */
+  irisFeeBps: number | null = null;
+  /** Test hook: Circle's remaining Fast Transfer allowance. */
+  fastAllowanceUnits = 10_000_000_000_000n;
+  /** Test hook: Iris answers nothing (fees, messages and allowance all throw). */
+  irisDown = false;
+  /** Test hook: the next relay of a fresh attestation reverts "Message expired" until it is re-attested. */
+  expireNextAttestation = false;
+  /** Test hook: Circle refuses to re-attest. */
+  reattestFails = false;
+  /** Test hook: the next N relays revert. */
+  relayFailuresLeft = 0;
+  /** Test hook: the next N reads of SplitsCrossPay's outcome see nothing yet (events not indexed). */
+  crossOutcomeLag = 0;
   readonly usdc = PREVIEW_USDC;
 
   private balances = new Map<string, bigint>();
@@ -122,6 +157,47 @@ export class PreviewArc {
     return txHash;
   }
 
+  /** Someone's own USDC on a source chain (a visitor's wallet). */
+  fundSource(chain: ChainKey, address: Address, amount: bigint) {
+    const key = `${chain}:${address.toLowerCase()}`;
+    this.chainBalances.set(key, (this.chainBalances.get(key) ?? 0n) + amount);
+  }
+
+  /**
+   * A visitor's own wallet on a source chain: USDC approve, or depositForBurnWithHook. Returns the
+   * hash; a call that reverts is recorded as reverted, with nothing moved.
+   */
+  sourceCall(chain: ChainKey, from: Address, contract: Address, callData: Hex): Hex {
+    const nonceKey = `${chain}:${from.toLowerCase()}`;
+    const nonce = this.sourceNonces.get(nonceKey) ?? 0;
+    this.sourceNonces.set(nonceKey, nonce + 1);
+    const txHash = keccak256(stringToHex(`preview:source:${this.sourceCount++}`));
+    try {
+      const burns = this.applySourceCall(SOURCE_CHAINS[chain], from, contract, callData, txHash);
+      this.sourceTxs.set(txHash, { chain, from: getAddress(from), nonce, burns, status: "success" });
+    } catch (err) {
+      if (!(err instanceof Revert)) throw err;
+      this.sourceTxs.set(txHash, { chain, from: getAddress(from), nonce, burns: [], status: "reverted" });
+    }
+    return txHash;
+  }
+
+  /** Test hook: a transaction sent at `nonce` that the chain has seen but not mined yet (low fee). */
+  pendSourceTx(chain: ChainKey, from: Address, nonce: number): Hex {
+    const txHash = keccak256(stringToHex(`preview:pending:${this.sourceCount++}`));
+    this.sourceTxs.set(txHash, { chain, from: getAddress(from), nonce, burns: [], status: "pending" });
+    return txHash;
+  }
+
+  /** Test hook: a transaction sent at `nonce` that never mined, replaced by another at the same nonce. */
+  dropSourceTx(chain: ChainKey, from: Address, nonce: number): Hex {
+    const txHash = keccak256(stringToHex(`preview:dropped:${this.sourceCount++}`));
+    this.sourceTxs.set(txHash, { chain, from: getAddress(from), nonce, burns: [], status: "dropped" });
+    const nonceKey = `${chain}:${from.toLowerCase()}`;
+    this.sourceNonces.set(nonceKey, Math.max(this.sourceNonces.get(nonceKey) ?? 0, nonce + 1));
+    return txHash;
+  }
+
   /** Reads balances and transfers on the simulated source chains. */
   readonly sourceReader: SourceReader = {
     usdcBalance: async (chain, address) => this.chainBalances.get(`${chain.key}:${address.toLowerCase()}`) ?? 0n,
@@ -129,16 +205,57 @@ export class PreviewArc {
       const t = this.chainInbound.get(txHash);
       return t && t.chain === chain.key && t.to === to.toLowerCase() ? { ok: true, amount: t.amount } : { ok: false };
     },
-    receiptStatus: async (_chain, txHash) => (this.chainInbound.has(txHash) ? "success" : (this.chainReceipts.get(txHash) ?? null)),
+    receiptStatus: async (_chain, txHash) => {
+      if (this.chainInbound.has(txHash)) return "success";
+      const own = this.sourceTxs.get(txHash);
+      if (own) return own.status === "dropped" || own.status === "pending" ? null : own.status;
+      return this.chainReceipts.get(txHash) ?? null;
+    },
     cctpDomain: async (chain) => chain.domain,
+    chainId: async (chain) => chain.chainId.testnet,
+    burnReceipt: async (chain, txHash) => {
+      const tx = this.sourceTxs.get(txHash);
+      if (!tx || tx.chain !== chain.key || tx.status === "dropped" || tx.status === "pending") return null;
+      if (tx.status === "reverted") return { status: "reverted", from: tx.from, nonce: tx.nonce, burns: [] };
+      return { status: tx.status, from: tx.from, nonce: tx.nonce, burns: tx.burns };
+    },
+    burnsFrom: async (chain, depositor) =>
+      [...this.sourceTxs]
+        .filter(([, t]) => t.chain === chain.key && t.status === "success" && t.from.toLowerCase() === depositor.toLowerCase())
+        .flatMap(([txHash, t]) => t.burns.map((burn) => ({ txHash: txHash as Hex, burn }))),
+    pendingNonce: async (chain, address) => this.sourceNonces.get(`${chain.key}:${address.toLowerCase()}`) ?? 0,
+    transactionNonce: async (chain, txHash) => {
+      const tx = this.sourceTxs.get(txHash);
+      return tx && tx.chain === chain.key ? tx.nonce : null;
+    },
+    blockNumber: async () => BigInt(this.sourceCount + 1),
   };
 
   /** Attests every simulated burn at once, at 1 bps for Fast and free for Standard. */
   readonly iris: Iris = {
-    fees: async () => ({ fastBps: 1, standardBps: 0 }),
+    fees: async () => {
+      if (this.irisDown) throw new Error("Iris fees 503");
+      return { fastBps: this.irisFeeBps ?? 1, standardBps: 0 };
+    },
+    fastAllowance: async () => {
+      if (this.irisDown) throw new Error("Iris allowance 503");
+      return this.fastAllowanceUnits;
+    },
+    reattest: async (nonce) => {
+      if (this.reattestFails) throw new Error("Iris reattest 500");
+      this.reattested.add(nonce.toLowerCase());
+    },
     message: async (_domain, txHash) => {
+      if (this.irisDown) throw new Error("Iris messages 503");
       const message = this.burns.get(txHash);
-      return message ? { status: "complete", message, attestation: "0x01" } : { status: "missing" };
+      if (!message) return { status: "missing" };
+      if (this.irisHold === "missing") return { status: "missing" };
+      if (this.irisHold === "pending") {
+        // A Fast burn that Circle had to take the standard way says why it is waiting.
+        const slow = hexToNumber(slice(message, 140, 144)) <= FAST && hexToNumber(slice(message, 144, 148)) > FAST;
+        return { status: "pending", delayReason: slow ? "insufficient_fee" : null };
+      }
+      return { status: "complete", message, attestation: "0x01" };
     },
   };
 
@@ -304,6 +421,20 @@ export class PreviewArc {
       this.sent.find((s) => s.payer === payer.toLowerCase() && s.ref === ref.toLowerCase() && s.block >= fromBlock)?.txHash ??
       null,
     cctpNonceUsed: async (_transmitter, nonce) => this.usedNonces.has(nonce.toLowerCase()),
+    crossPayOutcome: async (contract, ref, payer) => {
+      if (contract.toLowerCase() !== this.crossPay.toLowerCase()) return null;
+      if (this.crossOutcomeLag > 0) {
+        this.crossOutcomeLag--;
+        return null;
+      }
+      const e = this.crossEvents.find((x) => x.ref === ref.toLowerCase() && x.payer === payer.toLowerCase());
+      if (!e) return null;
+      return e.kind === "paid" ? { kind: "paid", txHash: e.txHash, feeBack: e.feeBack } : { kind: "refunded", txHash: e.txHash, amount: e.amount, owed: e.owed };
+    },
+    crossPayWiring: async (contract) =>
+      contract.toLowerCase() === this.crossPay.toLowerCase()
+        ? { usdc: this.usdc, transmitter: CCTP.testnet.messageTransmitter, router: this.router, tokenMessenger: CCTP.testnet.tokenMessenger }
+        : null,
   };
 
   // ---------------------------------------------------------------- internals
@@ -414,6 +545,7 @@ export class PreviewArc {
       this.inbound.set(key, [{ txHash, from: m.from, amount: m.amount, at: new Date() }, ...(this.inbound.get(key) ?? [])]);
     }
     const receipt: RouterReceipt = { txHash, status: "success", blockNumber: this.block++, ...fx.receipt };
+    for (const e of fx.cross) this.crossEvents.push({ ...e, txHash });
     this.receipts.set(txHash, receipt);
     for (const s of receipt.splitSent) {
       this.sent.push({ payer: s.payer.toLowerCase(), ref: s.ref.toLowerCase(), txHash, block: receipt.blockNumber });
@@ -442,6 +574,23 @@ export class PreviewArc {
       nextSplitId: this.nextSplitId,
       receipt: { splitCreated: [], splitLegsSet: [], splitSent: [], legPaid: [] },
       moves: [],
+      owed: new Map(this.owed),
+      cross: [],
+    };
+  }
+
+  /** A copy of `fx` to try a call on; adopted only if the call doesn't revert. */
+  private branch(fx: Effects): Effects {
+    return {
+      ...fx,
+      balances: new Map(fx.balances),
+      allowances: new Map(fx.allowances),
+      splits: new Map([...fx.splits].map(([k, v]) => [k, structuredClone(v)])),
+      refs: new Set(fx.refs),
+      receipt: structuredClone(fx.receipt),
+      moves: [...fx.moves],
+      owed: new Map(fx.owed),
+      cross: [...fx.cross],
     };
   }
 
@@ -451,6 +600,7 @@ export class PreviewArc {
     this.splits = fx.splits;
     this.refs = fx.refs;
     this.nextSplitId = fx.nextSplitId;
+    this.owed = fx.owed;
   }
 
   private move(fx: Effects, from: Address, to: Address, amount: bigint) {
@@ -476,16 +626,10 @@ export class PreviewArc {
     if (contract.toLowerCase() === CCTP.testnet.messageTransmitter.toLowerCase()) {
       const call = decodeFunctionData({ abi: transmitterAbi, data: callData });
       if (call.functionName !== "receiveMessage") throw new Revert(`Preview transmitter does not support ${call.functionName}`);
-      const m = parseBurnMessage(call.args[0]);
-      if (m.destinationDomain !== ARC_DOMAIN) throw new Revert("Invalid destination domain");
-      if (this.usedNonces.has(m.nonce.toLowerCase())) throw new Revert("Nonce already used");
-      const minted = m.amount - m.feeExecuted;
-      const key = m.mintRecipient.toLowerCase();
-      fx.balances.set(key, (fx.balances.get(key) ?? 0n) + minted);
-      fx.moves.push({ from: zeroAddress, to: m.mintRecipient, amount: minted });
-      this.usedNonces.add(m.nonce.toLowerCase());
+      this.mintInto(fx, sender, call.args[0]);
       return fx;
     }
+    if (contract.toLowerCase() === this.crossPay.toLowerCase()) return this.crossPayCall(fx, sender, callData);
     if (contract.toLowerCase() !== this.router.toLowerCase()) throw new Revert("Unknown contract");
 
     const call = decodeFunctionData({ abi: splitsRouterAbi, data: callData });
@@ -541,29 +685,167 @@ export class PreviewArc {
       }
       case "pay": {
         const [rawLegs, amount, ref] = call.args;
-        const legs = rawLegs.map((l) => ({ ...l }));
-        validateLegs(legs, [this.router, this.usdc]);
-        if (amount === 0n) throw new Revert("ZeroAmount");
-        if (/^0x0+$/.test(ref)) throw new Revert("ZeroRef");
-        if (fx.refs.has(refKey(sender, ref))) throw new Revert("RefAlreadyUsed");
-        fx.refs.add(refKey(sender, ref));
-        const amounts = allocate(legs, amount);
-        fx.receipt.splitSent.push({ splitId: 0n, payer: sender, ref, amount, version: 0 });
-        legs.forEach((leg, i) => {
-          const legAmount = amounts[i]!;
-          if (legAmount === 0n) return;
-          const key = allowanceKey(sender, this.router);
-          const allowance = fx.allowances.get(key) ?? 0n;
-          if (allowance < legAmount) throw new Revert("ERC20InsufficientAllowance");
-          fx.allowances.set(key, allowance - legAmount);
-          this.move(fx, sender, leg.recipient, legAmount);
-          fx.receipt.legPaid.push({ splitId: 0n, ref, recipient: leg.recipient, amount: legAmount, purpose: leg.purpose });
-        });
+        this.payInFx(fx, sender, rawLegs.map((l) => ({ ...l })), amount, ref);
         return fx;
       }
       default:
         throw new Revert(`Preview router does not support ${call.functionName}`);
     }
+  }
+
+  /** SplitsRouter.pay, applied to `fx`: all or nothing (a Revert leaves `fx` half-applied; callers branch). */
+  private payInFx(fx: Effects, sender: Address, legs: OnchainSplit["legs"], amount: bigint, ref: Hex) {
+    validateLegs(legs, [this.router, this.usdc]);
+    if (amount === 0n) throw new Revert("ZeroAmount");
+    if (/^0x0+$/.test(ref)) throw new Revert("ZeroRef");
+    if (fx.refs.has(refKey(sender, ref))) throw new Revert("RefAlreadyUsed");
+    fx.refs.add(refKey(sender, ref));
+    const amounts = allocate(legs, amount);
+    fx.receipt.splitSent.push({ splitId: 0n, payer: sender, ref, amount, version: 0 });
+    legs.forEach((leg, i) => {
+      const legAmount = amounts[i]!;
+      if (legAmount === 0n) return;
+      const key = allowanceKey(sender, this.router);
+      const allowance = fx.allowances.get(key) ?? 0n;
+      if (allowance < legAmount) throw new Revert("ERC20InsufficientAllowance");
+      fx.allowances.set(key, allowance - legAmount);
+      this.move(fx, sender, leg.recipient, legAmount);
+      fx.receipt.legPaid.push({ splitId: 0n, ref, recipient: leg.recipient, amount: legAmount, purpose: leg.purpose });
+    });
+  }
+
+  /** MessageTransmitterV2.receiveMessage as `caller`: domain, nonce and destination caller checked, then minted. */
+  private mintInto(fx: Effects, caller: Address, message: Hex) {
+    const m = parseBurnMessage(message);
+    if (m.destinationDomain !== ARC_DOMAIN) throw new Revert("Invalid destination domain");
+    if (this.usedNonces.has(m.nonce.toLowerCase())) throw new Revert("Nonce already used");
+    if (m.destinationCaller !== zeroAddress && m.destinationCaller.toLowerCase() !== caller.toLowerCase()) throw new Revert("Invalid caller for message");
+    const minted = m.amount - m.feeExecuted;
+    const key = m.mintRecipient.toLowerCase();
+    fx.balances.set(key, (fx.balances.get(key) ?? 0n) + minted);
+    fx.moves.push({ from: zeroAddress, to: m.mintRecipient, amount: minted });
+    this.usedNonces.add(m.nonce.toLowerCase());
+  }
+
+  /** SplitsCrossPay: relay (mint, then pay or refund) and claim, as contracts/src/SplitsCrossPay.sol. */
+  private crossPayCall(fx: Effects, sender: Address, callData: Hex): Effects {
+    const call = decodeFunctionData({ abi: crossPayAbi, data: callData });
+    if (call.functionName === "claim") {
+      const amount = fx.owed.get(sender.toLowerCase()) ?? 0n;
+      if (amount === 0n) throw new Revert("NothingOwed");
+      fx.owed.set(sender.toLowerCase(), 0n);
+      this.move(fx, this.crossPay, sender, amount);
+      return fx;
+    }
+    if (call.functionName !== "relay") throw new Revert(`Preview SplitsCrossPay does not support ${call.functionName}`);
+    if (this.relayFailuresLeft > 0) {
+      this.relayFailuresLeft--;
+      throw new Revert("relay test failure");
+    }
+    const [message] = call.args;
+    if (slice(message, 76, 108).toLowerCase() !== toBytes32(CCTP.testnet.tokenMessenger)) throw new Revert("NotABurn");
+    const m = parseBurnMessage(message);
+    if (this.expireNextAttestation) {
+      if (!this.reattested.has(m.nonce.toLowerCase())) throw new Revert("Message expired");
+      this.expireNextAttestation = false;
+    }
+    const before = fx.balances.get(this.crossPay.toLowerCase()) ?? 0n;
+    this.mintInto(fx, this.crossPay, message);
+    const minted = (fx.balances.get(this.crossPay.toLowerCase()) ?? 0n) - before;
+    const hook = decodeHook(m.hookData);
+    const payer = hook && hook.refundTo !== zeroAddress ? hook.refundTo : m.messageSender;
+    const ref = hook?.ref ?? pad("0x00");
+    const refund = () => {
+      const owed = this.sendOrOwe(fx, payer, minted);
+      fx.cross.push({ ref: ref.toLowerCase(), payer: payer.toLowerCase(), kind: "refunded", feeBack: 0n, amount: minted, owed });
+      return fx;
+    };
+    if (!hook || minted < hook.payAmount || hook.legs.some((l) => l.recipient.toLowerCase() === this.crossPay.toLowerCase())) return refund();
+    const tried = this.branch(fx);
+    try {
+      tried.allowances.set(allowanceKey(this.crossPay, this.router), hook.payAmount);
+      this.payInFx(tried, this.crossPay, hook.legs, hook.payAmount, routerRefFor(m.sourceDomain, payer, hook.ref));
+      tried.allowances.set(allowanceKey(this.crossPay, this.router), 0n);
+    } catch (err) {
+      if (!(err instanceof Revert) && !(err instanceof SplitRuleError)) throw err;
+      return refund();
+    }
+    Object.assign(fx, tried);
+    const back = minted - hook.payAmount;
+    fx.cross.push({ ref: ref.toLowerCase(), payer: payer.toLowerCase(), kind: "paid", feeBack: back, amount: hook.payAmount, owed: false });
+    if (back > 0n) this.sendOrOwe(fx, payer, back);
+    return fx;
+  }
+
+  /** A transfer from SplitsCrossPay; one the token refuses is held as owed. Returns whether it was held. */
+  private sendOrOwe(fx: Effects, to: Address, amount: bigint): boolean {
+    if (amount === 0n) return false;
+    try {
+      this.move(fx, this.crossPay, to, amount);
+      return false;
+    } catch (err) {
+      if (!(err instanceof Revert)) throw err;
+      fx.owed.set(to.toLowerCase(), (fx.owed.get(to.toLowerCase()) ?? 0n) + amount);
+      return true;
+    }
+  }
+
+  /** depositForBurnWithHook (or a USDC approve) from a visitor's own wallet on a source chain. */
+  private applySourceCall(chain: SourceChain, sender: Address, contract: Address, callData: Hex, txHash: Hex): BurnLog[] {
+    const usdc = chain.usdc.testnet;
+    const own = `${chain.key}:${sender.toLowerCase()}`;
+    if (contract.toLowerCase() === usdc.toLowerCase()) {
+      const call = decodeFunctionData({ abi: erc20Abi, data: callData });
+      if (call.functionName !== "approve") throw new Revert(`Preview USDC does not support ${call.functionName}`);
+      this.chainAllowances.set(`${own}:${call.args[0].toLowerCase()}`, call.args[1]);
+      return [];
+    }
+    if (contract.toLowerCase() !== CCTP.testnet.tokenMessenger.toLowerCase()) throw new Revert("Unknown contract");
+    const call = decodeFunctionData({ abi: burnWithHookAbi, data: callData });
+    const [amount, destinationDomain, mintRecipient, burnToken, destinationCaller, maxFee, threshold, hookData] = call.args;
+    const allowanceKey = `${own}:${contract.toLowerCase()}`;
+    const allowance = this.chainAllowances.get(allowanceKey) ?? 0n;
+    const balance = this.chainBalances.get(own) ?? 0n;
+    if (burnToken.toLowerCase() !== usdc.toLowerCase()) throw new Revert("Unsupported burn token");
+    if (destinationDomain !== ARC_DOMAIN) throw new Revert("Preview only burns to Arc");
+    if (allowance < amount) throw new Revert("ERC20InsufficientAllowance");
+    if (balance < amount) throw new Revert("ERC20InsufficientBalance");
+    const bps = BigInt(Math.round((this.irisFeeBps ?? 1) * 100));
+    let feeExecuted = threshold <= FAST ? (amount * bps + 999_999n) / 1_000_000n : 0n;
+    let executed = threshold <= FAST ? FAST : STANDARD;
+    // Circle's fee above maxFee: CCTP attests at finality instead, without the Fast fee.
+    if (feeExecuted > maxFee) {
+      feeExecuted = 0n;
+      executed = STANDARD;
+    }
+    this.chainAllowances.set(allowanceKey, allowance - amount);
+    this.chainBalances.set(own, balance - amount);
+    const nonce = keccak256(stringToHex(`preview:nonce:${this.crossCount++}`));
+    const body = encodePacked(
+      ["uint32", "bytes32", "bytes32", "uint256", "bytes32", "uint256", "uint256", "uint256", "bytes"],
+      [1, toBytes32(usdc), mintRecipient, amount, toBytes32(sender), maxFee, feeExecuted, 0n, hookData],
+    );
+    this.burns.set(
+      txHash,
+      encodePacked(
+        ["uint32", "uint32", "uint32", "bytes32", "bytes32", "bytes32", "bytes32", "uint32", "uint32", "bytes"],
+        [1, chain.domain, ARC_DOMAIN, nonce, toBytes32(contract), toBytes32(contract), destinationCaller, threshold, executed, body],
+      ),
+    );
+    const fromBytes32 = (b: Hex) => getAddress(slice(b, 12, 32));
+    return [
+      {
+        burnToken: getAddress(burnToken),
+        amount,
+        depositor: getAddress(sender),
+        mintRecipient: fromBytes32(mintRecipient),
+        destinationDomain,
+        destinationCaller: fromBytes32(destinationCaller),
+        maxFee,
+        minFinalityThreshold: threshold,
+        hookData,
+      },
+    ];
   }
 
   private owned(fx: Effects, splitId: bigint, sender: Address): OnchainSplit {

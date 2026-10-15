@@ -28,7 +28,7 @@ const LATE_WINDOW_MS = 24 * HOUR;
 const LATE_CHECK_EVERY_MS = 30_000;
 
 /** One hit against this visitor's hourly budget for `what`, by cookie and (behind our proxy) by IP. */
-async function visitorAllowed(ctx: Ctx, visitor: Visitor, what: "check" | "prepare"): Promise<boolean> {
+export async function visitorAllowed(ctx: Ctx, visitor: Visitor, what: "check" | "prepare"): Promise<boolean> {
   const max = ctx.limits.visitorChecksPerHour;
   const allowed = [await hitRateLimit(ctx, `${what}:v:${visitor.keyHash}`, max, HOUR)];
   if (visitor.ip) allowed.push(await hitRateLimit(ctx, `${what}:ip:${visitor.ip}`, max, HOUR));

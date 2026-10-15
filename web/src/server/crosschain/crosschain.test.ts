@@ -73,7 +73,17 @@ describe("CCTP codec", () => {
     const nonce = pad("0xbeef", { size: 32 });
     const message = v2Message({ nonce, amount: 5_000_000n, feeExecuted: 650n, recipient: RECIPIENT });
     expect(nonceOf(message)).toBe(nonce);
-    expect(parseBurnMessage(message)).toEqual({ sourceDomain: 6, destinationDomain: 26, nonce, mintRecipient: RECIPIENT, amount: 5_000_000n, feeExecuted: 650n });
+    expect(parseBurnMessage(message)).toEqual({
+      sourceDomain: 6,
+      destinationDomain: 26,
+      nonce,
+      destinationCaller: "0x0000000000000000000000000000000000000000",
+      mintRecipient: RECIPIENT,
+      amount: 5_000_000n,
+      messageSender: RECIPIENT,
+      feeExecuted: 650n,
+      hookData: "0x",
+    });
   });
 
   it("prices maxFee from fractional basis points, rounded up, with a 20% buffer", () => {

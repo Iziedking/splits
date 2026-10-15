@@ -205,6 +205,31 @@ try {
   assert.equal(big.data.error.code, "SEND_LIMIT");
   step("a visitor list over 500 is refused");
 
+  assert.ok(cfg.data.crossPay && cfg.data.crossPay.chains.some((c) => c.key === "base"), JSON.stringify(cfg.data.crossPay));
+  step("visitor config lists the chains a visitor can pay from");
+
+  const xcheck = await call("POST", "/api/visitor/check", { mode: "each", text: "0x00000000000000000000000000000000000000f1, 2", label: "gift" });
+  assert.equal(xcheck.status, 200, JSON.stringify(xcheck.data));
+  const xdraft = { draftId: xcheck.data.draft.id, draftHash: xcheck.data.draft.hash, payer: "0x00000000000000000000000000000000000000aa" };
+  const paused = await call("POST", "/api/visitor/prepare", { ...xdraft, sourceChain: "monad" });
+  assert.equal(paused.status, 409, JSON.stringify(paused.data));
+  assert.equal(paused.data.error.code, "CHAIN_PAUSED");
+  step("paying from a chain that isn't switched on is refused");
+
+  const xprep = await call("POST", "/api/visitor/prepare", { ...xdraft, sourceChain: "base" });
+  assert.equal(xprep.status, 200, JSON.stringify(xprep.data));
+  assert.ok(xprep.data.call.data.startsWith("0x779b432d"), xprep.data.call.data.slice(0, 10));
+  assert.equal(xprep.data.cost.total, "2.030244");
+  assert.equal(xprep.data.payment.cross.canPay, true);
+  step("a visitor can reserve a list to pay from Base, with the exact burn");
+
+  const badBurn = await call("POST", "/api/visitor/burn", { token: xprep.data.payment.token, txHash: "0x1234" });
+  assert.equal(badBurn.status, 400, JSON.stringify(badBurn.data));
+  const xburn = await call("POST", "/api/visitor/burn", { token: xprep.data.payment.token, txHash: `0x${"ab".repeat(32)}` });
+  assert.equal(xburn.status, 200, JSON.stringify(xburn.data));
+  assert.equal(xburn.data.payment.cross.canPay, false);
+  step("the burn hash is recorded once and Pay isn't offered again");
+
   const missing = await call("GET", "/api/visitor/payments/xxxxxxxxxxxxxxxxxxxxxxxx", undefined, { withCookie: false });
   assert.equal(missing.status, 404);
   step("an unknown visitor payment link is a 404");

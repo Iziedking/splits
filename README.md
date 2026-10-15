@@ -146,8 +146,9 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 
 | Part | State |
 | --- | --- |
-| Contract | 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. |
-| App | 323 tests, run on both PGlite and Postgres; 49 of 49 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
+| Contract | `SplitsRouter`: 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. `SplitsCrossPay`: 28 unit tests, a 20,000-run fuzz test, an invariant (the contract only ever holds refunds it owes) and 2 fork tests; reviewed twice; not deployed yet. |
+| App | 381 tests, run on both PGlite and Postgres; 55 of 55 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
+| Pay from another chain | Built: a visitor's wallet burns USDC on Base, Ethereum, Arbitrum or another CCTP chain and `SplitsCrossPay` pays the split on Arc in the same mint, or refunds the payer. Tested in preview (every failure case) and against Arc mainnet state; the contract is not deployed yet, and the feature is off until it is. |
 | Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |

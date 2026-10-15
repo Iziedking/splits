@@ -246,7 +246,7 @@ describe("moving a deposit from another chain to Arc", () => {
     const { ctx, arc, clock, address } = await setup();
     const real = ctx.crossChain.iris;
     let attested = false;
-    const slow: Iris = { fees: real.fees, message: async (d, h) => (attested ? real.message(d, h) : { status: "pending", delayReason: null }) };
+    const slow: Iris = { ...real, message: async (d, h) => (attested ? real.message(d, h) : { status: "pending", delayReason: null }) };
     const sctx: Ctx = { ...ctx, crossChain: { ...ctx.crossChain, iris: slow } };
     arc.simulateDeposit("base", address, 5_000_000n);
     await drive(sctx, clock, 4);
@@ -263,7 +263,7 @@ describe("moving a deposit from another chain to Arc", () => {
     const real = ctx.crossChain.iris;
     const other = getAddress("0x00000000000000000000000000000000000000f1");
     const tampered: Iris = {
-      fees: real.fees,
+      ...real,
       message: async (d, h) => {
         const m = await real.message(d, h);
         if (m.status !== "complete") return m;

@@ -24,6 +24,12 @@ contract MockUSDC is ERC20 {
         blocked[account] = isBlocked;
     }
 
+    /// @dev Approvals naming a blocked spender revert too, like a FiatToken-style blocklist.
+    function _approve(address owner, address spender, uint256 value, bool emitEvent) internal override {
+        if (blocked[spender]) revert Blocklisted(spender);
+        super._approve(owner, spender, value, emitEvent);
+    }
+
     function _update(address from, address to, uint256 value) internal override {
         if (blocked[from]) revert Blocklisted(from);
         if (blocked[to]) revert Blocklisted(to);

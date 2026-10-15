@@ -11,13 +11,17 @@ export type IrisMessage =
 export interface Iris {
   fees(sourceDomain: number): Promise<{ fastBps: number; standardBps: number }>;
   message(sourceDomain: number, txHash: Hex): Promise<IrisMessage>;
+  /** Circle's remaining Fast Transfer allowance, in USDC base units. */
+  fastAllowance(): Promise<bigint>;
+  /** Asks Circle to re-attest an expired Fast message; the next message() call returns it. */
+  reattest(nonce: Hex): Promise<void>;
 }
 
 export class IrisRateLimited extends Error {}
 
-type Fetch = (url: string) => Promise<Response>;
+type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
-export function httpIris(baseUrl: string, fetchImpl: Fetch = (url) => fetch(url, { cache: "no-store" })): Iris {
+export function httpIris(baseUrl: string, fetchImpl: Fetch = (url, init) => fetch(url, { cache: "no-store", ...init })): Iris {
   const get = async (path: string) => {
     const res = await fetchImpl(`${baseUrl}${path}`);
     // Circle blocks every request for 5 minutes past 35 per second; the caller backs off.
@@ -47,6 +51,17 @@ export function httpIris(baseUrl: string, fetchImpl: Fetch = (url) => fetch(url,
         return { status: "complete", message: m.message, attestation: m.attestation as Hex };
       }
       return { status: "pending", delayReason: m.delayReason ?? null };
+    },
+    async fastAllowance() {
+      const res = await get(`/v2/fastBurn/USDC/allowance`);
+      if (!res.ok) throw new Error(`Iris allowance ${res.status}`);
+      const body = (await res.json()) as { allowance: number };
+      return BigInt(Math.floor(body.allowance * 1_000_000));
+    },
+    async reattest(nonce) {
+      const res = await fetchImpl(`${baseUrl}/v2/reattest/${nonce}`, { method: "POST" });
+      if (res.status === 429) throw new IrisRateLimited("Iris rate limit");
+      if (!res.ok) throw new Error(`Iris reattest ${res.status}`);
     },
   };
 }

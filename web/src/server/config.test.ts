@@ -108,4 +108,13 @@ describe("config", () => {
     expect(parseConfig({ ARC_RPC_URLS: "https://a.example,https://b.example" }).publicRpcUrl).toBe("https://a.example");
     expect(parseConfig({ ARC_PUBLIC_RPC_URL: "https://rpc.example" }).publicRpcUrl).toBe("https://rpc.example");
   });
+
+  it("keeps cross-chain pay off unless chains are listed, and needs the contract when they are", () => {
+    const testnet = { ...liveKeys, CIRCLE_BLOCKCHAIN: "ARC-TESTNET", ARC_CHAIN_ID: "5042002", PGLITE_DIR: "/tmp/x", EMAIL_PROVIDER: "screen" };
+    expect(parseConfig({}).CROSS_PAY_CHAINS).toBe("");
+    expect(() => parseConfig({ ...testnet, CROSS_PAY_CHAINS: "base" })).toThrow(/CROSS_PAY_ADDRESS/);
+    expect(parseConfig({ ...testnet, CROSS_PAY_CHAINS: "base", CROSS_PAY_ADDRESS: "0x5911750000000000000000000000000000000c05" }).CROSS_PAY_ADDRESS).toBe(
+      "0x5911750000000000000000000000000000000C05",
+    );
+  });
 });

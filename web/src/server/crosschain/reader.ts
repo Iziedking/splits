@@ -1,5 +1,5 @@
-import { createPublicClient, decodeEventLog, erc20Abi, http, TransactionReceiptNotFoundError, type Address, type Hex, type PublicClient } from "viem";
-import { transmitterAbi } from "./cctp";
+import { createPublicClient, decodeEventLog, erc20Abi, getAddress, http, TransactionReceiptNotFoundError, type Address, type Hex, type PublicClient } from "viem";
+import { depositForBurnEvent, parseDepositForBurnLogs, transmitterAbi, type BurnLog } from "./cctp";
 import { CCTP, type CrossNetwork, type SourceChain } from "./chains";
 
 /** Reads USDC on the chains deposits arrive on. The webhook says "money came"; this checks it. */
@@ -11,6 +11,17 @@ export interface SourceReader {
   receiptStatus(chain: SourceChain, txHash: Hex): Promise<"success" | "reverted" | null>;
   /** The CCTP domain the chain's MessageTransmitterV2 reports (startup sanity check). */
   cctpDomain(chain: SourceChain): Promise<number>;
+  /** The EVM chain id the RPC reports (startup sanity check). */
+  chainId(chain: SourceChain): Promise<number>;
+  /** The burn receipt: who sent it, its nonce, and the DepositForBurn events in it; null if unknown. */
+  burnReceipt(chain: SourceChain, txHash: Hex): Promise<{ status: "success" | "reverted"; from: Address; nonce: number; burns: BurnLog[] } | null>;
+  /** Burns by `depositor` from `fromBlock` on, for payers whose page closed before reporting a hash. */
+  burnsFrom(chain: SourceChain, depositor: Address, fromBlock: bigint): Promise<{ txHash: Hex; burn: BurnLog }[]>;
+  /** The account's next nonce on that chain (counting mined transactions only). */
+  pendingNonce(chain: SourceChain, address: Address): Promise<number>;
+  /** The nonce a known (possibly unmined) transaction was sent with; null if the node never saw it. */
+  transactionNonce(chain: SourceChain, txHash: Hex): Promise<number | null>;
+  blockNumber(chain: SourceChain): Promise<bigint>;
 }
 
 type LogLike = { address: string; topics: Hex[]; data: Hex };
@@ -28,6 +39,20 @@ export function sumUsdcTransfers(logs: LogLike[], usdc: Address, to: Address): b
     }
   }
   return total;
+}
+
+/** A source-chain receipt as the burn check needs it: only TokenMessenger burns, and none if it reverted. */
+export function burnsInReceipt(
+  receipt: { status: "success" | "reverted"; from: Address; logs: LogLike[] },
+  tokenMessenger: Address,
+  nonce: number,
+): { status: "success" | "reverted"; from: Address; nonce: number; burns: BurnLog[] } {
+  return {
+    status: receipt.status,
+    from: getAddress(receipt.from),
+    nonce,
+    burns: receipt.status === "success" ? parseDepositForBurnLogs(receipt.logs, tokenMessenger) : [],
+  };
 }
 
 /** viem readers, one client per chain; RPC from SOURCE_RPCS ("base=https://…,arb=…") or a public default. */
@@ -64,5 +89,34 @@ export function createSourceReader(network: CrossNetwork, rpcOverrides: Record<s
     async cctpDomain(chain) {
       return Number(await client(chain).readContract({ address: CCTP[network].messageTransmitter, abi: transmitterAbi, functionName: "localDomain" }));
     },
+    chainId: (chain) => client(chain).getChainId(),
+    async burnReceipt(chain, txHash) {
+      const receipt = await receiptOf(chain, txHash);
+      if (!receipt) return null;
+      const tx = await client(chain).getTransaction({ hash: txHash });
+      return burnsInReceipt({ status: receipt.status, from: receipt.from, logs: receipt.logs as LogLike[] }, CCTP[network].tokenMessenger, tx.nonce);
+    },
+    async burnsFrom(chain, depositor, fromBlock) {
+      const latest = await client(chain).getBlockNumber();
+      const out: { txHash: Hex; burn: BurnLog }[] = [];
+      // Public RPCs cap getLogs ranges; 2,000 blocks a call.
+      for (let start = fromBlock; start <= latest; start += 2_000n) {
+        const end = start + 1_999n > latest ? latest : start + 1_999n;
+        const logs = await client(chain).getLogs({ address: CCTP[network].tokenMessenger, event: depositForBurnEvent, args: { depositor }, fromBlock: start, toBlock: end });
+        for (const log of logs) {
+          for (const burn of parseDepositForBurnLogs([log as unknown as LogLike], CCTP[network].tokenMessenger)) out.push({ txHash: log.transactionHash!, burn });
+        }
+      }
+      return out;
+    },
+    pendingNonce: (chain, address) => client(chain).getTransactionCount({ address, blockTag: "latest" }),
+    async transactionNonce(chain, txHash) {
+      try {
+        return (await client(chain).getTransaction({ hash: txHash })).nonce;
+      } catch {
+        return null;
+      }
+    },
+    blockNumber: (chain) => client(chain).getBlockNumber(),
   };
 }

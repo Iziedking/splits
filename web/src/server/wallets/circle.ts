@@ -161,8 +161,17 @@ export function createCircleWallets(opts: CircleOptions): WalletProvider {
         status: mapCircleState(state),
         rawState: state ?? "UNKNOWN",
         txHash: tx?.txHash ? (tx.txHash as Hex) : undefined,
-        error: tx?.errorReason ?? tx?.errorDetails ?? undefined,
+        error: providerError(tx?.errorReason, tx?.errorDetails),
       };
     },
   };
+}
+
+/**
+ * Why a Circle transaction failed: the reason code (FAILED_ON_CHAIN, ESTIMATION_ERROR, …) and the
+ * details, which is where a revert's own text ("Message expired") appears. Both are kept.
+ */
+export function providerError(reason: string | null | undefined, details: string | null | undefined): string | undefined {
+  const parts = [reason, details].filter((p): p is string => Boolean(p));
+  return parts.length ? parts.join(": ") : undefined;
 }

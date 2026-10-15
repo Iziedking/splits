@@ -165,7 +165,7 @@ export const transfers = pgTable(
     payerWalletId: uuid("payer_wallet_id").references(() => wallets.id),
     /** The address the money leaves from: the payer's Splits wallet, or the visitor's own wallet. */
     payerAddress: text("payer_address").notNull(),
-    funding: text("funding", { enum: ["balance", "card", "own_wallet"] }).notNull().default("balance"),
+    funding: text("funding", { enum: ["balance", "card", "own_wallet", "cross_chain"] }).notNull().default("balance"),
     /** "send" pays a saved split, "auto" runs a receiver's rule, "pay" pays a checked list once. */
     kind: text("kind", { enum: ["send", "auto", "pay"] }).notNull(),
     /** Null for one-off ("pay") payments, which have no saved split. */
@@ -208,6 +208,47 @@ export const transfers = pgTable(
     uniqueIndex("transfers_one_auto_per_parent").on(t.parentTransferId, t.payerWalletId),
   ],
 );
+
+/** Cross-chain pay: where a visitor's burn on another chain is, until SplitsCrossPay pays on Arc. */
+export const CROSS_PHASES = ["awaiting_burn", "burned", "attesting", "relaying", "paid", "refunded", "owed", "cancelled"] as const;
+export type CrossPhase = (typeof CROSS_PHASES)[number];
+
+export const crossPayments = pgTable(
+  "cross_payments",
+  {
+    transferId: uuid("transfer_id")
+      .primaryKey()
+      .references(() => transfers.id),
+    chain: text("chain").notNull(),
+    /** What the payer burns: the split, the Splits fee and Circle's fee at its most. */
+    burnAmount: text("burn_amount").notNull(),
+    maxFee: text("max_fee").notNull(),
+    fast: boolean("fast").notNull(),
+    /** keccak256 of the hook data the payer must burn with; the burn check compares it. */
+    hookHash: text("hook_hash").notNull(),
+    /** The source chain's block at reservation, where the late scan starts. */
+    sourceFromBlock: bigint("source_from_block", { mode: "bigint" }).notNull(),
+    phase: text("phase", { enum: CROSS_PHASES }).notNull(),
+    burnTxHash: text("burn_tx_hash"),
+    burnNonce: integer("burn_nonce"),
+    message: text("message"),
+    attestation: text("attestation"),
+    nonce: text("nonce"),
+    relayProviderTx: text("relay_provider_tx"),
+    relayTxHash: text("relay_tx_hash"),
+    feeBack: text("fee_back"),
+    refundAmount: text("refund_amount"),
+    /** Circle attested at Standard finality (the fee rose past maxFee, or Fast was busy). */
+    slowRoute: boolean("slow_route").notNull().default(false),
+    attentionAt: timestamp("attention_at", { withTimezone: true }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("cross_payments_burn_tx").on(t.burnTxHash), index("cross_payments_phase").on(t.phase)],
+);
+export type CrossPayment = typeof crossPayments.$inferSelect;
 
 /** Every write sent to the wallet provider, keyed so a retry finds the original. */
 export const providerTxs = pgTable(

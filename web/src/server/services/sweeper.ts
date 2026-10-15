@@ -10,6 +10,7 @@ import { sendDueNotices } from "./notices";
 import { advanceWithRules } from "./rules";
 import { advanceSplit } from "./splits";
 import { activeTransferIds, openReservationIds } from "./transfers";
+import { findLateBurns, relayStrayBurns } from "./crossPay";
 import { findLatePayments } from "./visitorPayments";
 
 export type SweepResult = { transfers: number; splits: number; errors: number };
@@ -51,6 +52,20 @@ export async function sweep(ctx: Ctx, limit = 25): Promise<SweepResult> {
   } catch (err) {
     result.errors++;
     console.error("[sweep] late visitor payments", err);
+  }
+
+  try {
+    result.transfers += await findLateBurns(ctx, limit);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] late cross-chain burns", err);
+  }
+
+  try {
+    await relayStrayBurns(ctx, limit);
+  } catch (err) {
+    result.errors++;
+    console.error("[sweep] stray cross-chain burns", err);
   }
 
   const confirmed = ctx.db

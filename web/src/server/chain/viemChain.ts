@@ -11,9 +11,10 @@ import {
   type Log,
 } from "viem";
 import { transmitterAbi } from "../crosschain/cctp";
+import { crossPayAbi } from "../crosschain/crossPayAbi";
 import { splitsRouterAbi } from "./abi";
 import { freshTransport } from "./freshness";
-import type { ChainReader, OnchainSplit, RouterReceipt } from "./types";
+import type { ChainReader, CrossOutcome, OnchainSplit, RouterReceipt } from "./types";
 
 export type ViemChainOptions = {
   chainId: number;
@@ -148,6 +149,34 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
         if (logs[0]) return logs[0].transactionHash;
       }
       return null;
+    },
+
+    async crossPayOutcome(contract, ref, payer, fromBlock): Promise<CrossOutcome | null> {
+      const latest = await client.getBlockNumber();
+      for (let from = fromBlock; from <= latest; from += LOG_CHUNK) {
+        const to = from + LOG_CHUNK - 1n < latest ? from + LOG_CHUNK - 1n : latest;
+        const range = { address: contract, abi: crossPayAbi, args: { ref, payer }, fromBlock: from, toBlock: to } as const;
+        const [paid] = await client.getContractEvents({ ...range, eventName: "CrossPaid" });
+        if (paid) return { kind: "paid", txHash: paid.transactionHash, feeBack: paid.args.feeBack! };
+        const [refunded] = await client.getContractEvents({ ...range, eventName: "Refunded" });
+        if (refunded) {
+          const r = await client.getTransactionReceipt({ hash: refunded.transactionHash });
+          const owed = parseEventLogs({ abi: crossPayAbi, eventName: "Owed", logs: r.logs }).some(
+            (l) => l.address.toLowerCase() === contract.toLowerCase() && l.args.payer.toLowerCase() === payer.toLowerCase(),
+          );
+          return { kind: "refunded", txHash: refunded.transactionHash, amount: refunded.args.amount!, owed };
+        }
+      }
+      return null;
+    },
+
+    async crossPayWiring(contract) {
+      const code = await client.getCode({ address: contract });
+      if (!code || code === "0x") return null;
+      const read = (functionName: "usdc" | "transmitter" | "router" | "tokenMessenger") =>
+        client.readContract({ address: contract, abi: crossPayAbi, functionName });
+      const [usdc, transmitter, router, tokenMessenger] = await Promise.all([read("usdc"), read("transmitter"), read("router"), read("tokenMessenger")]);
+      return { usdc, transmitter, router, tokenMessenger };
     },
 
     async receipt(txHash) {

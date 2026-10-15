@@ -1,4 +1,8 @@
 import type { Ctx } from "./context";
+import { SOURCE_CHAINS, type ChainKey } from "./crosschain/chains";
+import type { CrossPayment } from "./db/schema";
+import { crossMessage } from "./services/crossMessages";
+import { crossCallFor } from "./services/crossPay";
 import type { Action } from "./services/actions";
 import type { EarnMove } from "./services/earn";
 import type { ProviderTxRow } from "./services/providerTx";
@@ -147,7 +151,7 @@ export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { em
 }
 
 /** A visitor's payment, for the /p/<token> page. Carries what their wallet needs to pay it. */
-export function visitorPaymentView(ctx: Ctx, t: Transfer, receipts: string[] | null) {
+export function visitorPaymentView(ctx: Ctx, t: Transfer, receipts: string[] | null, cross: CrossPayment | null = null) {
   return {
     ...transferView(ctx, t, [], receipts),
     token: t.visitorToken,
@@ -157,5 +161,41 @@ export function visitorPaymentView(ctx: Ctx, t: Transfer, receipts: string[] | n
     ref: t.ref,
     router: ctx.router,
     usdc: ctx.usdc,
+    cross: cross ? crossPayView(ctx, t, cross) : null,
+  };
+}
+
+/** A chain's name as the payer sees it: "Base", or "Base testnet" off mainnet. */
+export function chainLabel(ctx: Ctx, key: string): string {
+  const name = SOURCE_CHAINS[key as ChainKey]?.name ?? key;
+  return ctx.crossChain.network === "testnet" ? `${name} testnet` : name;
+}
+
+/**
+ * Where a payment from another chain is: the four steps, the message to show, links on both chains,
+ * and (only while nothing has been burned yet) the burn the payer's wallet still has to send.
+ */
+function crossPayView(ctx: Ctx, t: Transfer, cp: CrossPayment) {
+  const name = chainLabel(ctx, cp.chain);
+  const state = crossMessage(t, cp, name);
+  const chain = SOURCE_CHAINS[cp.chain as ChainKey];
+  const canPay = cp.phase === "awaiting_burn" && t.status === "awaiting_wallet" && !cp.burnTxHash;
+  return {
+    chain: cp.chain,
+    chainName: name,
+    phase: cp.phase,
+    step: state.step,
+    tone: state.tone,
+    message: state.text,
+    burnTxHash: cp.burnTxHash,
+    burnUrl: cp.burnTxHash && chain ? `${chain.explorer[ctx.crossChain.network]}/tx/${cp.burnTxHash}` : null,
+    relayTxHash: cp.relayTxHash,
+    relayUrl: txUrl(ctx, cp.relayTxHash),
+    feeBack: cp.feeBack ? formatUsdc(BigInt(cp.feeBack)) : null,
+    refundAmount: cp.refundAmount ? formatUsdc(BigInt(cp.refundAmount)) : null,
+    owed: cp.phase === "owed",
+    crossPay: ctx.crossPay?.address ?? null,
+    canPay,
+    call: canPay ? crossCallFor(ctx, t, cp) : null,
   };
 }

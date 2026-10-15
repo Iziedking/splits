@@ -24,6 +24,10 @@ export type SourceChain = {
   minUnits: bigint;
   rpc: PerNet<string>;
   explorer: PerNet<string>;
+  /** EVM chain id, checked against the RPC at startup. */
+  chainId: PerNet<number>;
+  /** The token the chain's network fee is paid in. */
+  gas: string;
 };
 
 export const ARC_DOMAIN = 26;
@@ -47,6 +51,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://mainnet.base.org", testnet: "https://sepolia.base.org" },
     explorer: { mainnet: "https://basescan.org", testnet: "https://sepolia.basescan.org" },
+    chainId: { mainnet: 8453, testnet: 84532 },
+    gas: "ETH",
   },
   arb: {
     key: "arb",
@@ -58,6 +64,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://arb1.arbitrum.io/rpc", testnet: "https://sepolia-rollup.arbitrum.io/rpc" },
     explorer: { mainnet: "https://arbiscan.io", testnet: "https://sepolia.arbiscan.io" },
+    chainId: { mainnet: 42161, testnet: 421614 },
+    gas: "ETH",
   },
   op: {
     key: "op",
@@ -69,6 +77,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://mainnet.optimism.io", testnet: "https://sepolia.optimism.io" },
     explorer: { mainnet: "https://optimistic.etherscan.io", testnet: "https://sepolia-optimism.etherscan.io" },
+    chainId: { mainnet: 10, testnet: 11155420 },
+    gas: "ETH",
   },
   matic: {
     key: "matic",
@@ -80,6 +90,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://polygon-rpc.com", testnet: "https://rpc-amoy.polygon.technology" },
     explorer: { mainnet: "https://polygonscan.com", testnet: "https://amoy.polygonscan.com" },
+    chainId: { mainnet: 137, testnet: 80002 },
+    gas: "POL",
   },
   avax: {
     key: "avax",
@@ -91,6 +103,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://api.avax.network/ext/bc/C/rpc", testnet: "https://api.avax-test.network/ext/bc/C/rpc" },
     explorer: { mainnet: "https://snowtrace.io", testnet: "https://testnet.snowtrace.io" },
+    chainId: { mainnet: 43114, testnet: 43113 },
+    gas: "AVAX",
   },
   uni: {
     key: "uni",
@@ -102,6 +116,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://mainnet.unichain.org", testnet: "https://sepolia.unichain.org" },
     explorer: { mainnet: "https://uniscan.xyz", testnet: "https://sepolia.uniscan.xyz" },
+    chainId: { mainnet: 130, testnet: 1301 },
+    gas: "ETH",
   },
   monad: {
     key: "monad",
@@ -113,6 +129,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: DOLLAR,
     rpc: { mainnet: "https://rpc.monad.xyz", testnet: "https://testnet-rpc.monad.xyz" },
     explorer: { mainnet: "https://monadvision.com", testnet: "https://testnet.monadexplorer.com" },
+    chainId: { mainnet: 143, testnet: 10143 },
+    gas: "MON",
   },
   eth: {
     key: "eth",
@@ -125,6 +143,8 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     minUnits: 20n * DOLLAR,
     rpc: { mainnet: "https://ethereum-rpc.publicnode.com", testnet: "https://ethereum-sepolia-rpc.publicnode.com" },
     explorer: { mainnet: "https://etherscan.io", testnet: "https://sepolia.etherscan.io" },
+    chainId: { mainnet: 1, testnet: 11155111 },
+    gas: "ETH",
   },
 };
 
@@ -143,4 +163,13 @@ export function chainByCircleCode(code: string): { chain: SourceChain; network: 
     if (chain.circle.testnet === code) return { chain, network: "testnet" };
   }
   return null;
+}
+
+/** The chains named in CROSS_PAY_CHAINS, in that order. A name that isn't an EVM chain stops startup. */
+export function crossPayChains(keys: string[]): SourceChain[] {
+  return keys.map((k) => {
+    const chain = SOURCE_CHAINS[k as ChainKey];
+    if (!chain) throw new Error(`CROSS_PAY_CHAINS: "${k}" is not an EVM chain (${Object.keys(SOURCE_CHAINS).join(", ")})`);
+    return chain;
+  });
 }

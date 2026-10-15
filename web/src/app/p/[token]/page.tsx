@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as React from "react";
 import { Backdrop } from "@/components/app/backdrop";
+import { CrossProgress } from "@/components/app/cross-progress";
+import { CrossWalletSteps } from "@/components/app/cross-wallet-steps";
 import { Landed } from "@/components/app/landed";
 import { VisitorHeader } from "@/components/app/visitor-header";
 import { Loader } from "@/components/app/loader";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
-import { api, errorMessage, type VisitorPaymentView } from "@/lib/api";
+import { api, errorMessage, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
+import { burnSent, CROSS_WALLET_TEXT } from "@/lib/wallet/crossFlow";
 import { nextPoll } from "@/lib/wallet/flow";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +28,11 @@ export default function VisitorPayment() {
   const { token } = useParams<{ token: string }>();
   const [p, setP] = React.useState<VisitorPaymentView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [config, setConfig] = React.useState<VisitorConfig | null>(null);
+
+  React.useEffect(() => {
+    api<VisitorConfig>("/api/visitor/config").then(setConfig).catch(() => undefined);
+  }, []);
 
   React.useEffect(() => {
     let stopped = false;
@@ -51,7 +59,7 @@ export default function VisitorPayment() {
     };
   }, [token]);
 
-  const night = p?.status === "verifying";
+  const night = p?.status === "verifying" && !p.cross;
   return (
     <div className={cn("min-h-screen", night && "text-white")}>
       <Backdrop tone={night ? "night" : "day"} />
@@ -90,6 +98,29 @@ export default function VisitorPayment() {
               aside={<EmailReceipt token={token} />}
             />
           </>
+        ) : p.cross ? (
+          <div className="enter space-y-4 pt-6 lg:max-w-md">
+            <h1 className="text-[2rem] leading-tight font-extrabold">{p.cross.canPay ? `Pay from ${p.cross.chainName}` : "On its way to Arc"}</h1>
+            <p className="text-muted-foreground">${p.amount}, from {p.cross.chainName}, paid out on Arc. This link keeps working if you close it.</p>
+            {p.cross.canPay && burnSent(typeof window === "undefined" ? null : window.localStorage, token) ? (
+              <Notice>{CROSS_WALLET_TEXT.sentWaiting(p.cross.chainName)}</Notice>
+            ) : p.cross.canPay && p.cross.call && config ? (
+              <div className="surface p-5">
+                <CrossWalletSteps
+                  config={config}
+                  payment={p}
+                  call={p.cross.call}
+                  cost={null}
+                  chainName={p.cross.chainName}
+                  gas={config.crossPay?.chains.find((c) => c.key === p.cross?.chain)?.gas ?? "gas"}
+                  onBurned={(hash) => void api("/api/visitor/burn", { body: { token, txHash: hash } }).then((r) => setP((r as { payment: VisitorPaymentView }).payment)).catch(() => undefined)}
+                  onPending={() => setP({ ...p })}
+                />
+              </div>
+            ) : (
+              <CrossProgress cross={p.cross} payer={p.payer} config={config} />
+            )}
+          </div>
         ) : p.status === "verifying" ? (
           <div className="enter pt-6">
             <h1 className="text-[2rem] leading-tight font-extrabold">Sending…</h1>

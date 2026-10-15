@@ -98,6 +98,9 @@ const schema = z
     // (base, arb, op, matic, avax, uni, monad, eth); only chains with an active Gas Station
     // policy belong here. Preview mode offers base, arb and op when this is empty.
     DEPOSIT_CHAINS: z.string().default(""),
+    // Cross-chain pay: visitors pay from these chains through SplitsCrossPay. Empty keeps it off.
+    CROSS_PAY_CHAINS: z.string().default(""),
+    CROSS_PAY_ADDRESS: address.optional(),
     // Optional RPC per source chain, "base=https://…,arb=https://…"; public endpoints otherwise.
     SOURCE_RPCS: z.string().default(""),
     // Circle's attestation service; defaults to mainnet or sandbox to match the network.
@@ -115,6 +118,9 @@ const schema = z
   })
   .superRefine((env, ctx) => {
     if (env.SPLITS_MODE !== "live") return;
+    if (env.CROSS_PAY_CHAINS.trim() && !env.CROSS_PAY_ADDRESS) {
+      ctx.addIssue({ code: "custom", path: ["CROSS_PAY_ADDRESS"], message: "required when CROSS_PAY_CHAINS lists chains on a live server" });
+    }
     const testnet = env.CIRCLE_BLOCKCHAIN === "ARC-TESTNET";
     const required = [
       "CIRCLE_API_KEY",

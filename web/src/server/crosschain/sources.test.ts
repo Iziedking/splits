@@ -8,7 +8,7 @@ import { ensureDepositWallet } from "../services/depositWallets";
 import { testCtx } from "../testing";
 import { encodeApprove, encodeDepositForBurn, encodeReceiveMessage, maxFeeFor, parseBurnMessage } from "./cctp";
 import { CCTP, SOURCE_CHAINS } from "./chains";
-import { sumUsdcTransfers } from "./reader";
+import { burnsInReceipt, sumUsdcTransfers } from "./reader";
 
 const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
@@ -111,5 +111,13 @@ describe("reading an inbound USDC transfer from a receipt", () => {
     expect(
       sumUsdcTransfers([log(usdc, to, 3_000_000n), log(usdc, to, 2_000_000n), log(fakeToken, to, 9n), log(usdc, "0x00000000000000000000000000000000000000f1", 7n)], usdc, to),
     ).toBe(5_000_000n);
+  });
+});
+
+describe("reading a burn on its source chain", () => {
+  it("reads only TokenMessenger burns from a source receipt", () => {
+    const receipt = { status: "success" as const, from: "0x00000000000000000000000000000000000000aa" as Address, logs: [] };
+    expect(burnsInReceipt(receipt, CCTP.testnet.tokenMessenger, 7)).toEqual({ status: "success", from: getAddress(receipt.from), nonce: 7, burns: [] });
+    expect(burnsInReceipt({ ...receipt, status: "reverted" }, CCTP.testnet.tokenMessenger, 7).burns).toEqual([]);
   });
 });

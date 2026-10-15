@@ -3,6 +3,8 @@ import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { encodeFunctionData, erc20Abi, getAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
 import { splitsRouterAbi } from "../chain/abi";
+import { routerRefFor } from "../crosschain/cctp";
+import { SOURCE_CHAINS, type ChainKey } from "../crosschain/chains";
 import type { OnchainLeg, RouterReceipt } from "../chain/types";
 import type { Ctx } from "../context";
 import { providerTxs, transfers, wallets, type ExpectedLeg, type TransferStatus } from "../db/schema";
@@ -15,6 +17,8 @@ import { confirmAction, createAction, type Action, type Confirmation } from "./a
 import { claimDraft, consumeDraft } from "./payouts";
 import { findProviderTx, refreshProviderTx, submitOnce } from "./providerTx";
 import { checkSendLimit, withSendLimitLock } from "./sendLimits";
+import { crossPaymentFor, stepCrossPay } from "./crossPay";
+import type { StepResult } from "./stepResult";
 import { expectedAmounts, getSplit, sharesUnderWhole } from "./splits";
 import { mainWallet, type User } from "./users";
 
@@ -286,7 +290,6 @@ async function reserveFunding(ctx: Ctx, t: Transfer): Promise<string | null> {
 
 // ------------------------------------------------------------------ the state machine
 
-type StepResult = { status: TransferStatus; patch?: Partial<Transfer> } | "wait";
 
 /**
  * Moves a payment forward as far as it can right now. Safe to call from anywhere, any number of
@@ -377,6 +380,11 @@ async function payerWallet(ctx: Ctx, t: Transfer): Promise<{ address: Address; p
 const fail = (lastError: string): StepResult => ({ status: "failed", patch: { lastError } });
 
 async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
+  if (t.funding === "cross_chain") {
+    if (!ctx.crossPay) return "wait"; // cross-chain pay is off on this server; the payment waits for it
+    if (t.status === "verifying") return verify(ctx, t);
+    return stepCrossPay(ctx, t);
+  }
   if (t.funding === "own_wallet") {
     if (t.status === "awaiting_wallet") {
       if (t.txHash) return { status: "verifying" };
@@ -510,10 +518,11 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
 async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
   if (!t.txHash) return "wait";
   const receipt = await ctx.chain.receipt(t.txHash as Hex);
-  if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt))) return recoverOwnWallet(ctx, t, receipt);
+  const on = await routerIdentity(ctx, t);
+  if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt, on))) return recoverOwnWallet(ctx, t, receipt);
   if (!receipt) return "wait";
   if (receipt.status !== "success") return fail(`Arc reverted the payment, so nobody was paid. ${SPONSORED_FEE}`);
-  if (!receiptMatches(t, receipt) || !(await ctx.chain.refUsed(t.payerAddress as Address, t.ref as Hex))) {
+  if (!receiptMatches(t, receipt, on) || !(await ctx.chain.refUsed(on.payer, on.ref))) {
     return fail("Onchain receipt does not match what was approved. Flagged for review.");
   }
   return { status: "settled", patch: { lastError: null } };
@@ -547,11 +556,23 @@ async function recoverOwnWallet(ctx: Ctx, t: Transfer, receipt: RouterReceipt | 
   return "wait";
 }
 
-function receiptMatches(t: Transfer, receipt: RouterReceipt): boolean {
+/**
+ * Who the router sees paying, and with which ref. SplitsCrossPay pays cross-chain splits, under a
+ * ref namespaced to the payer and source chain (its routerRef); everyone else pays their own.
+ */
+async function routerIdentity(ctx: Ctx, t: Transfer): Promise<{ payer: Address; ref: Hex }> {
+  if (t.funding !== "cross_chain") return { payer: t.payerAddress as Address, ref: t.ref as Hex };
+  const cp = await crossPaymentFor(ctx, t.id);
+  const chain = SOURCE_CHAINS[cp!.chain as ChainKey];
+  return { payer: ctx.crossPay!.address, ref: routerRefFor(chain.domain, t.payerAddress as Address, t.ref as Hex) };
+}
+
+function receiptMatches(t: Transfer, receipt: RouterReceipt, on: { payer: Address; ref: Hex }): boolean {
   if (receipt.status !== "success") return false;
-  const payer = t.payerAddress.toLowerCase();
-  const sent = receipt.splitSent.some((s) => s.ref.toLowerCase() === t.ref.toLowerCase() && s.payer.toLowerCase() === payer);
-  const paid = receipt.legPaid.filter((l) => l.ref.toLowerCase() === t.ref.toLowerCase());
+  const payer = on.payer.toLowerCase();
+  const ref = on.ref.toLowerCase();
+  const sent = receipt.splitSent.some((s) => s.ref.toLowerCase() === ref && s.payer.toLowerCase() === payer);
+  const paid = receipt.legPaid.filter((l) => l.ref.toLowerCase() === ref);
   const want = routerLegs(t);
   return (
     sent &&
