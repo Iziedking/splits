@@ -19,9 +19,9 @@ The same engine pays anyone who needs a payment divided: twenty giveaway winners
 | --- | --- |
 | **Pay one person or many** | By email or Arc address. Split a pot equally (to the cent) or set each amount. Up to 50 people in one transaction. |
 | **Saved splits** | "40% rent, 35% school fees, 25% upkeep", registered onchain once and reused every month. |
-| **Pay from another chain** | No USDC on Arc? Pay from Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche, Unichain or Monad with the same wallet. One burn there, and the split is paid on Arc in the same step that mints the money, or the payer is refunded on Arc. Live on Arc Testnet; switching on for mainnet. |
+| **Pay from another chain** | No USDC on Arc? Pay from Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche, Unichain or Monad with the same wallet. One burn there, and the split is paid on Arc in the same step that mints the money, or the payer is refunded on Arc. Live on Arc Testnet and mainnet. |
 | **Pay without an account** | Open [mysplits.xyz/send](https://mysplits.xyz/send) and pay straight from your own wallet: browser wallets or any WalletConnect wallet. You keep a private status link for the payment. |
-| **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. Claude Haiku 5.5 on Amazon Bedrock fills in the list; you check it and pay as usual. |
+| **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. An agent fills in the list; you check it and pay as usual. |
 | **Receipts per person** | Every recipient gets a private receipt showing only their part and what it was for. The sender chooses whose receipt to share. |
 | **Automatic splits** | A recipient can divide what they receive, such as "30% of everything into savings". It runs by itself when money arrives, deposits included. |
 | **Add money from other chains** | Your Splits address is the same on Arc, Base, Arbitrum and Optimism. Send USDC to it from any of them and it lands in your Arc balance by itself, moved with Circle's CCTP. |
@@ -114,7 +114,7 @@ It is deployed through the standard CREATE2 factory, so testnet and mainnet shar
 - **Paying from your own wallet:** [Reown AppKit](https://reown.com/appkit) with browser wallets and WalletConnect, loaded only on the pages that need it. The payment is reserved for 30 minutes and verified onchain by its reference, so a closed tab or a slow wallet never loses or doubles a payment.
 - **Splits fee:** 1.5% (2% from 10 recipients), paid by the sender on top and shown before approval. Set by the server's settings, fixed per payment when it is quoted, and never in the contract.
 - **Send limit:** until identity verification is added, nobody sends more than 500 USDC per payment or per rolling 24 hours, fee included. Visitors without an account have the same limit, tracked by wallet and email.
-- **Agentic mode:** signed-in only, 20 drafts a day per account and a global hourly cap. The model can only fill the list form: it never sees balances and never pays. Pasted text and screenshots are never stored or logged. Claude Haiku 5.5 was chosen over Nova 2 Lite after scoring 10 of 10 on a fixed test set that includes screenshots and an injection attempt.
+- **Agentic mode:** signed-in only, 20 drafts a day per account and a global hourly cap. The agent can only fill the list form: it never sees balances and never pays. Pasted text and screenshots are never stored or logged.
 - **Deposits from other chains:** see above. The chains are switched on per server (`DEPOSIT_CHAINS`), and each is checked against its CCTP contract when the server starts.
 - **Notifications:** in the app for everything, by email for the moments that matter (with a switch in Settings). Emails carry the Splits logo and are sent through Resend.
 - **Reading Arc:** through our own Arc node first, with Arc's public RPC as fallback. Every 30 seconds the app compares block heights and passes over any RPC that has fallen behind, so a lagging node can never show an old balance.
@@ -141,7 +141,7 @@ npm ci
 npm run dev
 ```
 
-Open http://localhost:3000. Preview mode shows the sign-in code on screen, and agentic mode uses a built-in stand-in instead of Bedrock.
+Open http://localhost:3000. Preview mode shows the sign-in code on screen, and agentic mode uses a built-in stand-in instead of the live agent.
 
 Tests:
 
@@ -166,9 +166,9 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 
 | Part | State |
 | --- | --- |
-| Contract | `SplitsRouter`: 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. `SplitsCrossPay`: 28 unit tests, a 20,000-run fuzz test, an invariant (the contract only ever holds refunds it owes) and 2 fork tests; reviewed twice; not deployed yet. |
+| Contract | `SplitsRouter`: 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. `SplitsCrossPay`: 28 unit tests, a 20,000-run fuzz test, an invariant (the contract only ever holds refunds it owes) and 2 fork tests; reviewed twice; deployed on Arc Testnet and mainnet. |
 | App | 381 tests, run on both PGlite and Postgres; 55 of 55 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
-| Pay from another chain | Live on Arc Testnet with all eight chains switched on: a payment from Base Sepolia paid three people on Arc in [one relay](https://explorer.testnet.arc.io/tx/0xa0a830ccae5ebc5ccdbc439f51d5bd31aac67f8419938e5a0ee3d2cbc68ac13f), with the unused part of Circle's fee sent back to the payer. Every failure case is tested in preview and the contract against Arc mainnet state. Mainnet: being switched on. |
+| Pay from another chain | Live on Arc Testnet with all eight chains switched on: a payment from Base Sepolia paid three people on Arc in [one relay](https://explorer.testnet.arc.io/tx/0xa0a830ccae5ebc5ccdbc439f51d5bd31aac67f8419938e5a0ee3d2cbc68ac13f), with the unused part of Circle's fee sent back to the payer. Every failure case is tested in preview and the contract against Arc mainnet state. Live on mainnet with the same eight chains. |
 | Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |
@@ -218,7 +218,7 @@ Money that sits in a Splits balance between payments could earn. The opt-in **Ea
 The engine behind the app checks a list, quotes the fee, pays everyone in one transaction and verifies the receipt on Arc. The same engine can work inside other products:
 
 - **Developer API.** Fintech, payroll and remittance apps create, check and send splits for their own users, and follow each payment to "Landed" with webhooks. They get divided payments and per-person receipts without building the contract or the payment engine themselves.
-- **MCP server.** AI agents and assistants (Claude, ChatGPT, agent frameworks) can draft a split from a conversation, check it and show the person exactly who gets what and the fee. The payment only goes out after the person approves it. This keeps the rule agentic mode follows today: the model fills in the list, and only the person can pay.
+- **MCP server.** AI agents and assistants (Claude, ChatGPT, agent frameworks) can draft a split from a conversation, check it and show the person exactly who gets what and the fee. The payment only goes out after the person approves it. This keeps the rule agentic mode follows today: the agent fills in the list, and only the person can pay.
 - **The same guarantees everywhere.** Everyone is paid in one transaction or nobody is, each part keeps its purpose onchain, and the same limits apply.
 
 Dividing a payment then becomes a building block that any payment flow can call, with programmable USDC on Arc underneath.
