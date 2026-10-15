@@ -19,5 +19,19 @@
     "blockGasLimit": 30000000,
     "measuredOn": "Arc mainnet fork, 2026-10-11"
   },
-  "firstGiveawayTx": "0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2"
+  "firstGiveawayTx": "0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2",
+  "crossPay": {
+    "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
+    "deployTx": "0x9d62d82a2307014fdc20b81bd6ad393745592dc9ef02945da613a081e5d7c99b",
+    "block": 67313748,
+    "constructor": {
+      "usdc": "0x3600000000000000000000000000000000000000",
+      "transmitter": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
+      "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
+      "tokenMessenger": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA"
+    },
+    "runtimeCodeKeccak": "0xa6f169bac8f28d431e87f9245a9275b99652a8078e1a2ee9298936dbe13d6dcc",
+    "deployer": "owner's Foundry keystore (no power over the contract: it has no owner)",
+    "verifiedAt": "2026-10-15T10:10:00Z"
+  }
 }

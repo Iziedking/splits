@@ -19,6 +19,7 @@ The same engine pays anyone who needs a payment divided: twenty giveaway winners
 | --- | --- |
 | **Pay one person or many** | By email or Arc address. Split a pot equally (to the cent) or set each amount. Up to 50 people in one transaction. |
 | **Saved splits** | "40% rent, 35% school fees, 25% upkeep", registered onchain once and reused every month. |
+| **Pay from another chain** | No USDC on Arc? Pay from Base, Ethereum, Arbitrum, Optimism, Polygon, Avalanche, Unichain or Monad with the same wallet. One burn there, and the split is paid on Arc in the same step that mints the money, or the payer is refunded on Arc. Live on Arc Testnet; switching on for mainnet. |
 | **Pay without an account** | Open [mysplits.xyz/send](https://mysplits.xyz/send) and pay straight from your own wallet: browser wallets or any WalletConnect wallet. You keep a private status link for the payment. |
 | **Describe it, I split it** | Agentic mode: paste rough text ("300 between ada@x.com, 0x12… and Tunde, Tunde gets double") or up to 3 screenshots of a chat or spreadsheet. Claude Haiku 5.5 on Amazon Bedrock fills in the list; you check it and pay as usual. |
 | **Receipts per person** | Every recipient gets a private receipt showing only their part and what it was for. The sender chooses whose receipt to share. |
@@ -65,6 +66,25 @@ Circle wallets keep the same address on every EVM chain, so the person's Arc add
 4. **The person is told** when it arrives and when it is ready, and their automatic split runs on it.
 
 Deposits under $1 wait until there is enough to move. Proven end to end on testnet from all three chains, and switched on for mainnet.
+
+## Paying from another chain
+
+```mermaid
+flowchart LR
+  A["Payer's wallet<br/>on Base, Ethereum, …"] -- "depositForBurnWithHook<br/>(the split rides in the hook)" --> B["Circle attestation"]
+  B -- "relay" --> C["SplitsCrossPay on Arc"]
+  C -- "mint, then pay()" --> D["SplitsRouter:<br/>every recipient paid"]
+  C -. "if it can't pay" .-> E["Refund to the payer<br/>on Arc"]
+```
+
+A visitor's USDC doesn't have to be on Arc. They pick the chain it's on, see the whole cost (the split, the Splits fee, Circle's fee at its most and their own network fee), and confirm once or twice in their wallet there. Nothing is signed on Arc.
+
+1. **One burn on their chain.** CCTP's `depositForBurnWithHook` names [`SplitsCrossPay`](contracts/src/SplitsCrossPay.sol) as both the only address that may receive the mint and the only one that may complete it, and carries the split in its hook data. Fast Transfer where the chain offers it; the payer covers Circle's fee, so recipients get exactly the split.
+2. **Checked where it happened.** The server reads the burn on the chain the payer chose, and trusts it only if the amount, the recipient, the caller and the hook all match the payment.
+3. **Paid in the mint.** Once Circle attests, the treasury relays it. In one Arc transaction the contract mints, pays every recipient through `SplitsRouter.pay`, and sends any unused part of Circle's fee back to the payer.
+4. **Refunded if it can't pay.** If a recipient can't receive, everything minted goes back to the payer on Arc; if even that is refused, it is held for them to claim. The contract has no owner and keeps nothing for itself.
+
+Slow wallets, sped-up transactions, a closed page, a second burn for the same payment, an expired attestation and an unreachable chain each have a defined outcome and a plain message.
 
 ## Why Arc
 
@@ -148,7 +168,7 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 | --- | --- |
 | Contract | `SplitsRouter`: 46 unit and fuzz tests; 14 of 14 deliberate bugs caught by the mutation check; 5 fork tests on Arc mainnet state, including the gas measurement and a plain wallet paying through the router. Verified (exact match) on Sourcify and the Arc explorer. `SplitsCrossPay`: 28 unit tests, a 20,000-run fuzz test, an invariant (the contract only ever holds refunds it owes) and 2 fork tests; reviewed twice; not deployed yet. |
 | App | 381 tests, run on both PGlite and Postgres; 55 of 55 deliberate bugs caught by the mutation check; an end-to-end API check over real HTTP (including a deposit from Base reaching the balance); the production image started and checked healthy, with its logo served, before release. |
-| Pay from another chain | Built: a visitor's wallet burns USDC on Base, Ethereum, Arbitrum or another CCTP chain and `SplitsCrossPay` pays the split on Arc in the same mint, or refunds the payer. Tested in preview (every failure case) and against Arc mainnet state; the contract is not deployed yet, and the feature is off until it is. |
+| Pay from another chain | Live on Arc Testnet with all eight chains switched on: a payment from Base Sepolia paid three people on Arc in [one relay](https://explorer.testnet.arc.io/tx/0xa0a830ccae5ebc5ccdbc439f51d5bd31aac67f8419938e5a0ee3d2cbc68ac13f), with the unused part of Circle's fee sent back to the payer. Every failure case is tested in preview and the contract against Arc mainnet state. Mainnet: being switched on. |
 | Deposits from other chains | Live on testnet from Base, Arbitrum and Optimism (three real deposits each, all moved to Arc); switched on for mainnet. |
 | Arc mainnet | Live at [mysplits.xyz](https://mysplits.xyz), deployed by the workflow above. |
 | Arc Testnet | Live staging, used for every change before mainnet. |
@@ -158,10 +178,10 @@ To run your own: copy [`web/.env.example`](web/.env.example), add a Circle API k
 
 ## Deployments
 
-| Network | SplitsRouter | Record |
-| --- | --- | --- |
-| Arc mainnet (5042) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`arc-mainnet.json`](deployments/arc-mainnet.json) |
-| Arc Testnet (5042002) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.testnet.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`arc-testnet.json`](deployments/arc-testnet.json) |
+| Network | SplitsRouter | SplitsCrossPay | Record |
+| --- | --- | --- | --- |
+| Arc mainnet (5042) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | Not deployed yet | [`arc-mainnet.json`](deployments/arc-mainnet.json) |
+| Arc Testnet (5042002) | [`0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2`](https://explorer.testnet.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2) | [`0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79`](https://explorer.testnet.arc.io/address/0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79) | [`arc-testnet.json`](deployments/arc-testnet.json) |
 
 The mainnet router was deployed in [`0x4e6e…750f`](https://explorer.arc.io/tx/0x4e6ec03354f5e5c6cb0ffe5d2010af145a3443e02bffe230be5a0ef282bc750f) from the app's Circle treasury wallet, with gas paid by Gas Station.
 
@@ -208,7 +228,6 @@ Dividing a payment then becomes a building block that any payment flow can call,
 - **Usernames:** pay `@tunde` instead of an email or address. Already recognised in lists, where they show "coming soon".
 - **Identity verification in the profile,** with names moving from sign-up to the profile, to raise the 500 USDC limit.
 - **Google sign-in,** landing on the same email account.
-- **Pay from any chain with your own wallet:** a connected wallet's USDC on another chain, bridged with CCTP and split in one flow.
 - **Solana deposits,** and more CCTP chains as their Gas Station support arrives.
 
 ## Things to know

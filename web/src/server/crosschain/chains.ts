@@ -88,7 +88,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     usdc: { mainnet: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", testnet: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582" },
     fast: false,
     minUnits: DOLLAR,
-    rpc: { mainnet: "https://polygon-rpc.com", testnet: "https://rpc-amoy.polygon.technology" },
+    rpc: { mainnet: "https://polygon-rpc.com", testnet: "https://polygon-amoy-bor-rpc.publicnode.com" },
     explorer: { mainnet: "https://polygonscan.com", testnet: "https://amoy.polygonscan.com" },
     chainId: { mainnet: 137, testnet: 80002 },
     gas: "POL",

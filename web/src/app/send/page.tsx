@@ -13,10 +13,10 @@ import { VisitorHeader } from "@/components/app/visitor-header";
 import { VisitorLimit } from "@/components/app/visitor-limit";
 import { WalletSteps } from "@/components/app/wallet-steps";
 import { Button } from "@/components/ui/button";
-import { Field, Notice } from "@/components/ui/field";
+import { Notice } from "@/components/ui/field";
 import { api, ApiError, errorMessage, type ContractLeg, type CrossCall, type CrossChainOption, type CrossCost, type Me, type PayoutCheck, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
 import { loadWalletBridge } from "@/lib/wallet/bridge";
-import { toUnits } from "@/lib/wallet/flow";
+import { rememberWallet, toUnits, walletRemembered } from "@/lib/wallet/flow";
 import { pickChain, readFunds, type ChainFunds } from "@/lib/wallet/sourceChains";
 import { cn } from "@/lib/utils";
 
@@ -46,12 +46,13 @@ export default function VisitorPay() {
   const [config, setConfig] = React.useState<VisitorConfig | null>(null);
   const [mode, setMode] = React.useState<"one" | "many">("one");
   const [check, setCheck] = React.useState<PayoutCheck | null>(null);
-  const [email, setEmail] = React.useState("");
   const [prepared, setPrepared] = React.useState<Prepared | null>(null);
   const [crossPrepared, setCrossPrepared] = React.useState<CrossPrepared | null>(null);
   const [payer, setPayer] = React.useState<`0x${string}` | null>(null);
   const [funds, setFunds] = React.useState<ChainFunds[] | null>(null);
   const [from, setFrom] = React.useState<string | null>(null);
+  /** The wallet connected on this device, restored from the last visit; shown so it's clear who pays. */
+  const [wallet, setWallet] = React.useState<`0x${string}` | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<{ text: string; limit: boolean } | null>(null);
   const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
@@ -60,6 +61,23 @@ export default function VisitorPay() {
     api<Me>("/api/me").then(() => router.replace("/pay")).catch(() => undefined);
     api<VisitorConfig>("/api/visitor/config").then(setConfig).catch((err) => setError({ text: errorMessage(err), limit: false }));
   }, [router]);
+
+  // A wallet connected here before comes back on its own, so Pay won't open the wallet sheet again.
+  React.useEffect(() => {
+    if (!config?.live || !projectId || !walletRemembered(storage())) return;
+    loadWalletBridge(config, projectId)
+      .then((b) => b.restore())
+      .then((account) => (account ? setWallet(account) : rememberWallet(storage(), false)))
+      .catch(() => undefined);
+  }, [config, projectId]);
+
+  async function switchWallet() {
+    if (!config || !projectId) return;
+    await (await loadWalletBridge(config, projectId)).disconnect().catch(() => undefined);
+    rememberWallet(storage(), false);
+    setWallet(null);
+    onChecked(check);
+  }
 
   function onChecked(next: PayoutCheck | null) {
     setCheck(next);
@@ -83,6 +101,8 @@ export default function VisitorPay() {
     setError(null);
     try {
       const account = await (await loadWalletBridge(config, projectId)).connect();
+      rememberWallet(storage(), true);
+      setWallet(account);
       if (!config.crossPay) return void (await reserve(account, "arc"));
       setPayer(account);
       const options = payOptions(config);
@@ -106,7 +126,7 @@ export default function VisitorPay() {
     setBusy(true);
     setError(null);
     try {
-      const body = { draftId: check.draft.id, draftHash: check.draft.hash, payer: account, email: email.trim() || null };
+      const body = { draftId: check.draft.id, draftHash: check.draft.hash, payer: account, email: null };
       if (key === "arc") setPrepared(await api<Prepared>("/api/visitor/prepare", { body }));
       else setCrossPrepared(await api<CrossPrepared>("/api/visitor/prepare", { body: { ...body, sourceChain: key } }));
     } catch (err) {
@@ -138,13 +158,15 @@ export default function VisitorPay() {
       <VisitorHeader config={config} wide />
       {/* One column on a phone. From lg (UI_BRIEF.md v5): the list on the left, its review and the
           payment on the right, so both stay in view. */}
-      <main className="enter mx-auto max-w-md px-5 pt-4 pb-16 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-10 lg:px-10">
+      <main className="enter mx-auto max-w-md px-5 pt-4 pb-16 lg:grid lg:max-w-5xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-x-10 lg:gap-y-6 lg:px-10">
+        {/* The heading spans both columns, so the list and its review start on the same line. */}
+        <div className="mb-6 lg:col-span-2 lg:mb-0">
+          <BackLink />
+          <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
+          <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
+        </div>
+
         <div className="space-y-6">
-          <div>
-            <BackLink />
-            <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
-            <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
-          </div>
 
           <div role="tablist" aria-label="Who gets paid" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
             {(["one", "many"] as const).map((m) => (
@@ -182,7 +204,6 @@ export default function VisitorPay() {
 
           {check?.ready && !prepared && !crossPrepared && !payer && (
             <div className="surface space-y-4 p-5">
-              <Field label="Email for your receipt (optional)" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
               {!config?.live ? (
                 <Notice>Wallet payments need a live server. This one is a preview.</Notice>
@@ -196,9 +217,18 @@ export default function VisitorPay() {
             </div>
           )}
 
+          {wallet && (
+            <p className="text-sm text-muted-foreground">
+              Paying from {wallet.slice(0, 6)}…{wallet.slice(-4)}.{" "}
+              <button type="button" onClick={() => void switchWallet()} className="font-semibold text-primary underline underline-offset-4">
+                Use another wallet
+              </button>
+            </p>
+          )}
+
           {payer && config && !prepared && !crossPrepared && (
             <div className="surface space-y-4 p-5">
-              <ChainPicker options={payOptions(config)} funds={funds} need={from ? needOn(from) : needOn("arc")} value={from} onChange={setFrom} />
+              <ChainPicker options={payOptions(config)} funds={funds} needOf={needOn} value={from} onChange={setFrom} />
               <Button className="w-full" busy={busy} disabled={!from} onClick={() => from && void reserve(payer, from)}>
                 Continue
               </Button>
@@ -231,4 +261,13 @@ export default function VisitorPay() {
       </main>
     </div>
   );
+}
+
+/** This device's storage, or null where it isn't available (private mode, server render). */
+function storage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
 }

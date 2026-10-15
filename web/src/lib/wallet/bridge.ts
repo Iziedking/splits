@@ -58,6 +58,8 @@ const allowanceAbi = [
 
 export type WalletBridge = {
   connect(): Promise<Address>;
+  /** The wallet the last visit left connected, once restored; undefined if there is none. */
+  restore(): Promise<Address | undefined>;
   /** The account the wallet has selected right now. */
   account(): Address | undefined;
   ensureArc(): Promise<void>;
@@ -144,6 +146,16 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
     },
   });
 
+  // Bring back the session the last visit left, without opening the sheet. Capped, so a wallet
+  // that never answers can't hold up a tap on Pay.
+  const restored = Promise.race([
+    core.reconnect(wagmi).then(
+      () => undefined,
+      () => undefined,
+    ),
+    new Promise<void>((r) => setTimeout(r, 3_000)),
+  ]);
+
   let sheetOpen = false;
   modal.subscribeState((state) => {
     sheetOpen = state.open;
@@ -159,7 +171,9 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
         open: async () => {
           await modal.open();
         },
+        restored: () => restored,
       }),
+    restore: () => restored.then(() => core.getAccount(wagmi).address),
     account: () => core.getAccount(wagmi).address,
     async ensureArc() {
       if (core.getAccount(wagmi).chainId !== config.chainId) await core.switchChain(wagmi, { chainId: config.chainId });

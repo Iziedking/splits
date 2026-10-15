@@ -47,9 +47,10 @@ describe("wallet errors", () => {
 });
 
 /** A fake wallet sheet: tests drive account changes and sheet closes by hand. */
-function fakeSheet(opts: { account?: `0x${string}`; closesDuringOpen?: boolean } = {}) {
+function fakeSheet(opts: { account?: `0x${string}`; closesDuringOpen?: boolean; savedSession?: `0x${string}` } = {}) {
   let account = opts.account;
   let open = false;
+  let opens = 0;
   const accountListeners = new Set<(a: `0x${string}` | undefined) => void>();
   const openListeners = new Set<(open: boolean) => void>();
   const deps: ConnectDeps = {
@@ -57,7 +58,13 @@ function fakeSheet(opts: { account?: `0x${string}`; closesDuringOpen?: boolean }
     watchAccount: (cb) => (accountListeners.add(cb), () => accountListeners.delete(cb)),
     watchOpen: (cb) => (openListeners.add(cb), () => openListeners.delete(cb)),
     isOpen: () => open,
+    // The wallet session the last visit left behind comes back a moment after the bridge loads.
+    restored: async () => {
+      await Promise.resolve();
+      if (opts.savedSession) account = opts.savedSession;
+    },
     open: async () => {
+      opens++;
       open = true;
       openListeners.forEach((cb) => cb(true));
       if (opts.closesDuringOpen) {
@@ -81,11 +88,18 @@ function fakeSheet(opts: { account?: `0x${string}`; closesDuringOpen?: boolean }
       account = a;
     },
     listeners: () => accountListeners.size + openListeners.size,
+    opens: () => opens,
   };
 }
 
 describe("connecting a wallet", () => {
   const addr = "0x00000000000000000000000000000000000000e1" as const;
+
+  it("uses the wallet the last visit left connected, without opening the sheet", async () => {
+    const sheet = fakeSheet({ savedSession: addr });
+    await expect(waitForAccount(sheet.deps)).resolves.toBe(addr);
+    expect(sheet.opens()).toBe(0);
+  });
 
   it("returns straight away when a wallet is already connected", async () => {
     await expect(waitForAccount(fakeSheet({ account: addr }).deps)).resolves.toBe(addr);
@@ -94,7 +108,7 @@ describe("connecting a wallet", () => {
   it("resolves when the person connects, and stops listening", async () => {
     const sheet = fakeSheet();
     const result = waitForAccount(sheet.deps);
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0)); // the sheet opens after the saved session is checked
     sheet.connect(addr);
     await expect(result).resolves.toBe(addr);
     expect(sheet.listeners()).toBe(0);
@@ -103,7 +117,7 @@ describe("connecting a wallet", () => {
   it("rejects when the sheet is closed without connecting", async () => {
     const sheet = fakeSheet();
     const result = waitForAccount(sheet.deps);
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0)); // the sheet opens after the saved session is checked
     sheet.close();
     await expect(result).rejects.toThrow("closed");
     expect(sheet.listeners()).toBe(0);
@@ -114,7 +128,7 @@ describe("connecting a wallet", () => {
     // sheet, the wallet reappears without a change event, and the person closes the sheet.
     const sheet = fakeSheet();
     const result = waitForAccount(sheet.deps);
-    await Promise.resolve();
+    await new Promise((r) => setTimeout(r, 0)); // the sheet opens after the saved session is checked
     sheet.reconnectQuietly(addr);
     sheet.close();
     await expect(result).resolves.toBe(addr);

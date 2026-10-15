@@ -43,6 +43,8 @@ export type ConnectDeps = {
   watchOpen(cb: (open: boolean) => void): () => void;
   isOpen(): boolean;
   open(): Promise<void>;
+  /** Settles once the session the last visit left (if any) has been restored, or given up on. */
+  restored?(): Promise<void>;
 };
 
 /**
@@ -50,9 +52,12 @@ export type ConnectDeps = {
  * person closes it first. Listeners go on before the sheet opens, and the state is checked once it
  * has, so a close at any moment is seen; every listener is removed when it settles.
  */
-export function waitForAccount(deps: ConnectDeps): Promise<Address> {
+export async function waitForAccount(deps: ConnectDeps): Promise<Address> {
+  // A wallet still connected from the last visit comes back by itself: wait for it rather than open
+  // the sheet, where some wallets refuse an account that is already linked.
+  await deps.restored?.();
   const now = deps.current();
-  if (now) return Promise.resolve(now);
+  if (now) return now;
   return new Promise<Address>((resolve, reject) => {
     let done = false;
     const finish = (fn: () => void) => {
@@ -94,4 +99,25 @@ export function nextPoll(status: string, createdAt: string, now = new Date()): n
   if (status === "settled" || status === "failed") return null;
   if (status === "cancelled") return now.getTime() - new Date(createdAt).getTime() < LATE_WINDOW_MS ? 5000 : null;
   return 1200;
+}
+
+const SESSION_KEY = "splits:wallet-session";
+type FlagStore = { getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void };
+
+/** Whether this device connected a wallet here before, so the page can restore it on load. */
+export function walletRemembered(storage: FlagStore | null): boolean {
+  try {
+    return storage?.getItem(SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function rememberWallet(storage: FlagStore | null, on: boolean) {
+  try {
+    if (on) storage?.setItem(SESSION_KEY, "1");
+    else storage?.removeItem(SESSION_KEY);
+  } catch {
+    // Storage off: the wallet still reconnects when Pay is tapped.
+  }
 }
