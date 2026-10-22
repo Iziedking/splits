@@ -20,7 +20,7 @@ concurrency:
   group: splits-production-${{ github.ref }}
   cancel-in-progress: false
 env:
-  NODE_VERSION: "22.23.3"
+  NODE_VERSION: "22.23.4"
   # Arc's Foundry fork: USDC on Arc checks a blocklist precompile stock Foundry doesn't know.
   ARC_FOUNDRY_URL: https://github.com/circlefin/arc-foundry/releases/download/v0.8.0-2/arc-foundry-v0.8.0-2-x86_64-unknown-linux-gnu.tar.gz
   ARC_FOUNDRY_SHA256: 088bdb96a84418b757f9825d491e702792f1d1d1e29a9145af305a6600a79556
