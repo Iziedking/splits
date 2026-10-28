@@ -21,17 +21,28 @@
   },
   "firstGiveawayTx": "0x70ffeac219fdcaf6b29a56eb1dc56687b9149cee46714626d8330606adf4ccc2",
   "crossPay": {
-    "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
-    "deployTx": "0x9d62d82a2307014fdc20b81bd6ad393745592dc9ef02945da613a081e5d7c99b",
-    "block": 67313748,
+    "address": "0x2BC1a255672e7cf8Dd09e77Fe8dD0a0962aE2116",
+    "deployTx": "0x68c33ddf98065131da2461ca56cd327025cd5eb3eb41145617c3f44c8146cef1",
+    "block": 69558996,
     "constructor": {
       "usdc": "0x3600000000000000000000000000000000000000",
       "transmitter": "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275",
       "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
       "tokenMessenger": "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA"
     },
-    "runtimeCodeKeccak": "0xa6f169bac8f28d431e87f9245a9275b99652a8078e1a2ee9298936dbe13d6dcc",
+    "runtimeCodeKeccak": "0x17c57161a2bd177ce6480a275068780d01f32c26beb9d5a563b27f299eb94fbd",
     "deployer": "owner's Foundry keystore (no power over the contract: it has no owner)",
-    "verifiedAt": "2026-10-15T10:10:00Z"
+    "sourcify": {
+      "match": "exact_match",
+      "url": "https://sourcify.dev/server/v2/contract/5042002/0x2BC1a255672e7cf8Dd09e77Fe8dD0a0962aE2116"
+    },
+    "verifiedAt": "2026-10-28T20:46:19Z",
+    "previous": {
+      "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
+      "deployTx": "0x9d62d82a2307014fdc20b81bd6ad393745592dc9ef02945da613a081e5d7c99b",
+      "block": 67313748,
+      "runtimeCodeKeccak": "0xa6f169bac8f28d431e87f9245a9275b99652a8078e1a2ee9298936dbe13d6dcc",
+      "note": "Pre-audit source; replaced 2026-10-29 by the 2026-10-28 audit fixes. Still relays and claims for payments burned to it."
+    }
   }
 }

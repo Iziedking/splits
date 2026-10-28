@@ -11,18 +11,29 @@
   "nextSplitId": "1",
   "verifiedAt": "2026-10-12T07:15:10.554Z",
   "crossPay": {
-    "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
-    "deployTx": "0xdc9ab7be82042785f7e7f51470195af55b75582ad655ab29f3c1e72e63742eb9",
-    "block": 26087705,
+    "address": "0xf7b93B07296bEEaE73060A70Ef5F1b07Da7f1ec1",
+    "deployTx": "0x256fb04deff92ece55539e33dc780b7233ce0103b4935a9882222eb97d16ffd0",
+    "block": 28382030,
     "constructor": {
       "usdc": "0x3600000000000000000000000000000000000000",
       "transmitter": "0x81D40F21F12A8F0E3252Bccb954D722d4c464B64",
       "router": "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2",
       "tokenMessenger": "0x28b5a0e9C621a5BadaA536219b3a228C8168cf5d"
     },
-    "runtimeCodeKeccak": "0x3b8fa30c85b097887098845940810dd7b8c2403351602d498f4c157c8cd61883",
-    "note": "Same address as on Arc Testnet: same deployer account and nonce. Runtime code differs only in the immutable CCTP addresses.",
+    "runtimeCodeKeccak": "0xe1d774a31bd7a0f5c90b9f0c6bc2e91e19d9d3d6d6be4f83e917ffcc63c941d4",
+    "note": "Runtime code equals the Arc Testnet deployment except the immutable CCTP addresses.",
     "deployer": "owner's Foundry keystore (no power over the contract: it has no owner)",
-    "verifiedAt": "2026-10-15T11:30:00Z"
+    "sourcify": {
+      "match": "exact_match",
+      "url": "https://sourcify.dev/server/v2/contract/5042/0xf7b93B07296bEEaE73060A70Ef5F1b07Da7f1ec1"
+    },
+    "verifiedAt": "2026-10-28T23:14:44Z",
+    "previous": {
+      "address": "0xB018A94bbC5Ce6272FB16BC8Db3d802C8ebA0e79",
+      "deployTx": "0xdc9ab7be82042785f7e7f51470195af55b75582ad655ab29f3c1e72e63742eb9",
+      "block": 26087705,
+      "runtimeCodeKeccak": "0x3b8fa30c85b097887098845940810dd7b8c2403351602d498f4c157c8cd61883",
+      "note": "Pre-audit source; replaced 2026-10-29 by the 2026-10-28 audit fixes. Still relays and claims for payments burned to it."
+    }
   }
 }
