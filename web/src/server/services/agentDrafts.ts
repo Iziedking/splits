@@ -50,18 +50,24 @@ export async function draftPayout(
   if (!perAccount) {
     throw tooMany("TOO_MANY_DRAFTS", `You've used today's ${ctx.limits.agentDraftsPerDay} drafts. More at ${windowEnds(ctx, DAY)} UTC.`);
   }
-  // The hourly cap counts model calls, so it bounds cost exactly; a busy refusal gives the person's draft back.
-  const modelCallAllowed = () => hitRateLimit(ctx, "agent:all", ctx.limits.agentDraftsGlobalPerHour, HOUR);
-  if (!(await modelCallAllowed())) {
+  // The hourly and daily caps count model calls, so they bound cost exactly (a full hour can't
+  // repeat all day); a busy refusal gives the person's draft back.
+  const modelCallAllowed = async (): Promise<"ok" | "hour" | "day"> => {
+    if (!(await hitRateLimit(ctx, "agent:all", ctx.limits.agentDraftsGlobalPerHour, HOUR))) return "hour";
+    if (!(await hitRateLimit(ctx, "agent:all:day", ctx.limits.agentDraftsGlobalPerDay, DAY))) return "day";
+    return "ok";
+  };
+  const allowed = await modelCallAllowed();
+  if (allowed !== "ok") {
     await refundRateHit(ctx, accountKey, DAY);
-    throw tooMany("TOO_MANY_DRAFTS", `Agentic mode is busy right now. Try again at ${windowEnds(ctx, HOUR)} UTC.`);
+    throw tooMany("TOO_MANY_DRAFTS", `Agentic mode is busy right now. Try again at ${windowEnds(ctx, allowed === "hour" ? HOUR : DAY)} UTC.`);
   }
 
   const started = Date.now();
   const usage = { input: 0, output: 0 };
   let draft: AgentDraft | null = null;
   for (let attempt = 0; attempt < 2 && !draft; attempt++) {
-    if (attempt > 0 && !(await modelCallAllowed())) throw unavailable("AGENT_UNAVAILABLE", UNAVAILABLE);
+    if (attempt > 0 && (await modelCallAllowed()) !== "ok") throw unavailable("AGENT_UNAVAILABLE", UNAVAILABLE);
     let result: DraftResult;
     try {
       result = await withTimeout((signal) => model.draft(input, signal), opts.timeoutMs ?? 20_000);

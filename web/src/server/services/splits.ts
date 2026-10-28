@@ -55,6 +55,12 @@ export async function draftSplit(ctx: Ctx, owner: User, input: SplitInput): Prom
       .where(eq(splits.autoForWalletId, input.autoForWalletId))
       .limit(1);
     if (existing) throw conflict("RULE_EXISTS", "That wallet already has an automatic split");
+    // A rule runs on every deposit without a PIN and outside the send limit, so it may only move
+    // money between the owner's own wallets. Paying anyone else is a payment, approved each time.
+    for (const leg of input.legs) {
+      if (leg.to.type !== "wallet") throw badRequest("RULE_OWN_WALLETS", "An automatic split can only move money between your own wallets");
+      await walletForUser(ctx, owner.id, leg.to.walletId);
+    }
   }
 
   const legs: StoredLeg[] = [];
@@ -163,8 +169,7 @@ function asUserError(err: unknown): unknown {
 }
 
 export async function confirmSplit(ctx: Ctx, owner: User, actionId: string, proof: Confirmation): Promise<Split> {
-  const action = await confirmAction(ctx, owner.id, actionId, proof);
-  if (action.type !== "create_split") throw badRequest("WRONG_ACTION", "That confirmation is not for a split");
+  const action = await confirmAction(ctx, owner.id, actionId, proof, "create_split", "That confirmation is not for a split");
   return advanceSplit(ctx, action.subjectId);
 }
 

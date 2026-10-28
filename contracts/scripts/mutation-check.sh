@@ -50,6 +50,23 @@ mutate "pay-skips-validation" "_validate(legs);
         _spendRef(ref);" "test_Pay_RevertWhen_LegInvalid"
 mutate "pay-drops-last-leg" "uint256 count = amounts.length;" "uint256 count = amounts.length - 1;" "test_Pay_FixedLegsPayEachWinnerExactly"
 
+# SplitsCrossPay (audit 2026-10-28): the same idea on a second file.
+cp "$BACKUP" "$SRC"
+SRC=src/SplitsCrossPay.sol
+BACKUP_CP="$(mktemp)"
+cp "$SRC" "$BACKUP_CP"
+trap 'cp "$BACKUP" src/SplitsRouter.sol; cp "$BACKUP_CP" src/SplitsCrossPay.sol; rm -f "$BACKUP" "$BACKUP_CP"' EXIT
+BACKUP_ROUTER="$BACKUP"
+BACKUP="$BACKUP_CP"
+mutate "cp-mint-recipient-unchecked" "!= address(this)) {
+            revert NotForThisContract();" "== address(0xdead)) {
+            revert NotForThisContract();" "test_BurnMintedToSomeoneElseCannotBeRelayed"
+mutate "cp-ref-by-refund-address" "routerRef(a.sourceDomain, a.burner, ref)" "routerRef(a.sourceDomain, refundTo, ref)" "test_CopyingAPayersRefAndRefundAddressNeitherSpendsNorSpeaksForIt"
+mutate "cp-refund-strands-money" "|| refundTo == address(this) || refundTo == address(usdc)" "" "test_RefundAddressThatWouldStrandMoneyFallsBackToTheBurner"
+mutate "cp-no-leg-cap" "if (legs.length > MAX_LEGS) {" "if (false) {" "test_TooManyLegsRefundsInsteadOfNeverFittingABlock"
+cp "$BACKUP" "$SRC"
+BACKUP="$BACKUP_ROUTER"
+
 if [ "$failures" -ne 0 ]; then
   echo "mutation check: $failures problem(s)"; exit 1
 fi

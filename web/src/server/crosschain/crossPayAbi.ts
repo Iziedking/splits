@@ -1,3 +1,6 @@
+/** SplitsCrossPay.MAX_LEGS: a hook with more legs is refunded, since its payout could never fit a block. */
+export const CROSS_PAY_MAX_LEGS = 300;
+
 /** SplitsCrossPay (contracts/src/SplitsCrossPay.sol): what the app calls and reads. */
 export const crossPayAbi = [
   { type: "function", name: "relay", stateMutability: "nonpayable", inputs: [{ name: "message", type: "bytes" }, { name: "attestation", type: "bytes" }], outputs: [] },

@@ -26,6 +26,34 @@ export type ViemChainOptions = {
 
 const LOG_CHUNK = 10_000n;
 
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+/**
+ * SplitsCrossPay's outcome for one CCTP message: the first CrossPaid or Refunded it emitted after the
+ * transmitter minted `nonce`, before any later mint in the same transaction. Anyone can burn with a
+ * hook naming someone else's ref and payer, so those are never what ties an event to a payment.
+ */
+export function outcomeAfterMint(txHash: Hex, logs: Log[], contract: Address, transmitter: Address, nonce: Hex): CrossOutcome | null {
+  const sorted = [...logs].sort((a, b) => (a.logIndex ?? 0) - (b.logIndex ?? 0));
+  const mints = parseEventLogs({ abi: transmitterAbi, eventName: "MessageReceived", logs: sorted }).filter((l) => same(l.address, transmitter));
+  const mine = mints.find((l) => same(l.args.nonce, nonce));
+  if (!mine) return null;
+  const start = mine.logIndex ?? 0;
+  const end = mints.find((l) => (l.logIndex ?? 0) > start)?.logIndex ?? Number.MAX_SAFE_INTEGER;
+  const ours = parseEventLogs({ abi: crossPayAbi, logs: sorted }).filter(
+    (l) => same(l.address, contract) && (l.logIndex ?? 0) > start && (l.logIndex ?? 0) < end,
+  );
+  for (const l of ours) {
+    if (l.eventName === "CrossPaid") return { kind: "paid", txHash, feeBack: l.args.feeBack };
+    if (l.eventName === "Refunded") {
+      const after = l.logIndex ?? 0;
+      const owed = ours.some((o) => o.eventName === "Owed" && (o.logIndex ?? 0) > after);
+      return { kind: "refunded", txHash, amount: l.args.amount, owed };
+    }
+  }
+  return null;
+}
+
 export function arcChain(opts: Pick<ViemChainOptions, "chainId" | "rpcUrls" | "explorerUrl">) {
   return defineChain({
     id: opts.chainId,
@@ -88,8 +116,8 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
     usdcAllowance: (owner, spender) =>
       client.readContract({ address: opts.usdc, abi: erc20Abi, functionName: "allowance", args: [owner, spender] }),
 
-    refUsed: (payer, ref) =>
-      client.readContract({ address: opts.router, abi: splitsRouterAbi, functionName: "refUsed", args: [payer, ref] }),
+    refUsed: (payer, ref, atBlock) =>
+      client.readContract({ address: opts.router, abi: splitsRouterAbi, functionName: "refUsed", args: [payer, ref], blockNumber: atBlock }),
 
     // Simulates a 1-cent transfer to `to`. On Arc the native balance is the USDC balance, so a
     // balance override funds the simulated sender and the answer never depends on the treasury's
@@ -151,20 +179,21 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
       return null;
     },
 
-    async crossPayOutcome(contract, ref, payer, fromBlock): Promise<CrossOutcome | null> {
+    async crossPayOutcome(contract, transmitter, nonce, fromBlock): Promise<CrossOutcome | null> {
       const latest = await client.getBlockNumber();
       for (let from = fromBlock; from <= latest; from += LOG_CHUNK) {
         const to = from + LOG_CHUNK - 1n < latest ? from + LOG_CHUNK - 1n : latest;
-        const range = { address: contract, abi: crossPayAbi, args: { ref, payer }, fromBlock: from, toBlock: to } as const;
-        const [paid] = await client.getContractEvents({ ...range, eventName: "CrossPaid" });
-        if (paid) return { kind: "paid", txHash: paid.transactionHash, feeBack: paid.args.feeBack! };
-        const [refunded] = await client.getContractEvents({ ...range, eventName: "Refunded" });
-        if (refunded) {
-          const r = await client.getTransactionReceipt({ hash: refunded.transactionHash });
-          const owed = parseEventLogs({ abi: crossPayAbi, eventName: "Owed", logs: r.logs }).some(
-            (l) => l.address.toLowerCase() === contract.toLowerCase() && l.args.payer.toLowerCase() === payer.toLowerCase(),
-          );
-          return { kind: "refunded", txHash: refunded.transactionHash, amount: refunded.args.amount!, owed };
+        const [minted] = await client.getContractEvents({
+          address: transmitter,
+          abi: transmitterAbi,
+          eventName: "MessageReceived",
+          args: { nonce },
+          fromBlock: from,
+          toBlock: to,
+        });
+        if (minted) {
+          const r = await client.getTransactionReceipt({ hash: minted.transactionHash });
+          return outcomeAfterMint(r.transactionHash, r.logs, contract, transmitter, nonce);
         }
       }
       return null;

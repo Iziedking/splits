@@ -20,14 +20,21 @@ interface IMessageTransmitterV2 {
 ///      the payer's own claim. USDC that reaches this contract any other way (a direct transfer, or
 ///      a burn without this contract as destinationCaller) is not tracked and stays here.
 ///      Hook data: abi.encode(uint8 version, address refundTo, Leg[] legs, uint256 payAmount, bytes32 ref).
+///      The payer is always the burner CCTP attests (the body's messageSender): it keys the router ref
+///      and is the payer in CrossPaid. The hook's refundTo only says where refunds and change go, so a
+///      stranger's burn can never spend, or speak for, another payer's ref.
 contract SplitsCrossPay is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     uint8 public constant HOOK_VERSION = 1;
+    /// @notice A hook with more legs is refunded: its payout could never fit in an Arc block, and a
+    ///         message whose relay always runs out of gas could never be minted or refunded.
+    uint256 public constant MAX_LEGS = 300;
 
     // CCTP V2 message layout: a 148-byte header, then the burn body.
     uint256 private constant SOURCE_DOMAIN = 4;
     uint256 private constant RECIPIENT = 76;
+    uint256 private constant MINT_RECIPIENT = 148 + 36;
     uint256 private constant MESSAGE_SENDER = 148 + 100;
     uint256 private constant HOOK_DATA = 148 + 228;
 
@@ -54,6 +61,7 @@ contract SplitsCrossPay is ReentrancyGuard {
     event CrossPaid(
         bytes32 indexed ref, address indexed payer, uint32 sourceDomain, uint256 payAmount, uint256 feeBack
     );
+    /// @dev `payer` is where the refund went: the hook's refundTo, or the burner.
     event Refunded(bytes32 indexed ref, address indexed payer, uint256 amount, uint8 reason);
     event Owed(address indexed payer, uint256 amount);
     event Claimed(address indexed payer, uint256 amount);
@@ -62,6 +70,7 @@ contract SplitsCrossPay is ReentrancyGuard {
     error RouterUsdcMismatch();
     error MessageTooShort();
     error NotABurn();
+    error NotForThisContract();
     error MintFailed();
     error NothingOwed();
     error OutOfGas();
@@ -91,6 +100,11 @@ contract SplitsCrossPay is ReentrancyGuard {
         if (address(uint160(uint256(bytes32(message[RECIPIENT:RECIPIENT + 32])))) != tokenMessenger) {
             revert NotABurn();
         }
+        // A burn minted to someone else brings nothing here, yet its hook would still emit events
+        // naming whatever ref and payer it chose.
+        if (address(uint160(uint256(bytes32(message[MINT_RECIPIENT:MINT_RECIPIENT + 32])))) != address(this)) {
+            revert NotForThisContract();
+        }
         uint256 before = usdc.balanceOf(address(this));
         if (!transmitter.receiveMessage(message, attestation)) revert MintFailed();
         _settle(
@@ -115,8 +129,8 @@ contract SplitsCrossPay is ReentrancyGuard {
         if (version != HOOK_VERSION) revert UnknownHookVersion(version);
     }
 
-    /// @notice The ref this contract pays the router with: each payer's refs are their own, so
-    ///         nobody can spend another payer's (public) ref first.
+    /// @notice The ref this contract pays the router with, keyed by the burner CCTP attests: each
+    ///         payer's refs are their own, so nobody can spend another payer's (public) ref first.
     function routerRef(uint32 sourceDomain, address payer, bytes32 ref) public pure returns (bytes32) {
         return keccak256(abi.encode(sourceDomain, payer, ref));
     }
@@ -146,38 +160,48 @@ contract SplitsCrossPay is ReentrancyGuard {
         try this.decodeHook(hook) returns (
             address refundTo, SplitsRouter.Leg[] memory legs, uint256 payAmount, bytes32 ref
         ) {
-            _pay(legs, payAmount, ref, refundTo == address(0) ? a.burner : refundTo, a);
+            _pay(legs, payAmount, ref, _usable(refundTo, a.burner), a);
         } catch {
             _starved(gasBefore);
             _refund(bytes32(0), _refundAddress(hook, a.burner), a.minted, BAD_HOOK);
         }
     }
 
-    function _pay(SplitsRouter.Leg[] memory legs, uint256 payAmount, bytes32 ref, address payer, Arrival memory a)
+    function _pay(SplitsRouter.Leg[] memory legs, uint256 payAmount, bytes32 ref, address refundTo, Arrival memory a)
         private
     {
         uint256 minted = a.minted;
-        uint32 sourceDomain = a.sourceDomain;
         if (minted < payAmount) {
-            _refund(ref, payer, minted, SHORT_MINT);
+            _refund(ref, refundTo, minted, SHORT_MINT);
+            return;
+        }
+        if (legs.length > MAX_LEGS) {
+            _refund(ref, refundTo, minted, PAY_FAILED);
             return;
         }
         for (uint256 i; i < legs.length; ++i) {
             // The router would "pay" this contract, leaving the money here with no owner.
             if (legs[i].recipient == address(this)) {
-                _refund(ref, payer, minted, PAY_FAILED);
+                _refund(ref, refundTo, minted, PAY_FAILED);
                 return;
             }
         }
         uint256 gasBefore = gasleft();
-        try this.payThrough(legs, payAmount, routerRef(sourceDomain, payer, ref)) {
+        try this.payThrough(legs, payAmount, routerRef(a.sourceDomain, a.burner, ref)) {
             uint256 back = minted - payAmount;
-            emit CrossPaid(ref, payer, sourceDomain, payAmount, back);
-            if (back > 0) _send(payer, back);
+            emit CrossPaid(ref, a.burner, a.sourceDomain, payAmount, back);
+            if (back > 0) _send(refundTo, back);
         } catch {
             _starved(gasBefore);
-            _refund(ref, payer, minted, PAY_FAILED);
+            _refund(ref, refundTo, minted, PAY_FAILED);
         }
+    }
+
+    /// @dev Where refunds and change go: the hook's address, unless it is unset or would strand the
+    ///      money (this contract, or the token itself), when they go back to the burner.
+    function _usable(address refundTo, address burner) private view returns (address) {
+        if (refundTo == address(0) || refundTo == address(this) || refundTo == address(usdc)) return burner;
+        return refundTo;
     }
 
     /// @dev A failure that left little more than the 1/64 reserve (out of gas, possibly a few calls
@@ -189,13 +213,13 @@ contract SplitsCrossPay is ReentrancyGuard {
     }
 
     /// @dev The refund address from a hook whose legs don't decode, when its first two words do.
-    function _refundAddress(bytes calldata hook, address burner) private pure returns (address) {
+    function _refundAddress(bytes calldata hook, address burner) private view returns (address) {
         if (hook.length < 64 || uint256(bytes32(hook[0:32])) != HOOK_VERSION) return burner;
         uint256 word = uint256(bytes32(hook[32:64]));
-        if (word == 0 || word > type(uint160).max) return burner;
+        if (word > type(uint160).max) return burner;
         // casting to 'uint160' is safe because word was checked to fit in 160 bits above
         // forge-lint: disable-next-line(unsafe-typecast)
-        return address(uint160(word));
+        return _usable(address(uint160(word)), burner);
     }
 
     function _refund(bytes32 ref, address payer, uint256 amount, uint8 reason) private {

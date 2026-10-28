@@ -16,7 +16,7 @@ import { splitsRouterAbi } from "../chain/abi";
 import type { ChainReader, OnchainSplit, RouterReceipt } from "../chain/types";
 import { allocate, SplitRuleError, validateLegs } from "../domain/allocation";
 import { burnAbi, burnWithHookAbi, decodeHook, FAST, parseBurnMessage, routerRefFor, STANDARD, toBytes32, transmitterAbi, type BurnLog } from "../crosschain/cctp";
-import { crossPayAbi } from "../crosschain/crossPayAbi";
+import { CROSS_PAY_MAX_LEGS, crossPayAbi } from "../crosschain/crossPayAbi";
 import { ARC_DOMAIN, CCTP, chainByCircleCode, SOURCE_CHAINS, type ChainKey, type SourceChain } from "../crosschain/chains";
 import type { Iris } from "../crosschain/iris";
 import type { SourceReader } from "../crosschain/reader";
@@ -53,7 +53,7 @@ type Effects = {
   /** SplitsCrossPay: refunds held for payers who couldn't receive them. */
   owed: Map<string, bigint>;
   /** SplitsCrossPay events this call emitted (stamped with the hash when it settles). */
-  cross: { ref: string; payer: string; kind: "paid" | "refunded"; feeBack: bigint; amount: bigint; owed: boolean }[];
+  cross: { nonce: string; ref: string; payer: string; kind: "paid" | "refunded"; feeBack: bigint; amount: bigint; owed: boolean }[];
 };
 
 type SourceTx = { chain: ChainKey; from: Address; nonce: number; burns: BurnLog[]; status: "success" | "reverted" | "dropped" | "pending" };
@@ -72,7 +72,7 @@ export class PreviewArc {
   private sourceTxs = new Map<string, SourceTx>();
   private sourceNonces = new Map<string, number>();
   private sourceCount = 0;
-  private crossEvents: { ref: string; payer: string; kind: "paid" | "refunded"; txHash: Hex; feeBack: bigint; amount: bigint; owed: boolean }[] = [];
+  private crossEvents: { nonce: string; ref: string; payer: string; kind: "paid" | "refunded"; txHash: Hex; feeBack: bigint; amount: bigint; owed: boolean }[] = [];
   private owed = new Map<string, bigint>();
   private reattested = new Set<string>();
   /** Test hook: every attestation stays "missing" or "pending" while set. */
@@ -245,10 +245,10 @@ export class PreviewArc {
       if (this.reattestFails) throw new Error("Iris reattest 500");
       this.reattested.add(nonce.toLowerCase());
     },
-    message: async (_domain, txHash) => {
+    message: async (_domain, txHash, matches) => {
       if (this.irisDown) throw new Error("Iris messages 503");
       const message = this.burns.get(txHash);
-      if (!message) return { status: "missing" };
+      if (!message || (matches && !matches(message))) return { status: "missing" };
       if (this.irisHold === "missing") return { status: "missing" };
       if (this.irisHold === "pending") {
         // A Fast burn that Circle had to take the standard way says why it is waiting.
@@ -421,13 +421,13 @@ export class PreviewArc {
       this.sent.find((s) => s.payer === payer.toLowerCase() && s.ref === ref.toLowerCase() && s.block >= fromBlock)?.txHash ??
       null,
     cctpNonceUsed: async (_transmitter, nonce) => this.usedNonces.has(nonce.toLowerCase()),
-    crossPayOutcome: async (contract, ref, payer) => {
+    crossPayOutcome: async (contract, _transmitter, nonce) => {
       if (contract.toLowerCase() !== this.crossPay.toLowerCase()) return null;
       if (this.crossOutcomeLag > 0) {
         this.crossOutcomeLag--;
         return null;
       }
-      const e = this.crossEvents.find((x) => x.ref === ref.toLowerCase() && x.payer === payer.toLowerCase());
+      const e = this.crossEvents.find((x) => x.nonce === nonce.toLowerCase());
       if (!e) return null;
       return e.kind === "paid" ? { kind: "paid", txHash: e.txHash, feeBack: e.feeBack } : { kind: "refunded", txHash: e.txHash, amount: e.amount, owed: e.owed };
     },
@@ -745,6 +745,7 @@ export class PreviewArc {
     const [message] = call.args;
     if (slice(message, 76, 108).toLowerCase() !== toBytes32(CCTP.testnet.tokenMessenger)) throw new Revert("NotABurn");
     const m = parseBurnMessage(message);
+    if (m.mintRecipient.toLowerCase() !== this.crossPay.toLowerCase()) throw new Revert("NotForThisContract");
     if (this.expireNextAttestation) {
       if (!this.reattested.has(m.nonce.toLowerCase())) throw new Revert("Message expired");
       this.expireNextAttestation = false;
@@ -753,14 +754,17 @@ export class PreviewArc {
     this.mintInto(fx, this.crossPay, message);
     const minted = (fx.balances.get(this.crossPay.toLowerCase()) ?? 0n) - before;
     const hook = decodeHook(m.hookData);
-    const payer = hook && hook.refundTo !== zeroAddress ? hook.refundTo : m.messageSender;
+    // The burner is who CCTP says burned; the hook's refund address only says where refunds go.
+    const payer = m.messageSender;
+    const unusable = (a: Address) => [zeroAddress, this.crossPay, this.usdc].some((x) => x.toLowerCase() === a.toLowerCase());
+    const refundTo = hook && !unusable(hook.refundTo) ? hook.refundTo : payer;
     const ref = hook?.ref ?? pad("0x00");
     const refund = () => {
-      const owed = this.sendOrOwe(fx, payer, minted);
-      fx.cross.push({ ref: ref.toLowerCase(), payer: payer.toLowerCase(), kind: "refunded", feeBack: 0n, amount: minted, owed });
+      const owed = this.sendOrOwe(fx, refundTo, minted);
+      fx.cross.push({ nonce: m.nonce.toLowerCase(), ref: ref.toLowerCase(), payer: refundTo.toLowerCase(), kind: "refunded", feeBack: 0n, amount: minted, owed });
       return fx;
     };
-    if (!hook || minted < hook.payAmount || hook.legs.some((l) => l.recipient.toLowerCase() === this.crossPay.toLowerCase())) return refund();
+    if (!hook || minted < hook.payAmount || hook.legs.length > CROSS_PAY_MAX_LEGS || hook.legs.some((l) => l.recipient.toLowerCase() === this.crossPay.toLowerCase())) return refund();
     const tried = this.branch(fx);
     try {
       tried.allowances.set(allowanceKey(this.crossPay, this.router), hook.payAmount);
@@ -772,8 +776,8 @@ export class PreviewArc {
     }
     Object.assign(fx, tried);
     const back = minted - hook.payAmount;
-    fx.cross.push({ ref: ref.toLowerCase(), payer: payer.toLowerCase(), kind: "paid", feeBack: back, amount: hook.payAmount, owed: false });
-    if (back > 0n) this.sendOrOwe(fx, payer, back);
+    fx.cross.push({ nonce: m.nonce.toLowerCase(), ref: ref.toLowerCase(), payer: payer.toLowerCase(), kind: "paid", feeBack: back, amount: hook.payAmount, owed: false });
+    if (back > 0n) this.sendOrOwe(fx, refundTo, back);
     return fx;
   }
 

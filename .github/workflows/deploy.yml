@@ -108,6 +108,7 @@ jobs:
             echo "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is not set; wallet payments are off in this image." >> "$GITHUB_STEP_SUMMARY"
           fi
           docker build \
+            --build-arg NODE_IMAGE="node:${NODE_VERSION}-bookworm-slim" \
             --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID="$WALLETCONNECT_PROJECT_ID" \
             -t "splits-api:$SHA" web
           mkdir -p bundle
@@ -184,6 +185,7 @@ jobs:
 
           health = json.load(open(sys.argv[1], encoding="utf-8"))
           assert health.get("ok") is True, f"Splits did not report ok: {health}"
+          assert health.get("mode") == "live", f"Splits is not in live mode: {health}"
           assert health.get("chainId") == 5042, f"unexpected chain: {health.get('chainId')}"
           print(f"mysplits.xyz healthy on {health.get('network')} (chain {health.get('chainId')}).")
           PY

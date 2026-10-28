@@ -32,8 +32,11 @@ export type Limits = {
   visitorDaily: bigint;
   visitorChecksPerHour: number;
   visitorChecksGlobalPerHour: number;
+  signinCodesPerIpPerHour: number;
+  signinCodesGlobalPerHour: number;
   agentDraftsPerDay: number;
   agentDraftsGlobalPerHour: number;
+  agentDraftsGlobalPerDay: number;
   /** Idle Earning-pocket USDC below this stays out of the vault. */
   earnDepositMin: bigint;
 };
@@ -101,6 +104,9 @@ export function limitsFromConfig(config: Config): Limits {
     visitorChecksGlobalPerHour: config.VISITOR_CHECKS_GLOBAL_PER_HOUR,
     agentDraftsPerDay: config.AGENT_DRAFTS_PER_DAY,
     agentDraftsGlobalPerHour: config.AGENT_DRAFTS_GLOBAL_PER_HOUR,
+    agentDraftsGlobalPerDay: config.AGENT_DRAFTS_GLOBAL_PER_DAY,
+    signinCodesPerIpPerHour: config.SIGNIN_CODES_PER_IP_PER_HOUR,
+    signinCodesGlobalPerHour: config.SIGNIN_CODES_GLOBAL_PER_HOUR,
     earnDepositMin: parseUsdc(config.EARN_DEPOSIT_MIN_USDC),
   };
 }

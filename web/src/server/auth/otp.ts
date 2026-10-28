@@ -1,5 +1,5 @@
 import { randomInt, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { otpCodes } from "../db/schema";
 import { emailSchema } from "../domain/email";
@@ -38,25 +38,29 @@ export async function issueLoginCode(db: Db, email: string, now: Date): Promise<
   return code;
 }
 
-/** Checks the newest live code. Wrong guesses count against it; five ends it. */
+/**
+ * Checks the newest live code. Every guess counts against it; five ends it. The attempt is reserved
+ * with an atomic increment before the comparison, so a burst of parallel guesses can't all be
+ * checked before the count catches up.
+ */
 export async function consumeLoginCode(db: Db, email: string, code: string, now: Date): Promise<boolean> {
   if (!/^\d{6}$/.test(code)) return false;
   const [row] = await db
-    .select()
+    .select({ id: otpCodes.id })
     .from(otpCodes)
     .where(and(eq(otpCodes.email, email), isNull(otpCodes.consumedAt), gt(otpCodes.expiresAt, now)))
     .orderBy(desc(otpCodes.createdAt))
     .limit(1);
-  if (!row || row.attempts >= MAX_ATTEMPTS) return false;
+  if (!row) return false;
+  const [reserved] = await db
+    .update(otpCodes)
+    .set({ attempts: sql`${otpCodes.attempts} + 1` })
+    .where(and(eq(otpCodes.id, row.id), isNull(otpCodes.consumedAt), lt(otpCodes.attempts, MAX_ATTEMPTS)))
+    .returning({ codeHash: otpCodes.codeHash });
+  if (!reserved) return false;
 
-  const ok = timingSafeEqual(Buffer.from(row.codeHash, "hex"), Buffer.from(hashCode(email, code), "hex"));
-  if (!ok) {
-    await db
-      .update(otpCodes)
-      .set({ attempts: sql`${otpCodes.attempts} + 1` })
-      .where(eq(otpCodes.id, row.id));
-    return false;
-  }
+  const ok = timingSafeEqual(Buffer.from(reserved.codeHash, "hex"), Buffer.from(hashCode(email, code), "hex"));
+  if (!ok) return false;
   // Conditional update so two simultaneous correct submissions can't both sign in.
   const consumed = await db
     .update(otpCodes)

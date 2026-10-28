@@ -33,6 +33,19 @@ export const transmitterAbi = [
   },
   { type: "function", name: "usedNonces", stateMutability: "view", inputs: [{ name: "nonce", type: "bytes32" }], outputs: [{ type: "uint256" }] },
   { type: "function", name: "localDomain", stateMutability: "view", inputs: [], outputs: [{ type: "uint32" }] },
+  // MessageTransmitterV2 (circlefin/evm-cctp-contracts, src/v2/MessageTransmitterV2.sol).
+  {
+    type: "event",
+    name: "MessageReceived",
+    inputs: [
+      { name: "caller", type: "address", indexed: true },
+      { name: "sourceDomain", type: "uint32", indexed: false },
+      { name: "nonce", type: "bytes32", indexed: true },
+      { name: "sender", type: "bytes32", indexed: false },
+      { name: "finalityThresholdExecuted", type: "uint32", indexed: true },
+      { name: "messageBody", type: "bytes", indexed: false },
+    ],
+  },
 ] as const;
 
 /** Fast Transfer attests at "confirmed" (1000); Standard waits for "finalized" (2000). */

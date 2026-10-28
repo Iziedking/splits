@@ -1,5 +1,6 @@
 import { createPublicKey, verify } from "node:crypto";
 import { eq, or } from "drizzle-orm";
+import { getAddress, isAddress, type Address } from "viem";
 import { z } from "zod";
 import type { Ctx } from "../context";
 import { depositWallets, providerTxs, transfers, wallets, webhookEvents } from "../db/schema";
@@ -11,6 +12,7 @@ import { recordInbound } from "./deposits";
 import { notifyPaymentOutcome } from "./paymentNotifications";
 import { createAutoTransfer, inboundKey } from "./rules";
 import { advanceTransfer } from "./transfers";
+import { walletByAddress } from "./users";
 
 /** ECDSA P-256 / SHA-256 over the raw body, as Circle documents. Never re-serialise the JSON first. */
 export function verifyCircleSignature(rawBody: string, signatureB64: string, publicKeyB64: string): boolean {
@@ -35,7 +37,26 @@ const inbound = z.object({
   transactionType: z.string().optional(),
   amounts: z.array(z.string()).min(1),
   txHash: z.string().optional(),
+  sourceAddress: z.string().optional(),
 });
+
+/**
+ * Money from the treasury, the Earning vault or any Splits wallet belongs to the top-up, Earning
+ * move or payment that sent it, which runs any rule itself. Only money from outside starts a rule
+ * here; otherwise a top-up, a withdrawal or a rule's own output could start a rule before the
+ * engine has recorded its hash.
+ */
+async function fromSplits(ctx: Ctx, source: string | undefined): Promise<boolean> {
+  if (!source || !isAddress(source, { strict: false })) return false;
+  const from = getAddress(source);
+  if (from === getAddress(ctx.treasuryAddress)) return true;
+  if (await walletByAddress(ctx, from)) return true;
+  if (ctx.earn) {
+    const vault: Address | null = await ctx.earn.vault().then((v) => getAddress(v.address), () => null);
+    if (vault === from) return true;
+  }
+  return false;
+}
 
 export type WebhookOutcome = "ignored" | "duplicate" | "processed";
 
@@ -83,6 +104,7 @@ export async function handleCircleWebhook(
 
   const [wallet] = await ctx.db.select().from(wallets).where(eq(wallets.providerWalletId, tx.data.walletId)).limit(1);
   if (!wallet) return "ignored";
+  if (await fromSplits(ctx, tx.data.sourceAddress)) return "ignored";
 
   // Money that arrived through our own router or top-ups is handled when that payment settles.
   if (tx.data.txHash) {
@@ -107,8 +129,14 @@ export async function handleCircleWebhook(
     throw err;
   }
 
-  // Keyed by the transaction hash, like the deposit engine's: a deposit is split once either way.
-  const childId = await createAutoTransfer(ctx, wallet, amount, tx.data.txHash ? inboundKey(tx.data.txHash) : deterministicUuid(`inbound:${tx.data.id}`));
-  if (childId) await notifyPaymentOutcome(ctx, await advanceTransfer(ctx, childId));
+  // Keyed by the transaction hash, like the deposit engine's and settled payments': split once either way.
+  try {
+    const childId = await createAutoTransfer(ctx, wallet, amount, tx.data.txHash ? inboundKey(tx.data.txHash) : deterministicUuid(`inbound:${tx.data.id}`));
+    if (childId) await notifyPaymentOutcome(ctx, await advanceTransfer(ctx, childId));
+  } catch (err) {
+    // Forget this delivery so Circle's retry runs the rule; the key makes a second run find the first.
+    await ctx.db.delete(webhookEvents).where(eq(webhookEvents.notificationId, event.notificationId));
+    throw err;
+  }
   return "processed";
 }

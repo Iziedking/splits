@@ -49,6 +49,9 @@ services:
     networks:
       - internal
       - deploy_default
+    # A non-root Node server on a high port needs no Linux capabilities and never escalates.
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     # Gives the in-process sweeper time to finish a tick on redeploy.
     stop_grace_period: 30s
     healthcheck:

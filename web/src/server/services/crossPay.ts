@@ -300,7 +300,11 @@ const landed = (tx: { status: string; rawState?: string | null; txHash?: string 
 async function stepAfterBurn(ctx: Ctx, t: Transfer, cp: CrossPayment, chain: SourceChain): Promise<StepResult> {
   const crossPay = ctx.crossPay!.address;
 
-  const outcome = await ctx.chain.crossPayOutcome(crossPay, t.ref as Hex, t.payerAddress as Address, t.fromBlock ?? 0n);
+  // Read only once this burn's own nonce is known: an event naming this payment's ref and payer
+  // proves nothing, since anyone can burn with a hook that copies them.
+  const outcome = cp.nonce
+    ? await ctx.chain.crossPayOutcome(crossPay, ctx.crossChain.cctp.messageTransmitter, cp.nonce as Hex, t.fromBlock ?? 0n)
+    : null;
   if (outcome?.kind === "paid") {
     await saveCross(ctx, cp, { phase: "paid", relayTxHash: outcome.txHash, feeBack: outcome.feeBack.toString(), lastError: null });
     return { status: "verifying", patch: { txHash: outcome.txHash } };
@@ -314,7 +318,8 @@ async function stepAfterBurn(ctx: Ctx, t: Transfer, cp: CrossPayment, chain: Sou
   if (cp.phase === "attesting") {
     let msg;
     try {
-      msg = await ctx.crossChain.iris.message(chain.domain, cp.burnTxHash as Hex);
+      // The burn transaction may hold other burns; ours is the one carrying this payment's hook.
+      msg = await ctx.crossChain.iris.message(chain.domain, cp.burnTxHash as Hex, (m) => keccak256(parseBurnMessage(m).hookData) === cp.hookHash.toLowerCase());
     } catch (err) {
       console.error(`[cross-pay] ${t.id}: Iris`, err);
       return attentionIfLate(ctx, t, cp);

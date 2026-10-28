@@ -75,9 +75,15 @@ export async function createAutoTransfer(
   return existing?.id ?? null;
 }
 
-/** The automatic split's key for money that arrived in one Arc transaction (webhook or deposit). */
+/** The automatic split's key for money that arrived in one Arc transaction (webhook, deposit or payment). */
 export const inboundKey = (txHash: string) => deterministicUuid(`inbound-tx:${txHash.toLowerCase()}`);
 
+/**
+ * Runs the recipients' rules on a settled payment. Keyed by the payment's Arc transaction, the same
+ * key Circle's inbound webhook uses, so whichever sees the money first runs the rule and the other
+ * finds it. Payments settled before this key change have their split under the payment's id, and
+ * opening an old receipt calls this again, so that older split is looked for first.
+ */
 export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]> {
   if ((parent.kind !== "send" && parent.kind !== "pay") || parent.status !== "settled") return [];
   const received = new Map<string, bigint>();
@@ -89,7 +95,12 @@ export async function triggerRules(ctx: Ctx, parent: Transfer): Promise<string[]
   for (const [address, amount] of received) {
     const wallet = await walletByAddress(ctx, address as Address);
     if (!wallet || wallet.id === parent.payerWalletId) continue;
-    const id = await createAutoTransfer(ctx, wallet, amount, parent.id);
+    const [legacy] = await ctx.db
+      .select({ id: transfers.id })
+      .from(transfers)
+      .where(and(eq(transfers.parentTransferId, parent.id), eq(transfers.payerWalletId, wallet.id)))
+      .limit(1);
+    const id = legacy?.id ?? (await createAutoTransfer(ctx, wallet, amount, parent.txHash ? inboundKey(parent.txHash) : parent.id));
     if (id) created.push(id);
   }
   return created;

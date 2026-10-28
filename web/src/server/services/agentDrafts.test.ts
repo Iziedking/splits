@@ -74,6 +74,15 @@ describe("agent drafts", () => {
     });
   });
 
+  it("stops at the global daily cap, so a full hourly cap can't run all day", async () => {
+    const { ctx, user, clock } = await setup({ AGENT_DRAFTS_GLOBAL_PER_HOUR: "5", AGENT_DRAFTS_GLOBAL_PER_DAY: "2" });
+    await draftPayout(ctx, user, { text: `${A1}, 1`, files: [] });
+    clock.advance(60 * 60_000);
+    await draftPayout(ctx, user, { text: `${A1}, 1`, files: [] });
+    clock.advance(60 * 60_000);
+    expect(await failure(draftPayout(ctx, user, { text: `${A1}, 1`, files: [] }))).toMatchObject({ status: 429, code: "TOO_MANY_DRAFTS" });
+  });
+
   it("doesn't spend the person's daily draft when the service is busy", async () => {
     const { ctx, user, clock } = await setup({ AGENT_DRAFTS_GLOBAL_PER_HOUR: "1", AGENT_DRAFTS_PER_DAY: "1" });
     const { user: bola } = await signedInUser(ctx, "bola@example.com");

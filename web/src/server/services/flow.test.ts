@@ -11,7 +11,7 @@ import { transferView } from "../views";
 import { activityFor } from "./activity";
 import { checkPayout } from "./payouts";
 import { receiptByToken, receiptLinks } from "./receipts";
-import { advanceWithRules } from "./rules";
+import { advanceWithRules, createAutoTransfer, inboundKey } from "./rules";
 import { advanceSplit, confirmSplit, draftSplit, splitsFor, type SplitInput } from "./splits";
 import { sweep } from "./sweeper";
 import {
@@ -204,15 +204,94 @@ describe("receiver-side automatic splits", () => {
     // Nobody is watching the sister's automatic split; the sweeper finishes it.
     await settleEverything(ctx);
 
-    const autos = await ctx.db.select().from(transfers).where(eq(transfers.parentTransferId, parent.id));
+    const autos = await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"));
     expect(autos).toHaveLength(1);
+    // Keyed by the Arc transaction, the key Circle's inbound webhook uses for the same money.
+    expect(autos[0]!.parentTransferId).toBe(inboundKey(parent.txHash!));
     expect(autos[0]!.status).toBe("settled");
     expect(await ctx.chain.usdcBalance(savings.address as Address)).toBe(950_000n); // 30% of 3.18, rounded down to the cent
     expect(await ctx.chain.usdcBalance(sisterMain.address as Address)).toBe(2_230_000n);
 
     // Driving the parent again must not start a second automatic split.
     await advanceWithRules(ctx, parent.id);
-    expect(await ctx.db.select().from(transfers).where(eq(transfers.parentTransferId, parent.id))).toHaveLength(1);
+    expect(await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"))).toHaveLength(1);
+  });
+
+  it("runs the rule once when Circle's webhook for the same money comes first", async () => {
+    const { ctx } = await testCtx();
+    const { user: ada } = await signedInUser(ctx, "ada@example.com");
+    const family = await activeSplit(ctx, ada);
+    const { user: sister, wallet: sisterMain } = await signedInUser(ctx, "sister@example.com");
+    const savings = await createPocket(ctx, sister, "Savings");
+    await activeSplit(ctx, sister, {
+      name: "Save 30%",
+      autoForWalletId: sisterMain.id,
+      legs: [
+        { name: "Savings", to: { type: "wallet", walletId: savings.id }, amount: { type: "percent", percent: 30 }, purpose: "savings" },
+        { name: "Spending", to: { type: "wallet", walletId: sisterMain.id }, amount: { type: "percent", percent: 70 }, purpose: "spending" },
+      ],
+    });
+    const parent = await pay(ctx, ada, family.id, 1000);
+    await settleEverything(ctx);
+    // The webhook's path for the same Arc transaction finds the split the settled payment started.
+    const fromWebhook = await createAutoTransfer(ctx, sisterMain, 3_180_000n, inboundKey(parent.txHash!));
+    const autos = await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"));
+    expect(autos.map((a) => a.id)).toEqual([fromWebhook]);
+  });
+
+  it("never runs the rule again for a payment whose split was keyed by the payment's id", async () => {
+    const { ctx } = await testCtx();
+    const { user: ada } = await signedInUser(ctx, "ada@example.com");
+    const family = await activeSplit(ctx, ada);
+    const { user: sister, wallet: sisterMain } = await signedInUser(ctx, "sister@example.com");
+    const savings = await createPocket(ctx, sister, "Savings");
+    await activeSplit(ctx, sister, {
+      name: "Save 30%",
+      autoForWalletId: sisterMain.id,
+      legs: [
+        { name: "Savings", to: { type: "wallet", walletId: savings.id }, amount: { type: "percent", percent: 30 }, purpose: "savings" },
+        { name: "Spending", to: { type: "wallet", walletId: sisterMain.id }, amount: { type: "percent", percent: 70 }, purpose: "spending" },
+      ],
+    });
+    const parent = await pay(ctx, ada, family.id, 1000);
+    await settleEverything(ctx);
+    // An older payment: its automatic split sits under the payment's id, as before the key changed.
+    await ctx.db.update(transfers).set({ parentTransferId: parent.id }).where(eq(transfers.kind, "auto"));
+    await advanceWithRules(ctx, parent.id); // opening the old receipt
+    expect(await ctx.db.select().from(transfers).where(eq(transfers.kind, "auto"))).toHaveLength(1);
+  });
+});
+
+describe("a send Circle reports as failed", () => {
+  it("settles when Arc shows it landed, even if a lagging node says the ref is unused", async () => {
+    const { ctx, arc } = await testCtx();
+    const { user, wallet } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    arc.mint(wallet.address as Address, 20_000_000n);
+    const sends = new Set<string>();
+    const lying: Ctx = {
+      ...ctx,
+      wallets: {
+        ...ctx.wallets,
+        execute: async (input) => {
+          const out = await ctx.wallets.execute(input);
+          if (input.refId.startsWith("send:")) sends.add(out.providerTxId);
+          return out;
+        },
+        // Circle says the send failed although it landed.
+        getTx: async (id) => {
+          const tx = await ctx.wallets.getTx(id);
+          return sends.has(id) && tx.status === "complete" ? { ...tx, status: "failed", rawState: "FAILED", error: "provider timeout" } : tx;
+        },
+      },
+      // A node behind the head answers "unused"; the read pinned to the receipt's block is right.
+      chain: { ...ctx.chain, refUsed: async (payer, ref, atBlock) => (atBlock === undefined ? false : ctx.chain.refUsed(payer, ref, atBlock)) },
+    };
+    const { transfer, action } = await quoteTransfer(lying, user, { splitId: split.id, fundWith: "balance", usdc: "10" });
+    await confirmTransfer(lying, user, action.id, { pin: TEST_PIN });
+    const t = await drive(lying, transfer.id);
+    expect(t.status).toBe("settled");
+    expect(sends.size).toBe(1);
   });
 });
 
@@ -240,6 +319,17 @@ describe("splits whose shares total under 100%", () => {
     expect(await balanceOf(ctx, "mum@example.com")).toBe(30_000_000n);
     expect(await balanceOf(ctx, "sister@example.com")).toBe(20_000_000n);
     expect(await ctx.chain.usdcBalance(wallet.address as Address)).toBe(100_000_000n - 50_750_000n);
+  });
+
+  it("lets an automatic split move money only between the owner's own wallets", async () => {
+    const { ctx } = await testCtx();
+    const { user, wallet } = await signedInUser(ctx, "ada@example.com");
+    const { wallet: theirs } = await signedInUser(ctx, "bea@example.com");
+    const leg = (to: SplitInput["legs"][number]["to"]) => ({ name: "Out", to, amount: { type: "percent" as const, percent: 100 }, purpose: "savings" });
+    const rule = (to: SplitInput["legs"][number]["to"]) => draftSplit(ctx, user, { name: "Forward", autoForWalletId: wallet.id, legs: [leg(to)] });
+    expect(await code(rule({ type: "email", email: "bea@example.com" }))).toBe("RULE_OWN_WALLETS");
+    expect(await code(rule({ type: "address", address: theirs.address }))).toBe("RULE_OWN_WALLETS");
+    expect(await code(rule({ type: "wallet", walletId: theirs.id }))).toBe("NOT_FOUND");
   });
 
   it("still requires 100% for an automatic split, which runs through the contract", async () => {
@@ -460,6 +550,14 @@ describe("confirmation", () => {
     expect(guesses).not.toContain("OK");
     expect(guesses.filter((c) => c === "PIN_WRONG").length).toBeLessThanOrEqual(4);
     expect(await code(confirmSplit(ctx, user, action.id, { pin: TEST_PIN }))).toBe("PIN_LOCKED");
+  });
+
+  it("refuses a confirmation sent to the wrong route without using the action up", async () => {
+    const { ctx } = await testCtx();
+    const { user } = await signedInUser(ctx, "ada@example.com");
+    const { action } = await draftSplit(ctx, user, familySplit);
+    expect(await code(confirmTransfer(ctx, user, action.id, { pin: TEST_PIN }))).toBe("WRONG_ACTION");
+    expect(await code(confirmSplit(ctx, user, action.id, { pin: TEST_PIN }))).toBe("OK");
   });
 
   it("expires an unconfirmed request after five minutes", async () => {

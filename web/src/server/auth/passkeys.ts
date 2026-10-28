@@ -11,18 +11,25 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { passkeyChallenges, passkeys } from "../db/schema";
 import { badRequest, forbidden } from "../errors";
+import { verifyPin } from "./pin";
 
 export type RelyingParty = { rpId: string; rpName: string; origin: string };
 
 const CHALLENGE_TTL_MS = 5 * 60_000;
 
-/** Face ID, Touch ID, fingerprint or a security key, always with user verification. */
+/**
+ * Face ID, Touch ID, fingerprint or a security key, always with user verification. A passkey
+ * approves payments, so adding one is approved with the PIN first (same lockout as a payment):
+ * without it no registration challenge exists, and a stolen session can't add its own passkey.
+ */
 export async function startPasskeyRegistration(
   db: Db,
   rp: RelyingParty,
   user: { id: string; email: string },
+  pin: string,
   now: Date,
 ) {
+  await verifyPin(db, user.id, pin, now);
   const existing = await db.select().from(passkeys).where(eq(passkeys.userId, user.id));
   const options = await generateRegistrationOptions({
     rpName: rp.rpName,

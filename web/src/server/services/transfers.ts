@@ -212,8 +212,7 @@ async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
 
 /** PIN or passkey moves the payment to confirmed. The caller then drives it with advanceWithRules. */
 export async function confirmTransfer(ctx: Ctx, user: User, actionId: string, proof: Confirmation): Promise<Transfer> {
-  const action = await confirmAction(ctx, user.id, actionId, proof);
-  if (action.type !== "transfer") throw badRequest("WRONG_ACTION", "That confirmation is not for a payment");
+  const action = await confirmAction(ctx, user.id, actionId, proof, "transfer", "That confirmation is not for a payment");
   const t = await getTransfer(ctx, action.subjectId);
   let moved: Transfer | undefined;
   try {
@@ -310,10 +309,8 @@ export async function advanceTransfer(ctx: Ctx, transferId: string, budgetMs = 1
     }
   } catch (err) {
     // An unexpected error (RPC down, provider 5xx) leaves the transfer where it was for a retry.
-    await ctx.db
-      .update(transfers)
-      .set({ lastError: err instanceof Error ? err.message.slice(0, 500) : "Unknown error" })
-      .where(eq(transfers.id, transferId));
+    // People see lastError, and an RPC error can carry a private node URL, so the detail stays in the log.
+    await ctx.db.update(transfers).set({ lastError: RETRYING }).where(eq(transfers.id, transferId));
     throw err;
   } finally {
     await ctx.db.update(transfers).set({ leaseUntil: null }).where(eq(transfers.id, transferId));
@@ -500,7 +497,15 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       if (await ctx.chain.refUsed(payer.address, t.ref as Hex)) {
         return row.txHash ? { status: "verifying", patch: { txHash: row.txHash } } : "wait";
       }
-      return fail(notSent(t, row.error ?? row.rawState, await minedAndReverted(ctx, row.txHash)));
+      // A transaction that reached Arc decides by its own receipt, not by one read of the ref that
+      // a lagging node can get wrong. "Nothing was sent" is said only once that's known.
+      if (row.txHash) {
+        const sent = await ctx.chain.receipt(row.txHash as Hex);
+        if (sent?.status === "success") return { status: "verifying", patch: { txHash: row.txHash } };
+        if (!sent && ctx.now().getTime() - row.createdAt.getTime() < UNSEEN_SEND_GRACE_MS) return "wait";
+        return fail(notSent(t, row.error ?? row.rawState, sent?.status === "reverted"));
+      }
+      return fail(notSent(t, row.error ?? row.rawState));
     }
 
     case "verifying":
@@ -522,11 +527,18 @@ async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
   if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt, on))) return recoverOwnWallet(ctx, t, receipt);
   if (!receipt) return "wait";
   if (receipt.status !== "success") return fail(`Arc reverted the payment, so nobody was paid. ${SPONSORED_FEE}`);
-  if (!receiptMatches(t, receipt, on) || !(await ctx.chain.refUsed(on.payer, on.ref))) {
+  // Read at the receipt's block: a fallback node a few blocks behind must not turn a landed payment into a failure.
+  if (!receiptMatches(t, receipt, on) || !(await ctx.chain.refUsed(on.payer, on.ref, receipt.blockNumber))) {
     return fail("Onchain receipt does not match what was approved. Flagged for review.");
   }
   return { status: "settled", patch: { lastError: null } };
 }
+
+/** What a payment shows while an unexpected error (logged on the server) is being retried. */
+export const RETRYING = "We couldn't reach the network for a moment. Trying again.";
+
+/** How long a send the provider calls failed, with a hash Arc hasn't shown yet, is waited on. */
+const UNSEEN_SEND_GRACE_MS = 10 * 60_000;
 
 /** Grace after a reservation ends before a hash that never appears is given up on. */
 const UNSEEN_HASH_GRACE_MS = 10 * 60_000;
@@ -589,11 +601,6 @@ const SPONSORED_FEE = "Splits covered Arc's network fee for the attempt.";
 export const OWN_WALLET_FEE = "Only Arc's network fee for the attempt left your wallet.";
 
 /** Whether the provider's failed call reached Arc: mined, then reverted. */
-async function minedAndReverted(ctx: Ctx, txHash: string | null): Promise<boolean> {
-  if (!txHash) return false;
-  return (await ctx.chain.receipt(txHash as Hex))?.status === "reverted";
-}
-
 /**
  * What the sender reads when the payout call failed. The caller has already checked onchain that
  * the ref is unused, so nobody was paid; the provider often reports only a generic reason, so the

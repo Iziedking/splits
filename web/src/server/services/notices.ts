@@ -1,7 +1,6 @@
 import { and, eq, isNull, lt, lte, or } from "drizzle-orm";
 import type { Ctx } from "../context";
 import { notices, transfers, users } from "../db/schema";
-import { greetingName } from "../../lib/format";
 import { formatUsdc } from "../domain/money";
 import type { Transfer } from "./transfers";
 
@@ -39,7 +38,7 @@ export async function queueNotices(ctx: Ctx, t: Transfer): Promise<number> {
 export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sent: number; failed: number }> {
   const now = ctx.now();
   const due = await ctx.db
-    .select({ n: notices, from: users.email, payerAddress: transfers.payerAddress, visitorEmail: transfers.visitorEmail, visitorToken: transfers.visitorToken })
+    .select({ n: notices, from: users.email, payerAddress: transfers.payerAddress, visitorToken: transfers.visitorToken })
     .from(notices)
     .innerJoin(transfers, eq(transfers.id, notices.transferId))
     .leftJoin(users, eq(users.id, transfers.payerUserId))
@@ -55,7 +54,7 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
 
   let sent = 0;
   let failed = 0;
-  for (const [i, { n, from, payerAddress, visitorEmail, visitorToken }] of due.entries()) {
+  for (const [i, { n, from, payerAddress, visitorToken }] of due.entries()) {
     if (i > 0 && ctx.mode === "live") await new Promise((r) => setTimeout(r, LIVE_GAP_MS));
     // Claim the notice first, so two sweeps running at once can't both send it.
     const [claimed] = await ctx.db
@@ -68,7 +67,9 @@ export async function sendDueNotices(ctx: Ctx, limit = PER_SWEEP): Promise<{ sen
       if (n.kind === "payer_receipt") {
         await ctx.email.sendReceiptLink(n.email, { amount: formatUsdc(BigInt(n.amount)), url: `${ctx.appUrl}/p/${visitorToken}` });
       } else await ctx.email.sendPaymentNotice(n.email, {
-        from: from ?? (visitorEmail ? greetingName(visitorEmail) : `${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}`),
+        // A visitor's email was typed, never verified, so it can't name the sender ("Coinbase sent
+        // you..."); their wallet address can. A signed-in payer's email was proven at sign-in.
+        from: from ?? `${payerAddress.slice(0, 6)}…${payerAddress.slice(-4)}`,
         amount: formatUsdc(BigInt(n.amount)),
         purpose: n.purpose,
         appUrl: ctx.appUrl,

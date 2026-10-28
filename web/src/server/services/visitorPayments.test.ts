@@ -282,6 +282,18 @@ describe("paying from your own wallet", () => {
     expect(ctx.previewEmail!.receipts).toEqual([{ to: "payer@example.com", amount: "2.00", url: `${ctx.appUrl}/p/${p.transfer.visitorToken}` }]);
   });
 
+  it("names a visitor in recipients' emails by wallet, never by the email they typed", async () => {
+    const { ctx, arc } = await testCtx();
+    arc.mint(me, 10_000_000n);
+    const p = await prepared(ctx, `sis@example.com, 2`, "coinbase@example.com");
+    await submitVisitorPayment(ctx, p.transfer.visitorToken!, payFromWallet(arc, p));
+    await drive(ctx, p.transfer.id);
+    await sweep(ctx);
+    await sweep(ctx);
+    const sent = ctx.previewEmail!.notices.find((n) => n.to === "sis@example.com");
+    expect(sent?.notice.from).toMatch(/^0x0000…00e1$/i);
+  });
+
   it("emails the visitor their receipt only once it has landed", async () => {
     const { ctx, arc } = await testCtx();
     arc.mint(me, 10_000_000n);

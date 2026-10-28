@@ -43,7 +43,8 @@ const schema = z
 
     // Simulated card top-up. The card payment is fake; the USDC it releases from the treasury is
     // real in live mode, so every limit here is a spend ceiling. FUNDING_ENABLED=false stops it.
-    FUNDING_ENABLED: bool.default(true),
+    // Unset, it is off on a live mainnet server (free real USDC must be asked for) and on elsewhere.
+    FUNDING_ENABLED: bool.optional(),
     FUNDING_MAX_PER_TOPUP_USDC: usdcAmount.default("25"),
     FUNDING_PER_USER_DAILY_USDC: usdcAmount.default("25"),
     FUNDING_GLOBAL_DAILY_USDC: usdcAmount.default("100"),
@@ -69,6 +70,10 @@ const schema = z
     VISITOR_CHECKS_PER_HOUR: z.coerce.number().int().min(1).default(20),
     // A backstop across all visitors together, since a visitor can drop cookies.
     VISITOR_CHECKS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(1000),
+    // Sign-in code emails, beyond five an hour per address: per client IP (behind our proxy) and in
+    // total, so nobody can mail codes to thousands of addresses on our sending domain.
+    SIGNIN_CODES_PER_IP_PER_HOUR: z.coerce.number().int().min(1).default(20),
+    SIGNIN_CODES_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(600),
 
     // The Splits fee, paid by the sender on top. Basis points; 0 and 0 turns fees off.
     FEE_BPS: z.coerce.number().int().min(0).max(1000).default(150),
@@ -77,7 +82,7 @@ const schema = z
     // Where fees land. Defaults to the treasury; a live mainnet server must set it.
     FEE_WALLET_ADDRESS: address.optional(),
 
-    // Behind the production proxy, the visitor's IP is the first x-forwarded-for hop.
+    // Behind the production proxy, the visitor's IP is the last x-forwarded-for hop (the one it appends).
     TRUST_PROXY: bool.default(false),
     // The RPC a visitor's wallet and browser use. ARC_RPC_URLS may be private to the server.
     ARC_PUBLIC_RPC_URL: z.url().optional(),
@@ -93,6 +98,8 @@ const schema = z
     AWS_REGION: z.string().min(1).default("us-east-1"),
     AGENT_DRAFTS_PER_DAY: z.coerce.number().int().min(1).default(20),
     AGENT_DRAFTS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(300),
+    // The daily ceiling on model calls across everyone, so a full hourly cap can't run all day.
+    AGENT_DRAFTS_GLOBAL_PER_DAY: z.coerce.number().int().min(1).default(1500),
 
     // Deposits from other chains, moved to Arc with CCTP V2. Comma list of chain keys
     // (base, arb, op, matic, avax, uni, monad, eth); only chains with an active Gas Station
@@ -158,7 +165,8 @@ const schema = z
     }
   });
 
-export type Config = z.infer<typeof schema> & {
+export type Config = Omit<z.infer<typeof schema>, "FUNDING_ENABLED"> & {
+  FUNDING_ENABLED: boolean;
   rpcUrls: string[];
   publicRpcUrl: string;
   rpId: string;
@@ -176,6 +184,7 @@ export function parseConfig(source: Record<string, string | undefined>): Config 
   const rpcUrls = env.ARC_RPC_URLS.split(",").map((u) => u.trim()).filter(Boolean);
   return {
     ...env,
+    FUNDING_ENABLED: env.FUNDING_ENABLED ?? !(env.SPLITS_MODE === "live" && env.CIRCLE_BLOCKCHAIN === "ARC"),
     rpcUrls,
     publicRpcUrl: env.ARC_PUBLIC_RPC_URL ?? rpcUrls[0]!,
     rpId: url.hostname,

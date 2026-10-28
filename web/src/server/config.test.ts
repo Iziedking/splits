@@ -97,6 +97,16 @@ describe("config", () => {
     expect(() => parseConfig({ FEE_MANY_BPS: "-1" })).toThrow("FEE_MANY_BPS");
   });
 
+  it("keeps the simulated card off on a live mainnet server unless it is turned on there", () => {
+    const mainnet = { ...liveKeys, DATABASE_URL: "postgres://x", RESEND_API_KEY: "r", FEE_WALLET_ADDRESS: "0x0000000000000000000000000000000000000002" };
+    expect(parseConfig(mainnet).FUNDING_ENABLED).toBe(false);
+    expect(parseConfig({ ...mainnet, FUNDING_ENABLED: "true" }).FUNDING_ENABLED).toBe(true);
+    expect(parseConfig({ SPLITS_MODE: "preview" }).FUNDING_ENABLED).toBe(true);
+    expect(
+      parseConfig({ ...liveKeys, CIRCLE_BLOCKCHAIN: "ARC-TESTNET", ARC_CHAIN_ID: "5042002", PGLITE_DIR: "/tmp/x", EMAIL_PROVIDER: "screen" }).FUNDING_ENABLED,
+    ).toBe(true);
+  });
+
   it("needs a fee wallet on a live mainnet server only", () => {
     expect(() => parseConfig({ ...liveKeys, DATABASE_URL: "postgres://x", RESEND_API_KEY: "r" })).toThrow(/FEE_WALLET_ADDRESS: required/);
     expect(() =>

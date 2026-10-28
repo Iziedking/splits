@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, ne } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { sessions, users } from "../db/schema";
 import { randomToken, sha256Hex } from "../domain/ids";
@@ -26,4 +26,10 @@ export async function userForSession(db: Db, token: string | undefined, now: Dat
 
 export async function endSession(db: Db, token: string) {
   await db.delete(sessions).where(eq(sessions.id, sha256Hex(token)));
+}
+
+/** Signs the user out everywhere except this session: after a PIN change or a new passkey. */
+export async function endOtherSessions(db: Db, userId: string, keepToken: string | undefined) {
+  const keep = keepToken ? sha256Hex(keepToken) : "";
+  await db.delete(sessions).where(and(eq(sessions.userId, userId), ne(sessions.id, keep)));
 }

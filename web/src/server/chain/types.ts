@@ -31,7 +31,8 @@ export type CrossOutcome = { kind: "paid"; txHash: Hex; feeBack: bigint } | { ki
 export interface ChainReader {
   usdcBalance(owner: Address): Promise<bigint>;
   usdcAllowance(owner: Address, spender: Address): Promise<bigint>;
-  refUsed(payer: Address, ref: Hex): Promise<boolean>;
+  /** At `atBlock` when given: a node that hasn't reached it errors instead of answering "unused". */
+  refUsed(payer: Address, ref: Hex, atBlock?: bigint): Promise<boolean>;
   /** True if `to` can receive USDC right now: simulates a 1-cent transfer from `from`, sends nothing. */
   canReceive(from: Address, to: Address): Promise<boolean>;
   getSplit(splitId: bigint): Promise<OnchainSplit | null>;
@@ -47,7 +48,11 @@ export interface ChainReader {
    * null if nothing yet. Matching the payer too means another burner's events that reuse the same
    * public ref are never mistaken for this payment.
    */
-  crossPayOutcome(contract: Address, ref: Hex, payer: Address, fromBlock: bigint): Promise<CrossOutcome | null>;
+  /**
+   * What SplitsCrossPay did with one CCTP message: found by the transmitter's mint of `nonce`, never
+   * by the ref and payer in the hook, which whoever burns can choose. Null until it is minted.
+   */
+  crossPayOutcome(contract: Address, transmitter: Address, nonce: Hex, fromBlock: bigint): Promise<CrossOutcome | null>;
   /** The contract's constructor values, or null if `contract` has no code there. */
   crossPayWiring(contract: Address): Promise<{ usdc: Address; transmitter: Address; router: Address; tokenMessenger: Address } | null>;
 }

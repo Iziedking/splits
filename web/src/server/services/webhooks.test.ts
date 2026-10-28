@@ -1,8 +1,9 @@
 import { generateKeyPairSync, sign } from "node:crypto";
+import { keccak256, stringToHex } from "viem";
 import { describe, expect, it } from "vitest";
 import { SOURCE_CHAINS } from "../crosschain/chains";
 import { deposits, transfers } from "../db/schema";
-import { testCtx } from "../testing";
+import { signedInUser, testCtx } from "../testing";
 import { ensureDepositWallet } from "./depositWallets";
 import { ensureUser } from "./users";
 import { handleCircleWebhook, verifyCircleSignature } from "./webhooks";
@@ -78,6 +79,25 @@ describe("Circle webhook handling", () => {
     expect(rows.map((d) => [d.status, d.amount])).toEqual([["detected", "5000000"]]);
     expect(await ctx.db.select().from(transfers)).toHaveLength(0);
   });
+  it("starts no rule for money from the treasury or another Splits wallet, only from outside", async () => {
+    const { ctx } = await testCtx();
+    const keys = signer();
+    const live = { ...ctx, webhookKey: async () => keys.spki };
+    const { wallet } = await signedInUser(ctx, "ada@example.com");
+    const { wallet: other } = await signedInUser(ctx, "bea@example.com");
+    const deliver = (id: string, sourceAddress: string) => {
+      const body = JSON.stringify({
+        notificationId: id,
+        notificationType: "transactions.inbound",
+        notification: { id, walletId: wallet.providerWalletId, blockchain: "ARC-TESTNET", state: "COMPLETE", amounts: ["5"], txHash: keccak256(stringToHex(id)), sourceAddress },
+      });
+      return handleCircleWebhook(live, body, { signature: keys.sign(body), keyId: "k" });
+    };
+    expect(await deliver("top-up", ctx.treasuryAddress)).toBe("ignored");
+    expect(await deliver("own-move", other.address.toLowerCase())).toBe("ignored");
+    expect(await deliver("from-outside", "0x00000000000000000000000000000000000000ee")).toBe("processed");
+  });
+
   it("lets Circle deliver a deposit again when its chain couldn't be read (final review I4)", async () => {
     const { ctx, arc } = await testCtx();
     const keys = signer();

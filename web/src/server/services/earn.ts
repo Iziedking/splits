@@ -129,8 +129,7 @@ export async function startMove(ctx: Ctx, user: User, kind: "in" | "out", amount
 }
 
 export async function confirmMove(ctx: Ctx, user: User, actionId: string, proof: Confirmation): Promise<EarnMove> {
-  const action = await confirmAction(ctx, user.id, actionId, proof);
-  if (action.type !== "earn_move") throw badRequest("WRONG_ACTION", "That confirmation is not for the Earning pocket");
+  const action = await confirmAction(ctx, user.id, actionId, proof, "earn_move", "That confirmation is not for the Earning pocket");
   const [move] = await ctx.db
     .update(earnMoves)
     .set({ status: "confirmed", updatedAt: ctx.now() })
@@ -190,7 +189,8 @@ export async function advanceMove(ctx: Ctx, moveId: string): Promise<EarnMove> {
     move = move.kind === "in" ? await stepIn(ctx, move) : await stepOut(ctx, ctx.earn, move);
   } catch (err) {
     console.error(`[earn] move ${move.id}`, err);
-    move = await update(ctx, move, { lastError: err instanceof Error ? err.message : String(err) });
+    // Shown to the person; the detail (which can name a private node) stays in the log above.
+    move = await update(ctx, move, { lastError: "We couldn't reach the network for a moment. Trying again." });
   } finally {
     await release(ctx, move.pocketWalletId);
   }

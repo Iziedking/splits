@@ -5,7 +5,7 @@ import { verifyPin } from "../auth/pin";
 import type { Ctx } from "../context";
 import { actions } from "../db/schema";
 import { randomToken } from "../domain/ids";
-import { conflict, notFound } from "../errors";
+import { badRequest, conflict, notFound } from "../errors";
 
 export type Action = typeof actions.$inferSelect;
 
@@ -59,14 +59,20 @@ export async function passkeyOptionsForAction(ctx: Ctx, userId: string, actionId
 
 export type Confirmation = { pin: string } | { passkey: AuthenticationResponseJSON };
 
-/** Checks the PIN or passkey, then marks the action confirmed exactly once. */
+/**
+ * Checks the PIN or passkey, then marks the action confirmed exactly once. The type is checked
+ * first, so a confirmation sent to the wrong route can't use up the action.
+ */
 export async function confirmAction(
   ctx: Ctx,
   userId: string,
   actionId: string,
   proof: Confirmation,
+  type: Action["type"],
+  wrongType: string,
 ): Promise<Action> {
   const action = await pendingAction(ctx, userId, actionId);
+  if (action.type !== type) throw badRequest("WRONG_ACTION", wrongType);
   const now = ctx.now();
   if ("pin" in proof) await verifyPin(ctx.db, userId, proof.pin, now);
   else await verifyPasskeyAssertion(ctx.db, ctx.rp, userId, action.challenge, proof.passkey);

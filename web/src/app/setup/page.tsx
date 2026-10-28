@@ -27,6 +27,8 @@ function Setup() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [passkeySupported, setPasskeySupported] = React.useState(false);
+  // True once this page saved the PIN, so the passkey step can use it without asking again.
+  const [pinKept, setPinKept] = React.useState(false);
 
   React.useEffect(() => setPasskeySupported(browserSupportsWebAuthn()), []);
 
@@ -40,6 +42,7 @@ function Setup() {
     setError(null);
     try {
       await api("/api/security/pin", { body: { pin } });
+      setPinKept(true);
       await refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -52,7 +55,7 @@ function Setup() {
     setBusy(true);
     setError(null);
     try {
-      await registerPasskey();
+      await registerPasskey(pin);
       await refresh();
       router.replace("/home");
     } catch (err) {
@@ -106,9 +109,23 @@ function Setup() {
           {!passkeySupported && <Notice>This browser can't use Face ID or fingerprint. You can add it later on your phone.</Notice>}
           {error && <Notice tone="error">{error}</Notice>}
           {passkeySupported && !me.user.hasPasskey && (
-            <Button className="w-full" busy={busy} onClick={() => void addPasskey()}>
-              Turn on Face ID or fingerprint
-            </Button>
+            <>
+              {/* After a reload the PIN chosen a moment ago is gone; adding a passkey is approved with it. */}
+              {!pinKept && (
+                <Field
+                  label="Your PIN"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={6}
+                  value={pin}
+                  onChange={(e) => setPin(digits(e.target.value))}
+                />
+              )}
+              <Button className="w-full" busy={busy} disabled={pin.length !== 6} onClick={() => void addPasskey()}>
+                Turn on Face ID or fingerprint
+              </Button>
+            </>
           )}
           <Button variant={passkeySupported ? "ghost" : "primary"} className="w-full" onClick={() => router.replace("/home")}>
             {me.user.hasPasskey ? "Continue" : "Not now"}

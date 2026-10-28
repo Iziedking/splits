@@ -113,6 +113,18 @@ describe("Iris client", () => {
     ).toEqual({ status: "complete", message: "0xaa", attestation: "0xbb" });
   });
 
+  it("picks this payment's burn from a transaction that holds several", async () => {
+    const two = reply(200, {
+      messages: [
+        { message: "0xaa", attestation: "0x01", status: "complete", delayReason: null },
+        { message: "0xbb", attestation: "0x02", status: "complete", delayReason: null },
+      ],
+    });
+    expect(await httpIris("https://iris.test", two).message(6, "0x01", (m) => m === "0xbb")).toEqual({ status: "complete", message: "0xbb", attestation: "0x02" });
+    expect(await httpIris("https://iris.test", two).message(6, "0x01", () => false)).toEqual({ status: "missing" });
+    expect(await httpIris("https://iris.test", two).message(6, "0x01")).toMatchObject({ message: "0xaa" });
+  });
+
   it("treats a rate limit as retryable", async () => {
     await expect(httpIris("https://iris.test", reply(429, {})).message(6, "0x01")).rejects.toThrow(/rate/i);
   });

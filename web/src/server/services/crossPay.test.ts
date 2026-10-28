@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { encodeFunctionData, erc20Abi, getAddress, keccak256, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { encodeDepositForBurnWithHook, encodeHook } from "../crosschain/cctp";
+import { encodeDepositForBurnWithHook, encodeHook, nonceOf } from "../crosschain/cctp";
 import { CCTP, SOURCE_CHAINS } from "../crosschain/chains";
 import { crossPayAbi } from "../crosschain/crossPayAbi";
 import type { Ctx } from "../context";
@@ -324,6 +324,27 @@ describe("after the burn", () => {
     arc.callFrom(stranger, ctx.crossPay!.address, encodeFunctionData({ abi: crossPayAbi, functionName: "relay", args: [msg.message, msg.attestation] }));
     const { t } = await drive(ctx, clock, p.transfer.id, 8);
     expect(t.status).toBe("settled");
+    expect(await ctx.chain.usdcBalance(F1)).toBe(6_000_000n);
+  });
+
+  it("isn't fooled by a stranger's burn that copies this payment's ref and payer (audit 2026-10-28)", async () => {
+    const { ctx, arc, clock, p } = await burned();
+    arc.irisHold = "pending";
+    // The stranger's hook names this payment's ref and this payer as the refund address, and pays
+    // the stranger. Its events carry the payer's ref; only the CCTP nonce says whose burn it was.
+    const stranger = getAddress("0x00000000000000000000000000000000000000dd");
+    const chain = SOURCE_CHAINS.base;
+    const hook = encodeHook([{ recipient: stranger, fixedAmount: 10_000n, shareBps: 0, purpose: p.transfer.ref as Hex }], 10_000n, p.transfer.ref as Hex, PAYER);
+    arc.fundSource("base", stranger, 20_000n);
+    arc.sourceCall("base", stranger, chain.usdc.testnet, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [CCTP.testnet.tokenMessenger, 20_000n] }));
+    const theirs = arc.sourceCall("base", stranger, CCTP.testnet.tokenMessenger, encodeDepositForBurnWithHook({ amount: 20_000n, burnToken: chain.usdc.testnet, maxFee: 2_000n, fast: true, hookData: hook, crossPay: ctx.crossPay!.address }));
+    arc.irisHold = null;
+    const msg = await arc.iris.message(6, theirs);
+    if (msg.status !== "complete") throw new Error("expected an attestation");
+    arc.callFrom(stranger, ctx.crossPay!.address, encodeFunctionData({ abi: crossPayAbi, functionName: "relay", args: [msg.message, msg.attestation] }));
+    const { t, cp } = await drive(ctx, clock, p.transfer.id, 8);
+    expect(t.status).toBe("settled");
+    expect(cp.nonce).not.toBe(nonceOf(msg.message));
     expect(await ctx.chain.usdcBalance(F1)).toBe(6_000_000n);
   });
 });

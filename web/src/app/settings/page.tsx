@@ -101,13 +101,15 @@ function Passkey({ hasPasskey, onAdded }: { hasPasskey: boolean; onAdded: () => 
   const [supported, setSupported] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [pin, setPin] = React.useState("");
   React.useEffect(() => setSupported(browserSupportsWebAuthn()), []);
 
   async function add() {
     setBusy(true);
     setError(null);
     try {
-      await registerPasskey();
+      await registerPasskey(pin);
+      setPin("");
       await onAdded();
     } catch (err) {
       setError(errorMessage(err));
@@ -126,8 +128,19 @@ function Passkey({ hasPasskey, onAdded }: { hasPasskey: boolean; onAdded: () => 
       ) : supported ? (
         <>
           <p className="mt-1 text-muted-foreground">Approve payments with a glance or a touch. Your PIN still works.</p>
+          <Field
+            className="mt-4"
+            label="Your PIN"
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={6}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            hint="Adding Face ID or fingerprint is approved with your PIN."
+          />
           {error && <Notice tone="error" className="mt-3">{error}</Notice>}
-          <Button variant="secondary" className="mt-4 w-full" busy={busy} onClick={() => void add()}>
+          <Button variant="secondary" className="mt-4 w-full" busy={busy} disabled={pin.length !== 6} onClick={() => void add()}>
             <Fingerprint className="h-4 w-4" aria-hidden="true" />
             Add Face ID or fingerprint
           </Button>

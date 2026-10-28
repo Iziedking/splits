@@ -308,6 +308,59 @@ contract SplitsCrossPayTest is Test {
         cross.relay(m, "ok");
     }
 
+    function test_BurnMintedToSomeoneElseCannotBeRelayed() public {
+        // Minted elsewhere, it would bring nothing here yet emit events naming any ref and payer.
+        CctpMessage.Burn memory b = _burn(
+            11 * USDC, 0, makeAddr("stranger"), _hookTo(payer, _legs(), 1015 * USDC / 100, "victim"), address(cross)
+        );
+        b.mintRecipient = makeAddr("stranger");
+        vm.prank(relayer);
+        vm.expectRevert(SplitsCrossPay.NotForThisContract.selector);
+        cross.relay(CctpMessage.encode(b), "ok");
+    }
+
+    function test_CopyingAPayersRefAndRefundAddressNeitherSpendsNorSpeaksForIt() public {
+        // Audit 2026-10-28: the stranger's hook names the payer as refundTo and copies their ref.
+        address stranger = makeAddr("stranger");
+        uint256 payAmount = 1015 * USDC / 100;
+        vm.expectEmit(true, true, false, true, address(cross));
+        emit SplitsCrossPay.CrossPaid("victim", stranger, BASE, payAmount, 0);
+        _relay(_message(payAmount, 0, stranger, _hookTo(payer, _legs(), payAmount, "victim"), address(cross)));
+        assertFalse(router.refUsed(address(cross), cross.routerRef(BASE, payer, "victim")));
+
+        _relay(_message(payAmount, 0, payer, _hook(_legs(), payAmount, "victim"), address(cross)));
+        assertTrue(router.refUsed(address(cross), cross.routerRef(BASE, payer, "victim")));
+        assertEq(usdc.balanceOf(landlord), 12 * USDC);
+        assertEq(usdc.balanceOf(address(cross)), 0);
+    }
+
+    function test_RefundAddressThatWouldStrandMoneyFallsBackToTheBurner() public {
+        usdc.setBlocked(school, true);
+        uint256 payAmount = 1015 * USDC / 100;
+        _relay(_message(payAmount, 0, payer, _hookTo(address(cross), _legs(), payAmount, "to-self"), address(cross)));
+        assertEq(usdc.balanceOf(payer), payAmount);
+        _relay(_message(payAmount, 0, payer, _hookTo(address(usdc), _legs(), payAmount, "to-token"), address(cross)));
+        assertEq(usdc.balanceOf(payer), 2 * payAmount);
+        // A hook that doesn't decode, whose refund word names the contract, refunds the burner too.
+        _relay(
+            _message(5 * USDC, 0, payer, bytes.concat(abi.encode(uint8(1), address(cross)), hex"dead"), address(cross))
+        );
+        assertEq(usdc.balanceOf(payer), 2 * payAmount + 5 * USDC);
+        assertEq(usdc.balanceOf(address(cross)), 0);
+        assertEq(cross.owed(address(cross)), 0);
+    }
+
+    function test_TooManyLegsRefundsInsteadOfNeverFittingABlock() public {
+        uint256 n = cross.MAX_LEGS() + 1;
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](n);
+        for (uint256 i; i < n; ++i) {
+            legs[i] = SplitsRouter.Leg(address(uint160(0x6000 + i)), uint96(10_000), 0, bytes32("w"));
+        }
+        _relay(_message(n * 10_000, 0, payer, _hook(legs, n * 10_000, "too-many"), address(cross)));
+        assertEq(usdc.balanceOf(payer), n * 10_000);
+        assertEq(usdc.balanceOf(address(0x6000)), 0);
+    }
+
     function test_ShortMessageReverts() public {
         vm.prank(relayer);
         vm.expectRevert(SplitsCrossPay.MessageTooShort.selector);

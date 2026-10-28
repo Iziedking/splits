@@ -9,7 +9,8 @@
 # Migrations: the app applies web/drizzle/ itself when it first builds its context (on the first
 # request, the healthcheck, or the sweeper's first tick), so drizzle/ ships in the image.
 
-ARG NODE_IMAGE=node:22.23.3-bookworm-slim
+# CI passes NODE_IMAGE built from the workflow's NODE_VERSION, so the tested and shipped Node match.
+ARG NODE_IMAGE=node:22.23.4-bookworm-slim
 
 FROM ${NODE_IMAGE} AS deps
 WORKDIR /app
@@ -28,7 +29,10 @@ RUN SPLITS_STANDALONE=1 npx next build
 
 FROM ${NODE_IMAGE} AS runtime
 WORKDIR /app
+# SPLITS_MODE=live by default: an env file that loses the line must not start a preview site (a
+# simulated chain, sign-in codes shown on screen) on the real domain. Preview containers set it.
 ENV NODE_ENV=production \
+    SPLITS_MODE=live \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3930 \
     HOSTNAME=0.0.0.0

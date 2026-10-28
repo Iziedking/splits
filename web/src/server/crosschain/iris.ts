@@ -10,7 +10,11 @@ export type IrisMessage =
 /** Circle's attestation service (Iris V2): burn fees, and the signed message for a burn. */
 export interface Iris {
   fees(sourceDomain: number): Promise<{ fastBps: number; standardBps: number }>;
-  message(sourceDomain: number, txHash: Hex): Promise<IrisMessage>;
+  /**
+   * The signed message for a burn. A transaction can hold several burns (a batching wallet, a
+   * bundle); `matches` picks ours by its contents, otherwise the first is taken.
+   */
+  message(sourceDomain: number, txHash: Hex, matches?: (message: Hex) => boolean): Promise<IrisMessage>;
   /** Circle's remaining Fast Transfer allowance, in USDC base units. */
   fastAllowance(): Promise<bigint>;
   /** Asks Circle to re-attest an expired Fast message; the next message() call returns it. */
@@ -39,17 +43,19 @@ export function httpIris(baseUrl: string, fetchImpl: Fetch = (url, init) => fetc
       if (fastBps === undefined || standardBps === undefined) throw new Error("Iris fees: missing a finality threshold");
       return { fastBps, standardBps };
     },
-    async message(sourceDomain, txHash) {
+    async message(sourceDomain, txHash, matches) {
       const res = await get(`/v2/messages/${sourceDomain}?transactionHash=${txHash}`);
       // 404: Circle hasn't seen the burn yet.
       if (res.status === 404) return { status: "missing" };
       if (!res.ok) throw new Error(`Iris messages ${res.status}`);
       const body = (await res.json()) as { messages?: { message: Hex; attestation: string; status: string; delayReason?: string | null }[] };
-      const m = body.messages?.[0];
+      const all = body.messages ?? [];
+      const done = (m: (typeof all)[number]) => m.status === "complete" && m.attestation !== "PENDING" && m.message !== "0x";
+      // A message still being attested may have no body yet, so it can't be ruled out.
+      const candidates = matches ? all.filter((m) => !done(m) || matches(m.message)) : all.slice(0, 1);
+      const m = candidates.find(done) ?? candidates[0];
       if (!m) return { status: "missing" };
-      if (m.status === "complete" && m.attestation !== "PENDING" && m.message !== "0x") {
-        return { status: "complete", message: m.message, attestation: m.attestation as Hex };
-      }
+      if (done(m)) return { status: "complete", message: m.message, attestation: m.attestation as Hex };
       return { status: "pending", delayReason: m.delayReason ?? null };
     },
     async fastAllowance() {

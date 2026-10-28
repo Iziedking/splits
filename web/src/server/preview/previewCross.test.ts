@@ -1,6 +1,6 @@
 import { encodeFunctionData, erc20Abi, getAddress, keccak256, stringToHex, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { encodeDepositForBurnWithHook, encodeHook, transmitterAbi } from "../crosschain/cctp";
+import { encodeDepositForBurnWithHook, encodeHook, nonceOf, transmitterAbi } from "../crosschain/cctp";
 import { CCTP, SOURCE_CHAINS } from "../crosschain/chains";
 import { crossPayAbi } from "../crosschain/crossPayAbi";
 import { PREVIEW_TREASURY_WALLET_ID, PreviewArc } from "./previewArc";
@@ -51,7 +51,7 @@ describe("preview cross-chain pay", () => {
     expect((await relayFromTreasury(arc, msg.message, msg.attestation)).status).not.toBe("failed");
     expect(await arc.chainReader.usdcBalance(A)).toBe(5_000_000n);
     expect(await arc.chainReader.usdcBalance(PAYER)).toBe(499n); // 1 bps of 5_001_000, rounded up (501), taken from the 1_000 maxFee
-    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, REF, PAYER, 0n)).toMatchObject({ kind: "paid", feeBack: 499n });
+    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, CCTP.testnet.messageTransmitter, nonceOf(msg.message), 0n)).toMatchObject({ kind: "paid", feeBack: 499n });
   });
 
   it("refunds the burner when a recipient can't receive", async () => {
@@ -60,7 +60,7 @@ describe("preview cross-chain pay", () => {
     const msg = await attested(arc, burn(arc, 5_001_000n, 5_000_000n));
     await relayFromTreasury(arc, msg.message, msg.attestation);
     expect(await arc.chainReader.usdcBalance(PAYER)).toBe(5_000_499n);
-    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, REF, PAYER, 0n)).toMatchObject({ kind: "refunded", owed: false });
+    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, CCTP.testnet.messageTransmitter, nonceOf(msg.message), 0n)).toMatchObject({ kind: "refunded", owed: false });
   });
 
   it("holds the refund as owed when the payer can't receive either", async () => {
@@ -69,7 +69,7 @@ describe("preview cross-chain pay", () => {
     arc.setBlocked(PAYER, true);
     const msg = await attested(arc, burn(arc, 5_001_000n, 5_000_000n));
     await relayFromTreasury(arc, msg.message, msg.attestation);
-    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, REF, PAYER, 0n)).toMatchObject({ kind: "refunded", owed: true });
+    expect(await arc.chainReader.crossPayOutcome(arc.crossPay, CCTP.testnet.messageTransmitter, nonceOf(msg.message), 0n)).toMatchObject({ kind: "refunded", owed: true });
   });
 
   it("refuses a mint by anyone but the destination caller", async () => {

@@ -13,6 +13,22 @@ const config: NextConfig = {
     "@circle-fin/adapter-circle-wallets",
   ],
   poweredByHeader: false,
+  // A money app is never framed by another site, never sniffed, and keeps receipt and payment
+  // tokens in its URLs out of other sites' Referer. A full CSP waits on an audit of the wallet SDKs.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
+      },
+    ];
+  },
   // The production image (web/Dockerfile) sets SPLITS_STANDALONE=1 to get a self-contained
   // .next/standalone server. Plain `next build` / `next start` and `next build --webpack` are unchanged.
   ...(process.env.SPLITS_STANDALONE === "1" ? { output: "standalone" as const } : {}),
