@@ -204,18 +204,34 @@ contract ArcForkTest is Test {
         uint256 full = before - gasleft();
         vm.revertToState(snap);
 
+        // Coarse, to find the least gas that still pays; then gas by gas (100 at a time) just below
+        // it, where a relay runs out inside the payout and a refund could slip in.
+        uint256 lowestPaid = type(uint256).max;
         uint256 refunds;
-        uint256 paid;
-        for (uint256 g = full + full / 10; g > full / 3; g -= full / 2000) {
-            snap = vm.snapshotState();
-            try cross.relay{gas: g}(m, "ok") {
-                if (ARC_USDC.balanceOf(payer) == n * 500_000) refunds++;
-                else paid++;
-            } catch {}
-            vm.revertToState(snap);
+        for (uint256 g = full + full / 10; g > full / 2; g -= full / 100) {
+            (bool ok, bool refunded) = _relayWith(cross, m, g, n * 500_000);
+            if (refunded) refunds++;
+            else if (ok) lowestPaid = g;
         }
-        assertGt(paid, 0);
+        assertLt(lowestPaid, type(uint256).max);
+        for (uint256 g = lowestPaid; g > lowestPaid - full / 50; g -= 100) {
+            (, bool refunded) = _relayWith(cross, m, g, n * 500_000);
+            if (refunded) refunds++;
+        }
         assertEq(refunds, 0);
+    }
+
+    /// One relay with `gas`, undone afterwards: whether it went through, and whether it refunded.
+    function _relayWith(SplitsCrossPay cross, bytes memory m, uint256 gas, uint256 minted)
+        internal
+        returns (bool ok, bool refunded)
+    {
+        uint256 snap = vm.snapshotState();
+        try cross.relay{gas: gas}(m, "ok") {
+            ok = true;
+            refunded = ARC_USDC.balanceOf(payer) == minted;
+        } catch {}
+        vm.revertToState(snap);
     }
 }
 

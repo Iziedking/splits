@@ -367,11 +367,12 @@ describe("moving a deposit from another chain to Arc", () => {
   it("never burns again when one node can't find a burn whose money left (audit 2026-10-28)", async () => {
     const { ctx, arc, clock, mainAddress, address } = await setup();
     const messenger = ctx.crossChain.cctp.tokenMessenger.toLowerCase();
-    let burns = 0;
+    // Distinct burns, by key: a step re-sends the same burn with the same key while it waits.
+    const burnKeys = new Set<string>();
     const wallets = {
       ...ctx.wallets,
       execute: async (input: Parameters<Ctx["wallets"]["execute"]>[0]) => {
-        if (input.contract.toLowerCase() === messenger) burns++;
+        if (input.contract.toLowerCase() === messenger) burnKeys.add(input.idempotencyKey);
         return ctx.wallets.execute(input);
       },
     };
@@ -384,11 +385,11 @@ describe("moving a deposit from another chain to Arc", () => {
     await drive(lagging, clock, 4);
     clock.advance(16 * 60_000);
     await drive(lagging, clock, 6);
-    expect(burns).toBe(1);
+    expect(burnKeys.size).toBe(1);
     expect((await ctx.db.select().from(depositMoves))[0]).toMatchObject({ status: "attesting", lastError: expect.stringMatching(/^burn unconfirmed/) });
     arc.irisHold = null;
     await drive(lagging, clock, 10);
-    expect(burns).toBe(1);
+    expect(burnKeys.size).toBe(1);
     expect((await ctx.chain.usdcBalance(mainAddress)) - before).toBe(4_999_500n);
   });
 
