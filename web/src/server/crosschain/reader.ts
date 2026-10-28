@@ -55,16 +55,91 @@ export function burnsInReceipt(
   };
 }
 
+/** The narrowest getLogs range worth trying; an RPC that refuses even this is down, not picky. */
+const MIN_LOG_RANGE = 10;
+
+/**
+ * An RPC refusing a getLogs call as too wide ("limited to a 200 range", "block range too large",
+ * "query returned more than 10000 results"). A rate limit or an outage is not one: narrowing won't help.
+ */
+export function isRangeRefusal(err: unknown): boolean {
+  const text = err instanceof Error ? `${err.message} ${(err as { details?: string }).details ?? ""}` : String(err);
+  return /range|too large|more than/i.test(text);
+}
+
+/**
+ * getLogs over [from, to] in pieces no wider than `range` blocks, halving the piece whenever the RPC
+ * refuses one as too wide. Returns the logs and the width that worked, for the next search to start at.
+ */
+export async function getLogsInPieces<T>(
+  getLogs: (from: bigint, to: bigint) => Promise<T[]>,
+  from: bigint,
+  to: bigint,
+  range: number,
+): Promise<{ logs: T[]; range: number }> {
+  const logs: T[] = [];
+  let start = from;
+  while (start <= to) {
+    const end = start + BigInt(range) - 1n > to ? to : start + BigInt(range) - 1n;
+    try {
+      logs.push(...(await getLogs(start, end)));
+      start = end + 1n;
+    } catch (err) {
+      if (range <= MIN_LOG_RANGE || !isRangeRefusal(err)) throw err;
+      range = Math.max(MIN_LOG_RANGE, Math.floor(range / 2));
+    }
+  }
+  return { logs, range };
+}
+
+/** Blocks this close to the head are searched again on every call: a reorg can still move a burn there. */
+const REORG_BLOCKS = 64n;
+/** How long a payer's search is kept: longer than the 2 hours crossPay keeps looking for stray burns. */
+const SCAN_KEPT_MS = 3 * 3_600_000;
+const MAX_SCANS = 2_000;
+
+type FoundBurn = { txHash: Hex; burn: BurnLog; block: bigint };
+/** Where `burnsFrom` has searched for one depositor on one chain, up to a block a reorg can't undo. */
+type Scan = { from: bigint; to: bigint; burns: FoundBurn[]; usedAt: number };
+
 /** viem readers, one client per chain; RPC from SOURCE_RPCS ("base=https://…,arb=…") or a public default. */
-export function createSourceReader(network: CrossNetwork, rpcOverrides: Record<string, string> = {}): SourceReader {
+export function createSourceReader(
+  network: CrossNetwork,
+  rpcOverrides: Record<string, string> = {},
+  makeClient: (url: string) => PublicClient = (url) => createPublicClient({ transport: http(url, { retryCount: 2, timeout: 10_000 }) }) as PublicClient,
+): SourceReader {
   const clients = new Map<string, PublicClient>();
   const client = (chain: SourceChain) => {
     let c = clients.get(chain.key);
     if (!c) {
-      c = createPublicClient({ transport: http(rpcOverrides[chain.key] ?? chain.rpc[network], { retryCount: 2, timeout: 10_000 }) }) as PublicClient;
+      c = makeClient(rpcOverrides[chain.key] ?? chain.rpc[network]);
       clients.set(chain.key, c);
     }
     return c;
+  };
+  // The widest range each chain's RPC has served, learned from refusals.
+  const logRanges = new Map<string, number>();
+  const scans = new Map<string, Scan>();
+  const searchBurns = async (chain: SourceChain, depositor: Address, from: bigint, to: bigint): Promise<FoundBurn[]> => {
+    if (from > to) return [];
+    const { logs, range } = await getLogsInPieces(
+      (fromBlock, toBlock) => client(chain).getLogs({ address: CCTP[network].tokenMessenger, event: depositForBurnEvent, args: { depositor }, fromBlock, toBlock }),
+      from,
+      to,
+      logRanges.get(chain.key) ?? chain.logRange[network],
+    );
+    logRanges.set(chain.key, range);
+    return logs.flatMap((log) =>
+      parseDepositForBurnLogs([log as unknown as LogLike], CCTP[network].tokenMessenger).map((burn) => ({ txHash: log.transactionHash!, burn, block: log.blockNumber! })),
+    );
+  };
+  const keep = (key: string, scan: Scan) => {
+    scans.delete(key);
+    scans.set(key, scan);
+    for (const [k, s] of scans) {
+      if (scans.size <= MAX_SCANS && s.usedAt > scan.usedAt - SCAN_KEPT_MS) break;
+      scans.delete(k);
+    }
   };
   // "No such transaction" is an answer; an RPC that can't be reached is not, so it throws.
   const receiptOf = (chain: SourceChain, hash: Hex) =>
@@ -96,18 +171,27 @@ export function createSourceReader(network: CrossNetwork, rpcOverrides: Record<s
       const tx = await client(chain).getTransaction({ hash: txHash });
       return burnsInReceipt({ status: receipt.status, from: receipt.from, logs: receipt.logs as LogLike[] }, CCTP[network].tokenMessenger, tx.nonce);
     },
+    // Asked every 30 seconds for 2 hours per payment, so each call searches only the blocks since the
+    // last one (plus the reorgable tail): a 100-block RPC on a fast chain can't re-read 2 hours each time.
     async burnsFrom(chain, depositor, fromBlock) {
       const latest = await client(chain).getBlockNumber();
-      const out: { txHash: Hex; burn: BurnLog }[] = [];
-      // Public RPCs cap getLogs ranges; 2,000 blocks a call.
-      for (let start = fromBlock; start <= latest; start += 2_000n) {
-        const end = start + 1_999n > latest ? latest : start + 1_999n;
-        const logs = await client(chain).getLogs({ address: CCTP[network].tokenMessenger, event: depositForBurnEvent, args: { depositor }, fromBlock: start, toBlock: end });
-        for (const log of logs) {
-          for (const burn of parseDepositForBurnLogs([log as unknown as LogLike], CCTP[network].tokenMessenger)) out.push({ txHash: log.transactionHash!, burn });
+      const key = `${chain.key}:${depositor.toLowerCase()}`;
+      const kept = scans.get(key);
+      const scan = kept && kept.from <= fromBlock ? kept : { from: fromBlock, to: fromBlock - 1n, burns: [], usedAt: 0 };
+      const settled = latest - REORG_BLOCKS;
+      if (settled > scan.to) {
+        const upTo = scan.to;
+        const found = await searchBurns(chain, depositor, upTo + 1n, settled);
+        // A concurrent call may have searched these blocks already.
+        if (scan.to === upTo) {
+          scan.burns.push(...found);
+          scan.to = settled;
         }
       }
-      return out;
+      scan.usedAt = Date.now();
+      keep(key, scan);
+      const recent = await searchBurns(chain, depositor, scan.to + 1n > fromBlock ? scan.to + 1n : fromBlock, latest);
+      return [...scan.burns, ...recent].filter((b) => b.block >= fromBlock).map(({ txHash, burn }) => ({ txHash, burn }));
     },
     pendingNonce: (chain, address) => client(chain).getTransactionCount({ address, blockTag: "latest" }),
     async transactionNonce(chain, txHash) {

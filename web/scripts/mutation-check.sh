@@ -177,6 +177,14 @@ mutate_in "cross-verify-raw-ref" src/server/services/transfers.ts   '  return { 
 mutate_in "cross-outcome-any-message" src/server/preview/previewArc.ts   '      const e = this.crossEvents.find((x) => x.nonce === nonce.toLowerCase());'   '      const e = this.crossEvents[0];'   "$CT" "copies this payment's ref and payer"
 mutate_in "cross-outcome-first-mint" src/server/chain/viemChain.ts   '  const mine = mints.find((l) => same(l.args.nonce, nonce));'   '  const mine = mints[0];'   src/server/chain/outcome.test.ts "ignores events with this payment's ref and payer"
 mutate_in "iris-first-burn" src/server/crosschain/iris.ts   'const candidates = matches ? all.filter((m) => !done(m) || matches(m.message)) : all.slice(0, 1);'   'const candidates = all.slice(0, 1);'   src/server/crosschain/crosschain.test.ts "picks this payment's burn"
+R=src/server/crosschain/reader.ts
+RT=src/server/crosschain/sources.test.ts
+mutate_in "burns-no-narrowing" "$R"   '      range = Math.max(MIN_LOG_RANGE, Math.floor(range / 2));'   '      throw err;'   "$RT" "fewer blocks a call than the chain table"
+mutate_in "burns-skip-recent" "$R"   '  const recent = await searchBurns(chain, depositor, scan.to + 1n > fromBlock ? scan.to + 1n : fromBlock, latest);'   '  const recent: FoundBurn[] = [];'   "$RT" "fewer blocks a call than the chain table"
+mutate_in "burns-rescan-everything" "$R"   '  const scan = kept && kept.from <= fromBlock ? kept :'   '  const scan = kept && false ? kept :'   "$RT" "only the blocks since the last search"
+mutate_in "burns-keeps-earlier" "$R"   '.filter((b) => b.block >= fromBlock)'   ''   "$RT" "leaves out burns before the block asked from"
+mutate_in "burns-narrows-on-outage" "$R"   'return /range|too large|more than/i.test(text);'   'return true;'   "$RT" "instead of narrowing the search forever"
+mutate_in "burns-rate-limit-narrows" "$R"   'return /range|too large|more than/i.test(text);'   'return /range|too large|more than|limit/i.test(text);'   "$RT" "tells a range refusal from a rate limit"
 # Audit 2026-10-28: sign-in, passkeys, rules and failed sends.
 mutate_in "otp-guess-not-reserved" src/server/auth/otp.ts   ', lt(otpCodes.attempts, MAX_ATTEMPTS)))'   '))'   src/server/auth/auth.test.ts "parallel guesses"
 mutate_in "passkey-without-pin" src/server/auth/passkeys.ts   '  await verifyPin(db, user.id, pin, now);'   ''   src/server/auth/auth.test.ts "needs the PIN, so a stolen session"

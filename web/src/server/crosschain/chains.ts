@@ -23,6 +23,8 @@ export type SourceChain = {
   /** Below this a deposit waits on the chain: moving it would cost more than it carries. */
   minUnits: bigint;
   rpc: PerNet<string>;
+  /** The widest getLogs block range the default RPC serves (measured 2026-10-28); narrower if it refuses. */
+  logRange: PerNet<number>;
   explorer: PerNet<string>;
   /** EVM chain id, checked against the RPC at startup. */
   chainId: PerNet<number>;
@@ -49,7 +51,9 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     usdc: { mainnet: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", testnet: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" },
     fast: true,
     minUnits: DOLLAR,
-    rpc: { mainnet: "https://mainnet.base.org", testnet: "https://sepolia.base.org" },
+    // mainnet.base.org refuses getLogs outright and sepolia.base.org serves 200 blocks a call.
+    rpc: { mainnet: "https://base-rpc.publicnode.com", testnet: "https://base-sepolia-rpc.publicnode.com" },
+    logRange: { mainnet: 5_000, testnet: 5_000 },
     explorer: { mainnet: "https://basescan.org", testnet: "https://sepolia.basescan.org" },
     chainId: { mainnet: 8453, testnet: 84532 },
     gas: "ETH",
@@ -63,6 +67,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     fast: true,
     minUnits: DOLLAR,
     rpc: { mainnet: "https://arb1.arbitrum.io/rpc", testnet: "https://sepolia-rollup.arbitrum.io/rpc" },
+    logRange: { mainnet: 2_000, testnet: 2_000 },
     explorer: { mainnet: "https://arbiscan.io", testnet: "https://sepolia.arbiscan.io" },
     chainId: { mainnet: 42161, testnet: 421614 },
     gas: "ETH",
@@ -76,6 +81,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     fast: true,
     minUnits: DOLLAR,
     rpc: { mainnet: "https://mainnet.optimism.io", testnet: "https://sepolia.optimism.io" },
+    logRange: { mainnet: 2_000, testnet: 2_000 },
     explorer: { mainnet: "https://optimistic.etherscan.io", testnet: "https://sepolia-optimism.etherscan.io" },
     chainId: { mainnet: 10, testnet: 11155420 },
     gas: "ETH",
@@ -89,6 +95,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     fast: false,
     minUnits: DOLLAR,
     rpc: { mainnet: "https://polygon-bor-rpc.publicnode.com", testnet: "https://polygon-amoy-bor-rpc.publicnode.com" },
+    logRange: { mainnet: 2_000, testnet: 2_000 },
     explorer: { mainnet: "https://polygonscan.com", testnet: "https://amoy.polygonscan.com" },
     chainId: { mainnet: 137, testnet: 80002 },
     gas: "POL",
@@ -101,7 +108,9 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     usdc: { mainnet: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E", testnet: "0x5425890298aed601595a70AB815c96711a31Bc65" },
     fast: false,
     minUnits: DOLLAR,
-    rpc: { mainnet: "https://api.avax.network/ext/bc/C/rpc", testnet: "https://api.avax-test.network/ext/bc/C/rpc" },
+    // api.avax.network serves 100 blocks a getLogs call.
+    rpc: { mainnet: "https://avalanche-c-chain-rpc.publicnode.com", testnet: "https://avalanche-fuji-c-chain-rpc.publicnode.com" },
+    logRange: { mainnet: 5_000, testnet: 5_000 },
     explorer: { mainnet: "https://snowtrace.io", testnet: "https://testnet.snowtrace.io" },
     chainId: { mainnet: 43114, testnet: 43113 },
     gas: "AVAX",
@@ -115,6 +124,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     fast: true,
     minUnits: DOLLAR,
     rpc: { mainnet: "https://mainnet.unichain.org", testnet: "https://sepolia.unichain.org" },
+    logRange: { mainnet: 2_000, testnet: 1_000 },
     explorer: { mainnet: "https://uniscan.xyz", testnet: "https://sepolia.uniscan.xyz" },
     chainId: { mainnet: 130, testnet: 1301 },
     gas: "ETH",
@@ -128,6 +138,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     fast: false,
     minUnits: DOLLAR,
     rpc: { mainnet: "https://rpc.monad.xyz", testnet: "https://testnet-rpc.monad.xyz" },
+    logRange: { mainnet: 100, testnet: 100 },
     explorer: { mainnet: "https://monadvision.com", testnet: "https://testnet.monadexplorer.com" },
     chainId: { mainnet: 143, testnet: 10143 },
     gas: "MON",
@@ -142,6 +153,7 @@ export const SOURCE_CHAINS: Record<ChainKey, SourceChain> = {
     // Gas on Ethereum runs to dollars per move.
     minUnits: 20n * DOLLAR,
     rpc: { mainnet: "https://ethereum-rpc.publicnode.com", testnet: "https://ethereum-sepolia-rpc.publicnode.com" },
+    logRange: { mainnet: 2_000, testnet: 2_000 },
     explorer: { mainnet: "https://etherscan.io", testnet: "https://sepolia.etherscan.io" },
     chainId: { mainnet: 1, testnet: 11155111 },
     gas: "ETH",

@@ -69,11 +69,21 @@ Everything that was left open after the first round, fixed and verified the same
 Also verified: production runs with `FUNDING_ENABLED=false`, so the simulated card was never
 releasing treasury USDC there.
 
+## Third round: found by the staging payment
+
+The SplitsCrossPay v2 test payment from Base Sepolia (relay `0x03b9fd04...5a84` on Arc Testnet) paid
+all 5 legs, named the attested burner as payer and used the burner-keyed router ref. The staging log
+then showed this:
+
+| # | Severity | Finding | Fix | Proof |
+|---|---|---|---|---|
+| 28 | Medium | The search for a payer's untracked burns (a tab closed before the hash was reported, or a second burn for one link) read source-chain logs 2,000 blocks a call. The default RPCs refuse that on Base (`mainnet.base.org` refuses getLogs entirely; `sepolia.base.org` serves 200), Avalanche (100), Monad (100) and Unichain Sepolia (1,000), so on those chains such a burn would never be relayed or refunded. Production uses those defaults (no `SOURCE_RPCS`). Staging logged the failure every 30 seconds. | Base and Avalanche read through publicnode, which serves 10,000 blocks (chain id and CCTP domain checked on both networks). Each chain records the range its RPC serves, a refused range is halved and remembered, and a rate limit or an outage still fails. Each search covers only the blocks since the last one plus a 64-block reorg tail, so a 100-block RPC isn't asked for 2 hours of blocks every 30 seconds. | `sources.test.ts` "searching a payer's burns" (5 cases); mutations `burns-no-narrowing`, `burns-skip-recent`, `burns-rescan-everything`, `burns-keeps-earlier`, `burns-narrows-on-outage`, `burns-rate-limit-narrows`; on staging, no errors after the restart and all 8 chains open |
+
 ## Still open
 
 | Severity | Item | Why |
 |---|---|---|
-| Medium | SplitsCrossPay's contract-side fixes are in the source, not on chain. | A redeploy (and `CROSS_PAY_ADDRESS` change) is yours to run. Until then the server-side fix (#4) protects the app. |
+| Medium | SplitsCrossPay's contract-side fixes are on Arc Testnet (`0x2BC1a255672e7cf8Dd09e77Fe8dD0a0962aE2116`, Sourcify exact match, staging switched and paid from Base Sepolia), not yet on mainnet. | The mainnet redeploy (and `CROSS_PAY_ADDRESS` change) is yours to run. Until then the server-side fix (#4) protects the app. |
 | Medium | The `splits-ci` user and the `production` environment's branch rule and secrets. | Host and repository settings you own (steps in `deploy/README.md`). |
 | Low | Earn-in waiting for a payment has no test of its own. | It is a read-only check before the first Earn transfer. Earn is off on mainnet. |
 | Info | `SplitsRouter.previewSend`'s comment says it reverts like `send`; it doesn't check `active` or the version. | Editing NatSpec changes the metadata hash, so Sourcify would stop matching the deployed router. Fix it with the next router version. |
@@ -84,8 +94,8 @@ releasing treasury USDC there.
 All runs were on the test VPS, each in a throwaway workspace:
 
 - Contracts: format clean, build, 112 unit, fuzz and invariant tests, 8/8 fork tests on Arc mainnet state, 18/18 mutations.
-- Web: typecheck, 412/412 tests on PGlite and on Postgres 17, 73/73 mutations, production build,
-  HTTP API smoke test.
+- Web: typecheck, 417/417 tests on PGlite and on Postgres 17, 79/79 mutations, production build,
+  HTTP API smoke test (after the third round).
 - Image: the Docker image builds on `node:22.23.4-bookworm-slim`, then starts healthy as user `node`
   with `mode` in `/api/health`.
 
