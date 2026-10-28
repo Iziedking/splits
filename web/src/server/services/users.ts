@@ -4,9 +4,32 @@ import type { Ctx } from "../context";
 import { users, wallets } from "../db/schema";
 import { deterministicUuid } from "../domain/ids";
 import { badRequest, notFound } from "../errors";
+import { hitRateLimit } from "./rateLimits";
 
 export type User = typeof users.$inferSelect;
 export type Wallet = typeof wallets.$inferSelect;
+
+const HOUR = 60 * 60_000;
+
+/**
+ * The wallet a payment to `email` lands in, made if the person has none yet. Naming an email costs a
+ * sender nothing while a new wallet costs a Circle call, so new wallets are capped per sender and in
+ * total each hour. Past the cap this returns null and the sender is asked to try again later.
+ */
+export async function ensureRecipientWallet(ctx: Ctx, email: string, sender: string): Promise<Wallet | null> {
+  const [known] = await ctx.db
+    .select({ wallet: wallets })
+    .from(wallets)
+    .innerJoin(users, eq(users.id, wallets.userId))
+    .where(and(eq(users.email, email), eq(wallets.kind, "main")))
+    .limit(1);
+  if (known) return known.wallet;
+  const allowed =
+    (await hitRateLimit(ctx, `new-wallet:${sender}`, ctx.limits.newWalletsPerSenderPerHour, HOUR)) &&
+    (await hitRateLimit(ctx, "new-wallet:all", ctx.limits.newWalletsGlobalPerHour, HOUR));
+  if (!allowed) return null;
+  return ensureMainWallet(ctx, await ensureUser(ctx, email, "invited"));
+}
 
 /** Finds or creates the person behind an email. Signing in turns an invited user active. */
 export async function ensureUser(ctx: Ctx, email: string, status: "invited" | "active"): Promise<User> {

@@ -14,6 +14,18 @@ async function setup(env: Record<string, string> = {}) {
 }
 
 describe("checking a payout list", () => {
+  it("caps the new wallets one sender's lists can make each hour; people who have one don't count", async () => {
+    const { ctx, user } = await setup({ NEW_WALLETS_PER_SENDER_PER_HOUR: "2" });
+    await signedInUser(ctx, "known@example.com");
+    const text = ["known@example.com", "a@example.com", "b@example.com", "c@example.com"].map((e) => `${e}, 1`).join("\n");
+    const res = await checkPayout(ctx, user, { mode: "each", text, label: "prize" });
+    // Lines are checked in parallel, so which new email hits the cap may vary; how many may not.
+    expect(res.lines[0]!.status).toBe("ready");
+    expect(res.lines.filter((l) => l.status === "ready")).toHaveLength(3);
+    expect(res.lines.find((l) => l.status === "wallet_failed")?.message).toMatch(/Too many new people/);
+    expect(res.ready).toBe(false);
+  });
+
   it("splits a pot equally, creates wallets for emails, and returns a draft", async () => {
     const { ctx, user } = await setup();
     const text = [addr(1), "winner@example.com", addr(2)].join("\n");

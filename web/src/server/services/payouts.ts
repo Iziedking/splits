@@ -9,7 +9,7 @@ import { sha256Hex } from "../domain/ids";
 import { formatUsdc, parseUsdc, purposeToBytes32 } from "../domain/money";
 import { equalPot, parsePayoutLines, recipientKey, type PayoutTarget } from "../domain/payouts";
 import { badRequest, conflict, notFound } from "../errors";
-import { ensureMainWallet, ensureUser, mainWallet, type User } from "./users";
+import { ensureRecipientWallet, mainWallet, type User } from "./users";
 
 export const DRAFT_TTL_MS = 30 * 60_000;
 
@@ -56,6 +56,7 @@ const MESSAGES = {
   self: "That's your own wallet",
   cant_receive: "This address can't receive USDC right now",
   wallet_failed: "Couldn't set up a wallet for this email. Check again to retry.",
+  wallets_busy: "Too many new people were added in the last hour. Check again later.",
   check_failed: "Couldn't check this line. Check again.",
   no_amount: "Add an amount, like 5 or 2.50",
 } as const;
@@ -153,11 +154,13 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
     }
   }
 
-  // A wallet for every email (idempotent).
+  // A wallet for every email (idempotent; new ones are capped per sender and in total).
+  const sender = isVisitor(owner) ? `v:${owner.visitorKeyHash}` : `u:${owner.id}`;
   await inBatches(lines, 5, async (l) => {
     if (l.status !== "ready" || l.target?.type !== "email") return;
     try {
-      const wallet = await ensureMainWallet(ctx, await ensureUser(ctx, l.target.email, "invited"));
+      const wallet = await ensureRecipientWallet(ctx, l.target.email, sender);
+      if (!wallet) return flag(l, "wallet_failed", MESSAGES.wallets_busy);
       l.address = wallet.address as Address;
       l.walletId = wallet.id;
     } catch (err) {

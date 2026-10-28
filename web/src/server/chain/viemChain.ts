@@ -106,7 +106,7 @@ export function createViemChain(opts: ViemChainOptions): ChainReader {
   const client = createPublicClient({
     chain: arcChain(opts),
     // Your node first while it keeps up; a node that falls behind is passed over (freshness.ts).
-    transport: freshTransport(opts.rpcUrls),
+    transport: freshTransport(opts.rpcUrls, opts.chainId),
   });
 
   return {

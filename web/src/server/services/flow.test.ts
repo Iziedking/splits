@@ -295,6 +295,35 @@ describe("a send Circle reports as failed", () => {
   });
 });
 
+describe("leases on a payment", () => {
+  it("a worker that ran past its lease leaves the next worker's lease alone", async () => {
+    const { ctx, arc, clock } = await testCtx();
+    const { user, wallet } = await signedInUser(ctx, "ada@example.com");
+    const split = await activeSplit(ctx, user);
+    arc.mint(wallet.address as Address, 20_000_000n);
+    const { transfer, action } = await quoteTransfer(ctx, user, { splitId: split.id, fundWith: "balance", usdc: "10" });
+    await confirmTransfer(ctx, user, action.id, { pin: TEST_PIN });
+    let theirs: Date | null = null;
+    const slow: Ctx = {
+      ...ctx,
+      wallets: {
+        ...ctx.wallets,
+        execute: async (input) => {
+          if (!theirs) {
+            // This call outlives the lease, and another worker takes the payment over meanwhile.
+            clock.advance(31_000);
+            theirs = new Date(ctx.now().getTime() + 30_000);
+            await ctx.db.update(transfers).set({ leaseUntil: theirs }).where(eq(transfers.id, transfer.id));
+          }
+          return ctx.wallets.execute(input);
+        },
+      },
+    };
+    await advanceTransfer(slow, transfer.id);
+    expect((await getTransfer(ctx, transfer.id)).leaseUntil).toEqual(theirs);
+  });
+});
+
 describe("splits whose shares total under 100%", () => {
   it("sends only the shares, charges the fee on what is sent, and needs no onchain registration", async () => {
     const { ctx, arc } = await testCtx({ FEE_BPS: "150", FEE_MANY_BPS: "200" });

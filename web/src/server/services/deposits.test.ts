@@ -364,6 +364,65 @@ describe("moving a deposit from another chain to Arc", () => {
     expect((await ctx.db.select().from(depositMoves))[0]!.status).toBe("ready");
   });
 
+  it("never burns again when one node can't find a burn whose money left (audit 2026-10-28)", async () => {
+    const { ctx, arc, clock, mainAddress, address } = await setup();
+    const messenger = ctx.crossChain.cctp.tokenMessenger.toLowerCase();
+    let burns = 0;
+    const wallets = {
+      ...ctx.wallets,
+      execute: async (input: Parameters<Ctx["wallets"]["execute"]>[0]) => {
+        if (input.contract.toLowerCase() === messenger) burns++;
+        return ctx.wallets.execute(input);
+      },
+    };
+    // A lagging node: no receipt for the burn, though it landed and took the money.
+    const reader = { ...ctx.crossChain.reader, receiptStatus: async () => null };
+    const lagging = { ...ctx, wallets, crossChain: { ...ctx.crossChain, reader } };
+    const before = await ctx.chain.usdcBalance(mainAddress);
+    arc.irisHold = "missing";
+    arc.simulateDeposit("base", address, 5_000_000n);
+    await drive(lagging, clock, 4);
+    clock.advance(16 * 60_000);
+    await drive(lagging, clock, 6);
+    expect(burns).toBe(1);
+    expect((await ctx.db.select().from(depositMoves))[0]).toMatchObject({ status: "attesting", lastError: expect.stringMatching(/^burn unconfirmed/) });
+    arc.irisHold = null;
+    await drive(lagging, clock, 10);
+    expect(burns).toBe(1);
+    expect((await ctx.chain.usdcBalance(mainAddress)) - before).toBe(4_999_500n);
+  });
+
+  it("ends a move that keeps failing, frees the address, and carries its deposit with the next one", async () => {
+    const { ctx, arc, clock, mainAddress, address } = await setup();
+    const usdc = SOURCE_CHAINS.base.usdc[ctx.crossChain.network].toLowerCase();
+    let failing = true;
+    const wallets = {
+      ...ctx.wallets,
+      execute: async (input: Parameters<Ctx["wallets"]["execute"]>[0]) =>
+        failing && input.contract.toLowerCase() === usdc ? { providerTxId: `no-gas-${input.idempotencyKey}` } : ctx.wallets.execute(input),
+      getTx: async (id: string) => (id.startsWith("no-gas-") ? { status: "failed" as const, rawState: "FAILED", error: "gas policy inactive" } : ctx.wallets.getTx(id)),
+    };
+    const flaky = { ...ctx, wallets };
+    const before = await ctx.chain.usdcBalance(mainAddress);
+    arc.simulateDeposit("base", address, 5_000_000n);
+    await drive(flaky, clock, 10);
+    for (let h = 0; h < 6; h++) {
+      clock.advance(60 * 60_000);
+      await drive(flaky, clock, 1);
+    }
+    expect((await ctx.db.select().from(depositMoves))[0]!.status).toBe("stuck");
+    expect((await ctx.db.select().from(deposits)).map((d) => d.status)).toEqual(["waiting"]);
+
+    failing = false;
+    arc.simulateDeposit("base", address, 1_000_000n);
+    await drive(flaky, clock, 20);
+    const moves = await ctx.db.select().from(depositMoves);
+    expect(moves.map((m) => m.status).sort()).toEqual(["ready", "stuck"]);
+    expect(moves.find((m) => m.status === "ready")!.burnAmount).toBe("6000000");
+    expect((await ctx.db.select().from(deposits)).map((d) => d.status)).toEqual(["ready", "ready"]);
+    expect((await ctx.chain.usdcBalance(mainAddress)) - before).toBeGreaterThan(5_990_000n);
+  });
+
   it("backs off a step that keeps failing instead of sending a new transaction every sweep (final review I3)", async () => {
     const { ctx, arc, clock, address } = await setup();
     const usdc = SOURCE_CHAINS.base.usdc[ctx.crossChain.network].toLowerCase();

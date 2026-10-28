@@ -74,6 +74,10 @@ const schema = z
     // total, so nobody can mail codes to thousands of addresses on our sending domain.
     SIGNIN_CODES_PER_IP_PER_HOUR: z.coerce.number().int().min(1).default(20),
     SIGNIN_CODES_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(600),
+    // New wallets made for emails named in lists and splits: each costs a Circle call before
+    // anything is paid, so they are capped per sender (account or visitor) and in total.
+    NEW_WALLETS_PER_SENDER_PER_HOUR: z.coerce.number().int().min(1).default(100),
+    NEW_WALLETS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(1000),
 
     // The Splits fee, paid by the sender on top. Basis points; 0 and 0 turns fees off.
     FEE_BPS: z.coerce.number().int().min(0).max(1000).default(150),

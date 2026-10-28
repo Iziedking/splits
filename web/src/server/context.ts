@@ -34,6 +34,8 @@ export type Limits = {
   visitorChecksGlobalPerHour: number;
   signinCodesPerIpPerHour: number;
   signinCodesGlobalPerHour: number;
+  newWalletsPerSenderPerHour: number;
+  newWalletsGlobalPerHour: number;
   agentDraftsPerDay: number;
   agentDraftsGlobalPerHour: number;
   agentDraftsGlobalPerDay: number;
@@ -107,6 +109,8 @@ export function limitsFromConfig(config: Config): Limits {
     agentDraftsGlobalPerDay: config.AGENT_DRAFTS_GLOBAL_PER_DAY,
     signinCodesPerIpPerHour: config.SIGNIN_CODES_PER_IP_PER_HOUR,
     signinCodesGlobalPerHour: config.SIGNIN_CODES_GLOBAL_PER_HOUR,
+    newWalletsPerSenderPerHour: config.NEW_WALLETS_PER_SENDER_PER_HOUR,
+    newWalletsGlobalPerHour: config.NEW_WALLETS_GLOBAL_PER_HOUR,
     earnDepositMin: parseUsdc(config.EARN_DEPOSIT_MIN_USDC),
   };
 }

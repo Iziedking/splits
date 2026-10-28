@@ -55,6 +55,15 @@ describe("the Earning pocket", () => {
     });
   });
 
+  it("runs only one of two moves drafted side by side", async () => {
+    const t = await setup();
+    await openEarningPocket(t.ctx, t.user);
+    const first = await startMove(t.ctx, t.user, "in", "40");
+    const second = await startMove(t.ctx, t.user, "in", "30");
+    await confirmMove(t.ctx, t.user, first.action.id, { pin: TEST_PIN });
+    await expect(confirmMove(t.ctx, t.user, second.action.id, { pin: TEST_PIN })).rejects.toMatchObject({ code: "MOVE_BUSY" });
+  });
+
   it("moves money in only after the PIN, then the sweeper puts it in the vault", async () => {
     const t = await setup();
     const pocket = await openEarningPocket(t.ctx, t.user);

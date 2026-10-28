@@ -170,6 +170,53 @@ contract ArcForkTest is Test {
         assertEq(ARC_USDC.balanceOf(payer), 1000);
         assertEq(ARC_USDC.balanceOf(address(cross)), 0);
     }
+
+    /// Audit 2026-10-28: anyone may relay with any gas limit. Against real Arc USDC, no limit may turn
+    /// a payable split into a refund: each try either pays or reverts (and can be relayed again).
+    function test_Fork_NoGasLimitTurnsAPaymentIntoARefund() public {
+        ForkTransmitter t = new ForkTransmitter(ARC_USDC);
+        vm.deal(address(t), 20 ether); // 20 USDC
+        SplitsCrossPay cross =
+            new SplitsCrossPay(ARC_USDC, IMessageTransmitterV2(address(t)), router, ARC_TOKEN_MESSENGER);
+        uint256 n = 20;
+        SplitsRouter.Leg[] memory legs = new SplitsRouter.Leg[](n);
+        for (uint256 i; i < n; ++i) {
+            legs[i] = SplitsRouter.Leg(address(uint160(0xA000 + i)), uint96(500_000), 0, bytes32("w"));
+        }
+        bytes memory m = CctpMessage.encodeTo(
+            CctpMessage.Burn({
+                sourceDomain: 6,
+                nonce: keccak256("fork-gas"),
+                destinationCaller: address(cross),
+                mintRecipient: address(cross),
+                amount: n * 500_000,
+                messageSender: payer,
+                maxFee: 0,
+                feeExecuted: 0,
+                hookData: abi.encode(uint8(1), address(0), legs, n * 500_000, bytes32("fork-gas"))
+            }),
+            ARC_TOKEN_MESSENGER
+        );
+
+        uint256 snap = vm.snapshotState();
+        uint256 before = gasleft();
+        cross.relay(m, "ok");
+        uint256 full = before - gasleft();
+        vm.revertToState(snap);
+
+        uint256 refunds;
+        uint256 paid;
+        for (uint256 g = full + full / 10; g > full / 3; g -= full / 2000) {
+            snap = vm.snapshotState();
+            try cross.relay{gas: g}(m, "ok") {
+                if (ARC_USDC.balanceOf(payer) == n * 500_000) refunds++;
+                else paid++;
+            } catch {}
+            vm.revertToState(snap);
+        }
+        assertGt(paid, 0);
+        assertEq(refunds, 0);
+    }
 }
 
 /// @dev Plays MessageTransmitterV2 on the fork: sends real USDC it holds to the message's recipient.

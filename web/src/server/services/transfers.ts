@@ -313,9 +313,27 @@ export async function advanceTransfer(ctx: Ctx, transferId: string, budgetMs = 1
     await ctx.db.update(transfers).set({ lastError: RETRYING }).where(eq(transfers.id, transferId));
     throw err;
   } finally {
-    await ctx.db.update(transfers).set({ leaseUntil: null }).where(eq(transfers.id, transferId));
+    // Only our own lease: if this call ran past it and another worker took over, theirs stands.
+    await ctx.db.update(transfers).set({ leaseUntil: null }).where(and(eq(transfers.id, transferId), eq(transfers.leaseUntil, leased.leaseUntil!)));
   }
   return getTransfer(ctx, transferId);
+}
+
+/** After this long in one state waiting on the chain, the payment is flagged for a person to look. */
+const ATTENTION_AFTER_MS = 30 * 60_000;
+const flagged = new Set<string>();
+
+/**
+ * Waits, and says so once when a wait runs long. These waits hold the payer's wallet slot, and
+ * releasing it on a timer could let a second payment run while the first may still land, so a
+ * person decides instead.
+ */
+function waitLong(ctx: Ctx, t: Transfer, why: string): "wait" {
+  if (ctx.now().getTime() - t.updatedAt.getTime() > ATTENTION_AFTER_MS && !flagged.has(t.id)) {
+    flagged.add(t.id);
+    console.error(`[transfers] needs attention: ${t.id} has been ${t.status} for over 30 minutes (${why})`);
+  }
+  return "wait";
 }
 
 async function acquireLease(ctx: Ctx, transferId: string): Promise<Transfer | undefined> {
@@ -423,7 +441,7 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       if (row.status === "pending") return "wait";
       if (row.status === "failed") return fail(`Top-up failed: ${row.error ?? row.rawState}`);
       // Read after write: wait until the node shows the money before spending it.
-      if ((await ctx.chain.usdcBalance(payer.address)) < amount) return "wait";
+      if ((await ctx.chain.usdcBalance(payer.address)) < amount) return waitLong(ctx, t, "top-up landed but the balance never showed it");
       return { status: "approving" };
     }
 
@@ -495,7 +513,7 @@ async function step(ctx: Ctx, t: Transfer): Promise<StepResult> {
       if (row.status === "complete" && row.txHash) return { status: "verifying", patch: { txHash: row.txHash } };
       // The provider says it failed. Trust the chain: if the ref is spent, the payment happened.
       if (await ctx.chain.refUsed(payer.address, t.ref as Hex)) {
-        return row.txHash ? { status: "verifying", patch: { txHash: row.txHash } } : "wait";
+        return row.txHash ? { status: "verifying", patch: { txHash: row.txHash } } : waitLong(ctx, t, "ref spent but no transaction hash");
       }
       // A transaction that reached Arc decides by its own receipt, not by one read of the ref that
       // a lagging node can get wrong. "Nothing was sent" is said only once that's known.
@@ -525,7 +543,7 @@ async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
   const receipt = await ctx.chain.receipt(t.txHash as Hex);
   const on = await routerIdentity(ctx, t);
   if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt, on))) return recoverOwnWallet(ctx, t, receipt);
-  if (!receipt) return "wait";
+  if (!receipt) return waitLong(ctx, t, `no receipt for ${t.txHash}`);
   if (receipt.status !== "success") return fail(`Arc reverted the payment, so nobody was paid. ${SPONSORED_FEE}`);
   // Read at the receipt's block: a fallback node a few blocks behind must not turn a landed payment into a failure.
   if (!receiptMatches(t, receipt, on) || !(await ctx.chain.refUsed(on.payer, on.ref, receipt.blockNumber))) {

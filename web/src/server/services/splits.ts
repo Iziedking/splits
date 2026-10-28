@@ -6,11 +6,11 @@ import type { Ctx } from "../context";
 import { actions, splits, type StoredLeg } from "../db/schema";
 import { allocate, SplitRuleError, validateLegs } from "../domain/allocation";
 import { parseUsdc, purposeToBytes32, MoneyError } from "../domain/money";
-import { badRequest, conflict, notFound } from "../errors";
+import { badRequest, conflict, notFound, tooMany } from "../errors";
 import { normaliseEmail } from "../auth/otp";
 import { confirmAction, createAction, type Action, type Confirmation } from "./actions";
 import { findProviderTx, refreshProviderTx, submitOnce } from "./providerTx";
-import { ensureMainWallet, ensureUser, mainWallet, walletForUser, type User } from "./users";
+import { ensureRecipientWallet, mainWallet, walletForUser, type User } from "./users";
 
 export type Split = typeof splits.$inferSelect;
 
@@ -112,8 +112,8 @@ async function resolveRecipient(
   switch (to.type) {
     case "email": {
       const email = normaliseEmail(to.email);
-      const user = await ensureUser(ctx, email, "invited");
-      const wallet = await ensureMainWallet(ctx, user);
+      const wallet = await ensureRecipientWallet(ctx, email, `u:${owner.id}`);
+      if (!wallet) throw tooMany("TOO_MANY_NEW_RECIPIENTS", "Too many new people were added in the last hour. Try again later.");
       return { email, walletId: wallet.id, address: getAddress(wallet.address) };
     }
     case "wallet": {

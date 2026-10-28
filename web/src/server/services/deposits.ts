@@ -415,10 +415,21 @@ async function stepMove(ctx: Ctx, move: Move): Promise<void> {
   if (move.status === "attesting") {
     const msg = await iris.message(chain.domain, move.burnTxHash as Hex);
     if (msg.status === "missing" && ctx.now().getTime() - move.updatedAt.getTime() > UNSEEN_BURN_MS) {
-      // Circle called the burn confirmed, yet Iris never saw it. If its chain has no successful
-      // receipt either (reverted, or dropped in a reorg), nothing was burned: burn again.
+      // Circle called the burn confirmed, yet Iris never saw it. Burn again only on proof that
+      // nothing left: a reverted receipt, or no receipt while the wallet still holds the amount
+      // (dropped in a reorg). One node not finding a receipt isn't proof; burning again on that
+      // alone would burn the money twice.
       const receipt = await ctx.crossChain.reader.receiptStatus(chain, move.burnTxHash as Hex);
-      if (receipt !== "success") {
+      const stillHere = receipt === null && (await ctx.crossChain.reader.usdcBalance(chain, wallet.address as Address)) >= amount;
+      if (receipt === null && !stillHere && !move.lastError?.startsWith("burn unconfirmed")) {
+        console.error(`[deposits] needs attention: move ${move.id} burn ${move.burnTxHash} has no receipt on ${chain.name} but its money left; not burning again`);
+        await ctx.db
+          .update(depositMoves)
+          .set({ lastError: `burn unconfirmed: ${move.burnTxHash} has no receipt, but the money left the wallet` })
+          .where(eq(depositMoves.id, move.id));
+      }
+      if (receipt === "reverted" || stillHere) {
+        console.error(`[deposits] move ${move.id}: burn ${move.burnTxHash} ${receipt ?? "not found"} on ${chain.name}; burning again`);
         await save(ctx, move, {
           status: "burning",
           attempts: move.attempts + 1,
@@ -468,8 +479,20 @@ async function stepMove(ctx: Ctx, move: Move): Promise<void> {
   await finish(ctx, move, chain, parsed.amount - parsed.feeExecuted);
 }
 
+/**
+ * A failed step backs off, and after MAX_ATTEMPTS the move ends as "stuck" so the address isn't held
+ * forever. Before a burn lands nothing has left the wallet, so its deposits wait and ride along with
+ * the next deposit's move (which burns the whole balance, with a fresh amount). After a burn, an
+ * operator looks: the log line says so.
+ */
 async function retry(ctx: Ctx, move: Move, error: string) {
-  await save(ctx, move, { attempts: move.attempts + 1, lastError: error.slice(0, 300) });
+  const attempts = move.attempts + 1;
+  if (attempts < MAX_ATTEMPTS) return save(ctx, move, { attempts, lastError: error.slice(0, 300) });
+  console.error(`[deposits] needs attention: move ${move.id} stopped after ${attempts} tries (${error})`);
+  await save(ctx, move, { status: "stuck", attempts, lastError: error.slice(0, 300), stuckNotifiedAt: move.stuckNotifiedAt ?? ctx.now() });
+  if (!move.burnTxHash) {
+    await ctx.db.update(deposits).set({ status: "waiting", moveId: null, updatedAt: ctx.now() }).where(eq(deposits.moveId, move.id));
+  }
 }
 
 async function reportIfSlow(ctx: Ctx, move: Move, chain: SourceChain) {

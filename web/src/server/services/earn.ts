@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, lt, ne, notExists, notInArray, or } from "drizzle-orm";
 import type { Address } from "viem";
 import type { Ctx } from "../context";
-import { earnMoves, wallets } from "../db/schema";
+import { earnMoves, transfers, wallets } from "../db/schema";
 import { CENT } from "../domain/allocation";
 import { formatUsdc, MoneyError, parseUsdc } from "../domain/money";
 import type { EarnProvider } from "../earn/types";
@@ -130,13 +130,33 @@ export async function startMove(ctx: Ctx, user: User, kind: "in" | "out", amount
 
 export async function confirmMove(ctx: Ctx, user: User, actionId: string, proof: Confirmation): Promise<EarnMove> {
   const action = await confirmAction(ctx, user.id, actionId, proof, "earn_move", "That confirmation is not for the Earning pocket");
+  const pending = await getMove(ctx, action.subjectId);
+  // Two moves drafted side by side may not both run: the second could spend the first's money.
+  const other = ctx.db
+    .select({ id: earnMoves.id })
+    .from(earnMoves)
+    .where(and(eq(earnMoves.pocketWalletId, pending.pocketWalletId), ne(earnMoves.id, pending.id), inArray(earnMoves.status, [...ACTIVE])));
   const [move] = await ctx.db
     .update(earnMoves)
     .set({ status: "confirmed", updatedAt: ctx.now() })
-    .where(and(eq(earnMoves.id, action.subjectId), eq(earnMoves.status, "awaiting_confirmation")))
+    .where(and(eq(earnMoves.id, pending.id), eq(earnMoves.status, "awaiting_confirmation"), notExists(other)))
     .returning();
-  if (!move) throw conflict("ALREADY_CONFIRMED", "This move is already under way");
+  if (!move) {
+    if ((await getMove(ctx, pending.id)).status !== "awaiting_confirmation") throw conflict("ALREADY_CONFIRMED", "This move is already under way");
+    throw conflict("MOVE_BUSY", "Another move is still under way. Try again in a moment.");
+  }
   return move;
+}
+
+/** A payment from this wallet is between its approval and its send: moving money out now would sink it. */
+async function paymentUnderWay(ctx: Ctx, wallet: Wallet): Promise<boolean> {
+  if (!wallet.busyTransferId) return false;
+  const [busy] = await ctx.db
+    .select({ id: transfers.id })
+    .from(transfers)
+    .where(and(eq(transfers.id, wallet.busyTransferId), notInArray(transfers.status, ["settled", "failed", "cancelled"])))
+    .limit(1);
+  return Boolean(busy);
 }
 
 export async function getMove(ctx: Ctx, id: string): Promise<EarnMove> {
@@ -207,6 +227,7 @@ async function walletsOf(ctx: Ctx, move: EarnMove) {
 async function stepIn(ctx: Ctx, move: EarnMove): Promise<EarnMove> {
   const { pocket, main } = await walletsOf(ctx, move);
   const amount = BigInt(move.amount);
+  if (!(await findProviderTx(ctx, move.id, "earn-in")) && (await paymentUnderWay(ctx, main))) return move;
   let row = await submitOnce(ctx, move.id, "earn-in", 1, (idempotencyKey) =>
     ctx.wallets.transferUsdc({
       walletId: main.providerWalletId,

@@ -35,18 +35,21 @@ incoming="$INCOMING_ROOT/$sha"
 release="$RELEASES_ROOT/$sha"
 
 test -f "$ENV_FILE" || { log "missing $ENV_FILE"; exit 1; }
-for f in SHA256SUMS splits-api.tar.gz compose.yml; do
-  test -f "$incoming/$f" || { log "missing $incoming/$f"; exit 1; }
-  # Every file used below must be covered by the checksum list.
-  if [[ "$f" != SHA256SUMS ]]; then
-    grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$incoming/SHA256SUMS" || { log "$f is not listed in SHA256SUMS"; exit 1; }
-  fi
-done
-(cd "$incoming" && sha256sum --check --strict --quiet SHA256SUMS) || { log "checksum mismatch in $incoming"; exit 1; }
 docker network inspect deploy_default >/dev/null 2>&1 || { log "network deploy_default is missing (ArcRun's Caddy project)"; exit 1; }
 
+# The uploading user owns $incoming and could swap a file between a check and its use, so the
+# bundle is first copied into the root-owned release directory; only those copies are checked
+# and used from here on.
 mkdir -p "$release" "$BACKUPS_ROOT"
-cp "$incoming/compose.yml" "$incoming/SHA256SUMS" "$release/"
+for f in SHA256SUMS splits-api.tar.gz compose.yml; do
+  [[ -f "$incoming/$f" && ! -L "$incoming/$f" ]] || { log "missing (or a symlink): $incoming/$f"; exit 1; }
+  cp -- "$incoming/$f" "$release/$f"
+done
+for f in splits-api.tar.gz compose.yml; do
+  # Every file used below must be covered by the checksum list.
+  grep -Eq "^[0-9a-f]{64}  (\./)?$f\$" "$release/SHA256SUMS" || { log "$f is not listed in SHA256SUMS"; exit 1; }
+done
+(cd "$release" && sha256sum --check --strict --quiet SHA256SUMS) || { log "checksum mismatch in $release"; exit 1; }
 touch "$release"
 
 compose() { # compose <sha> <compose file> <args...>
@@ -56,12 +59,22 @@ compose() { # compose <sha> <compose file> <args...>
 }
 
 compose "$sha" "$release/compose.yml" config --quiet
+# A compose file asking for the host (a bind mount, privileges, host namespaces, devices) would make
+# the upload key root on this shared machine. Splits needs none of it. The output is only searched,
+# never printed: it holds the env file's values.
+if compose "$sha" "$release/compose.yml" config |
+  grep -Eq '^\s*(privileged: true|pid: host|ipc: host|network_mode: host|userns_mode: host|cap_add:|devices:)|type: bind|unconfined'; then
+  log "compose.yml asks for host access (bind mount, privileges or host namespaces); refused"
+  exit 1
+fi
 
 if ! docker image inspect "splits-api:$sha" >/dev/null 2>&1; then
   log "loading image splits-api:$sha"
-  gzip -dc "$incoming/splits-api.tar.gz" | docker load >/dev/null
+  gzip -dc "$release/splits-api.tar.gz" | docker load >/dev/null
 fi
 docker image inspect "splits-api:$sha" >/dev/null 2>&1 || { log "bundle did not contain splits-api:$sha"; exit 1; }
+# Loaded; the image itself is the release from here on (a rollback re-uses it by tag).
+rm -f "$release/splits-api.tar.gz"
 
 running() { [[ "$(docker inspect -f '{{.State.Running}}' "$1" 2>/dev/null || true)" == true ]]; }
 

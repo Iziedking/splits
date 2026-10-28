@@ -34,6 +34,29 @@ echo 'ubuntu ALL=(root) NOPASSWD: /usr/local/sbin/splits-deploy' | sudo tee /etc
 sudo chmod 440 /etc/sudoers.d/splits-deploy && sudo visudo -cf /etc/sudoers.d/splits-deploy
 ```
 
+### A deploy key that can only deploy
+
+Today the CI key logs in as `ubuntu`, which has full sudo on a host shared with ArcRun, Kova and
+sFace. A leaked key is then root everywhere. To contain it, give CI its own user whose only power is
+this script. The script copies the bundle into root-owned `/opt/splits/releases/<sha>` before it
+checks anything, and refuses a `compose.yml` that asks for bind mounts, privileges or host
+namespaces, so the upload directory is the only thing that user can write.
+
+```sh
+sudo adduser --system --group --shell /bin/bash splits-ci
+sudo install -d -o splits-ci -g splits-ci -m 700 /home/splits-ci/.ssh
+# Paste the CI public key (the pair of the VPS_SSH_KEY secret) into authorized_keys:
+sudo install -o splits-ci -g splits-ci -m 600 /dev/stdin /home/splits-ci/.ssh/authorized_keys
+sudo chown splits-ci:splits-ci /opt/splits/incoming
+echo 'splits-ci ALL=(root) NOPASSWD: /usr/local/sbin/splits-deploy' | sudo tee /etc/sudoers.d/splits-deploy
+sudo chmod 440 /etc/sudoers.d/splits-deploy && sudo visudo -cf /etc/sudoers.d/splits-deploy
+```
+
+Then set the GitHub secret `VPS_USER` to `splits-ci`, remove that public key from `ubuntu`'s
+`authorized_keys`, and run one deploy to confirm. The workflow's deploy job uses the `production`
+environment: in the repository settings, give that environment a "main only" branch rule and move
+the `VPS_*` secrets into it, so a workflow edited on another branch can't read them.
+
 Then add the `mysplits.xyz` block to ArcRun's Caddyfile (tracked in the ArcRun repo) and reload:
 
 ```sh
