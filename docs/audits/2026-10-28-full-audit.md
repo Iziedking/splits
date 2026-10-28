@@ -48,20 +48,46 @@ for the next deployment:
 Proof: 4 new unit tests, 4 new mutations (all killed), 7/7 fork tests on Arc mainnet state. The preview
 chain mirrors the new source.
 
-## Open, not fixed here
+## Second round, the same day
 
-| Severity | Item | Why it is open |
+Everything that was left open after the first round, fixed and verified the same way (commits
+`d14e1f5` and the test fixes after it).
+
+| # | Severity | Finding | Fix | Proof |
+|---|---|---|---|---|
+| 18 | Medium | A deposit move could burn again after one RPC wrongly said "no receipt", orphaning the first burn. | It burns again only on a reverted receipt, or with no receipt while the deposit wallet still holds the amount. Otherwise the move is flagged "burn unconfirmed" for a person. | `deposits.test.ts` "never burns again when one node..."; mutation `deposit-reburns-on-missing-receipt` |
+| 19 | Medium | A move that hit 8 failures stopped but still held its address, so later deposits there never moved. | It ends as `stuck` and is logged for attention. If nothing was burned yet, its deposits wait and ride along with the next deposit's move, which burns the fresh balance. | `deposits.test.ts` "ends a move that keeps failing..."; mutation `deposit-move-never-ends` |
+| 20 | Medium | Checking a list made a Circle wallet for every email before anything was paid (about 50,000 an hour were possible). | New wallets are capped per sender (`NEW_WALLETS_PER_SENDER_PER_HOUR`, 100) and in total (`NEW_WALLETS_GLOBAL_PER_HOUR`, 1,000), for lists and splits alike. People who already have a wallet don't count. | `payouts.test.ts` "caps the new wallets..."; mutation `new-wallets-uncapped` |
+| 21 | Medium | The deploy user has full sudo, and `splits-deploy` checked files in a directory that user owns, then read them again. | The script copies the bundle into the root-owned release directory before checking it, refuses symlinks, and refuses a compose file asking for bind mounts, privileges, host namespaces or devices. `deploy/README.md` has the steps for a `splits-ci` user whose only right is the script. | Script review; the steps are yours to run on the host |
+| 22 | Medium | SplitsCrossPay's out-of-gas check is a 1/16 ratio, so a relayer might pick a gas limit that refunds a payable split. | **Disproven on real Arc USDC.** A fork test relays a 20-recipient payment at every gas limit, coarse first and then 100 gas at a time below the lowest that pays, and none refunds. | `ArcFork.t.sol` `test_Fork_NoGasLimitTurnsAPaymentIntoARefund` (8/8 fork tests) |
+| 23 | Low | The freshness guard trusted the highest height any RPC reported, and never checked chain ids. | With three or more RPCs the reference is the highest height two agree on. A height far above it isn't current. An RPC on another chain is dropped and logged once. | `freshness.test.ts` (3 new cases); mutations `wild-height-trusted`, `other-chain-rpc-used` |
+| 24 | Low | A payment's lease was cleared unconditionally, so a slow worker could clear the next worker's lease. | Released only if it is still ours. Waits for chain evidence that pass 30 minutes are logged once as needing attention. The wallet slot is never released on a timer, since money could still land. | `flow.test.ts` "...leaves the next worker's lease alone"; mutation `lease-cleared-unfenced` |
+| 25 | Low | Two Earn moves drafted side by side could both run, and earn-in could drain a wallet mid-payment. | A confirm is refused while another move on that pocket is active. Earn-in waits while a payment holds the main wallet. | `earn.test.ts` "runs only one of two moves..."; mutation `earn-confirms-side-by-side` |
+| 26 | Low | Deploy secrets were reachable from any branch's workflow. | The deploy job runs in a `production` environment. Restricting it to `main` and moving the `VPS_*` secrets in is a repository setting you own. | `deploy.yml` |
+| 27 | Info | `script/Deploy.s.sol` used plain `new`, while the record says CREATE2. | It deploys through the same factory with salt `keccak256("splits.router.v1")` (checked: `0x3d10f73c...`, as recorded). | `cast keccak` against `deployments/arc-mainnet.json` |
+
+Also verified: production runs with `FUNDING_ENABLED=false`, so the simulated card was never
+releasing treasury USDC there.
+
+## Still open
+
+| Severity | Item | Why |
 |---|---|---|
-| Medium | Your production `FUNDING_ENABLED` value is unverified. | Reading `/opt/splits/prod.env` was outside what this session was allowed to do. Check it: `sudo grep '^FUNDING' /opt/splits/prod.env`. |
-| Medium | The deploy key's user has full sudo on the shared host, and `splits-deploy` re-reads files from a directory that user owns after checking their hashes. | This is a host change you own: a dedicated deploy user whose only sudo right is the script, with the script copying the bundle to a root-owned directory before verifying it. |
-| Medium | Deposits: a move can re-burn after a wrong "not found" from one RPC, and a move that hits 8 failures stops while still holding the wallet. | This needs design (keep every burn hash, cross-check before re-burning, a terminal "needs attention" state). Planned as its own piece of work. |
-| Medium | SplitsCrossPay's out-of-gas check is a 1/16 ratio. With deep enough USDC internals, a relayer could pick a gas limit that turns a payment into a refund. | Not reproduced: the mock-based test passes. It needs a fork test that sweeps gas against real Arc USDC before choosing an absolute budget. |
-| Medium | `/api/visitor/check` creates a Circle wallet for every email in a list before anything is paid. | This needs a product decision: create wallets at prepare or confirm time instead. |
-| Low | Wallet slot, verifying and funding states have no timeout; the lease has no fencing token; Earn moves don't take the wallet slot. | Contained today by idempotency keys and unique indexes; worth one hardening pass. |
-| Low | The freshness guard trusts the highest reported height; there is no per-URL chain-id check. | Small change, but it needs care with the existing tests. |
-| Low | GitHub deploy secrets are repository-level, with no protected `production` environment. | A repository setting you own. |
-| Info | `SplitsRouter.previewSend`'s comment says it reverts like `send`; it doesn't check `active` or the version. `script/Deploy.s.sol` uses plain `new`, while the deployment record says CREATE2. | Editing NatSpec changes the metadata hash, so Sourcify would stop matching the deployed router. Fix both with the next router version. |
-| Info | `contracts/broadcast/` (untracked) holds only public transaction data. | Either commit it as deployment evidence or add it to `contracts/.gitignore`; your call. |
+| Medium | SplitsCrossPay's contract-side fixes are in the source, not on chain. | A redeploy (and `CROSS_PAY_ADDRESS` change) is yours to run. Until then the server-side fix (#4) protects the app. |
+| Medium | The `splits-ci` user and the `production` environment's branch rule and secrets. | Host and repository settings you own (steps in `deploy/README.md`). |
+| Low | Earn-in waiting for a payment has no test of its own. | It is a read-only check before the first Earn transfer. Earn is off on mainnet. |
+| Info | `SplitsRouter.previewSend`'s comment says it reverts like `send`; it doesn't check `active` or the version. | Editing NatSpec changes the metadata hash, so Sourcify would stop matching the deployed router. Fix it with the next router version. |
+| Info | `contracts/broadcast/` (untracked) holds only public transaction data. | Commit it as deployment evidence, or add it to `contracts/.gitignore`; your call. |
+
+## Verification
+
+All runs were on the test VPS, each in a throwaway workspace:
+
+- Contracts: format clean, build, 112 unit, fuzz and invariant tests, 8/8 fork tests on Arc mainnet state, 18/18 mutations.
+- Web: typecheck, 412/412 tests on PGlite and on Postgres 17, 73/73 mutations, production build,
+  HTTP API smoke test.
+- Image: the Docker image builds on `node:22.23.4-bookworm-slim`, then starts healthy as user `node`
+  with `mode` in `/api/health`.
 
 ## Checked and sound
 
