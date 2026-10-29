@@ -1,8 +1,8 @@
 /**
- * Where people get help (fintech face WP7). The support address is the owner's to choose, so it is
- * a setting: NEXT_PUBLIC_SUPPORT_EMAIL. Until it is set, Help says plainly that it is coming.
+ * Where people get help (fintech face WP7). support@mysplits.xyz is live (owner, 2026-10-29);
+ * NEXT_PUBLIC_SUPPORT_EMAIL overrides it, for a test server that should not write to it.
  */
-export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || null;
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim() || "support@mysplits.xyz";
 
 /** A payment's id, as people quote it: short enough to read out, enough to find the payment. */
 export const reference = (id: string) => id.replace(/-/g, "").slice(0, 12).toUpperCase();
