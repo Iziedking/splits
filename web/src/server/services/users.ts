@@ -115,7 +115,7 @@ export async function walletForUser(ctx: Ctx, userId: string, walletId: string):
     .from(wallets)
     .where(and(eq(wallets.id, walletId), eq(wallets.userId, userId)))
     .limit(1);
-  if (!wallet) throw notFound("Wallet not found");
+  if (!wallet) throw notFound("Pocket not found");
   return wallet;
 }
 

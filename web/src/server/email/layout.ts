@@ -73,7 +73,7 @@ export function brandedEmail(e: BrandedEmail): { html: string; text: string } {
       `<a href="${escape(url)}" style="display:inline-block;padding:15px 30px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:999px">${escape(button!.label)}&nbsp;&rarr;</a>` +
       `</td></tr></table>`
     : "";
-  const foot = escape(footer ?? "You're getting this because you use Splits. Splits moves USDC on Arc.");
+  const foot = escape(footer ?? "You're getting this because you use Splits.");
   const links = base
     ? `<p style="margin:10px 0 0;font-size:12px;color:${SLATE}"><a href="${escape(base)}" style="color:${TEAL_DEEP};text-decoration:none;font-weight:700">mysplits.xyz</a>&nbsp;&nbsp;·&nbsp;&nbsp;<a href="${escape(base + "/about")}" style="color:${SLATE};text-decoration:underline">About Splits</a></p>`
     : "";

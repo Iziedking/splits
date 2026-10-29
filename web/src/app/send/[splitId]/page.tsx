@@ -176,7 +176,7 @@ function Send() {
         {fundWith === "card" && (
           <p className="mt-2 text-sm text-muted-foreground">
             Test card. No card is charged. The money that arrives is{" "}
-            {me.mode === "preview" ? "simulated in preview" : me.network === "arc-testnet" ? "test money on Arc Testnet" : "real"}.
+            {me.mode === "preview" ? "simulated in preview" : me.network === "arc-testnet" ? "test money with no value" : "real"}.
           </p>
         )}
 

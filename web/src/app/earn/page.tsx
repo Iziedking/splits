@@ -5,6 +5,7 @@ import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { BackLink } from "@/components/app/back-link";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { PaymentDetails } from "@/components/app/payment-details";
 import { Segmented } from "@/components/app/segmented";
 import { Skeleton } from "@/components/app/skeleton";
 import { Button } from "@/components/ui/button";
@@ -22,7 +23,7 @@ export default function EarnPage() {
 
 const pct = (apy: number) => `${(apy * 100).toFixed(2)}%`;
 
-const LABEL: Record<EarnMoveView["kind"], string> = { in: "Moved in", out: "Moved out", deposit: "Put in the vault" };
+const LABEL: Record<EarnMoveView["kind"], string> = { in: "Moved in", out: "Moved out", deposit: "Started earning" };
 
 type Pending = { actionId: string; amount: string; kind: "in" | "out" };
 
@@ -129,10 +130,16 @@ function Earn() {
             Let part of your money earn
           </h2>
           <p className="text-muted-foreground">
-            Money in your Earning pocket is lent through <b className="text-foreground">{status.vault.name}</b>, a Morpho vault on Arc vetted by
-            Circle, using Arc Earn Kit. It earns about <b className="text-foreground">{pct(status.vault.apy)}</b> a year right now. The rate is
-            variable and not guaranteed.
+            Money in your Earning pocket is lent out through a vetted partner and earns about{" "}
+            <b className="text-foreground">{pct(status.vault.apy)}</b> a year right now. The rate changes and is not guaranteed.
           </p>
+          <PaymentDetails
+            summary="How it works"
+            rows={[
+              { label: "Lent through", value: status.vault.name },
+              { label: "What it is", value: "A Morpho vault on Arc, vetted by Circle, used through Arc Earn Kit" },
+            ]}
+          />
           <p className="text-muted-foreground">
             Move money in by hand, or set an automatic split to send part of what you receive here. Move it back to your spendable balance
             whenever you like, with your PIN. No Splits fee either way.
@@ -169,7 +176,7 @@ function Earn() {
               )}
             </dl>
             <p className="mt-4 text-xs text-muted-foreground">
-              Lent through {status.vault.name} on Arc with Arc Earn Kit. Amounts are approximate because vault shares round.
+              Amounts are approximate and the rate changes.
             </p>
           </section>
 
@@ -184,7 +191,7 @@ function Earn() {
               value={kind}
               onChange={setKind}
             />
-            <Field label="Amount (USDC)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <Field label="Amount ($)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             <Button type="submit" className="w-full" busy={busy} disabled={!amount.trim()}>
               {kind === "in" ? "Move to my Earning pocket" : "Move to my spendable balance"}
             </Button>
@@ -207,7 +214,7 @@ function Earn() {
                     <span className="flex items-center gap-2 font-semibold tabular-nums">
                       ${nearestCents(m.amount)}
                       {m.txUrl && (
-                        <a href={m.txUrl} target="_blank" rel="noreferrer" aria-label="See it on the Arc explorer" className="-my-3 -mr-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+                        <a href={m.txUrl} target="_blank" rel="noreferrer" aria-label="Proof of this move" className="-my-3 -mr-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                         </a>
                       )}

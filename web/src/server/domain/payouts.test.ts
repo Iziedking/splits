@@ -17,8 +17,8 @@ describe("parsePayoutLines", () => {
   it("explains lines it can't read", () => {
     const [bad, cents, long] = parsePayoutLines(`not-a-person\n${A}, 1.005\n${A}, 1, ${"x".repeat(32)}`);
     expect(bad!.problem).toBe("Not an email or an Arc address");
-    expect(cents!.problem).toBe("Amounts must be whole cents");
-    expect(long!.problem).toBe("Label is longer than 31 bytes");
+    expect(cents!.problem).toBe("Use whole cents, like 25.50");
+    expect(long!.problem).toBe("Keep the label under 32 characters");
   });
 
   it("reads tab-separated lines pasted from a spreadsheet", () => {

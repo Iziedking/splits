@@ -10,7 +10,8 @@ describe("the payment notice email", () => {
       appUrl: "https://splits.example",
     });
     expect(subject).toBe("You received $5.00 on Splits");
-    expect(text).toContain('host@example.com sent you $5.00 USDC for "giveaway prize".');
+    expect(text).toContain("host@example.com sent you $5.00 for giveaway prize.");
+    expect(text).not.toMatch(/USDC|\bArc\b/);
     expect(text).toContain("Sign in with this email at https://splits.example to use it.");
     expect(html).toContain('href="https://splits.example/signin"');
   });

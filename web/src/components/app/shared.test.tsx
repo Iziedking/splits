@@ -124,9 +124,10 @@ describe("StepList", () => {
 describe("EnvBadge", () => {
   it("reads its reason out instead of hiding it in a tooltip", () => {
     const out = html(<EnvBadge mode="testnet" />);
-    expect(out).toContain("Testnet");
+    expect(out).toContain(">Test<");
     expect(out).toContain('class="sr-only"');
-    expect(out).toContain("has no value");
+    expect(out).toContain("Test money with no value");
+    expect(out).not.toMatch(/Arc|USDC/);
     expect(out).not.toContain("title=");
   });
 });

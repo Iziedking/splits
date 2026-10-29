@@ -54,11 +54,11 @@ export async function draftSplit(ctx: Ctx, owner: User, input: SplitInput): Prom
       .from(splits)
       .where(eq(splits.autoForWalletId, input.autoForWalletId))
       .limit(1);
-    if (existing) throw conflict("RULE_EXISTS", "That wallet already has an automatic split");
+    if (existing) throw conflict("RULE_EXISTS", "You already have an automatic split");
     // A rule runs on every deposit without a PIN and outside the send limit, so it may only move
     // money between the owner's own wallets. Paying anyone else is a payment, approved each time.
     for (const leg of input.legs) {
-      if (leg.to.type !== "wallet") throw badRequest("RULE_OWN_WALLETS", "An automatic split can only move money between your own wallets");
+      if (leg.to.type !== "wallet") throw badRequest("RULE_OWN_WALLETS", "An automatic split can only move money between your own pockets");
       await walletForUser(ctx, owner.id, leg.to.walletId);
     }
   }
@@ -121,7 +121,7 @@ async function resolveRecipient(
       return { email: null, walletId: wallet.id, address: getAddress(wallet.address) };
     }
     case "address": {
-      if (!isAddress(to.address)) throw badRequest("INVALID_ADDRESS", "That isn't a valid Arc address");
+      if (!isAddress(to.address)) throw badRequest("INVALID_ADDRESS", "That isn't a valid account address");
       return { email: null, walletId: null, address: getAddress(to.address) };
     }
   }

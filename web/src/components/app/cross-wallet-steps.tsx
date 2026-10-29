@@ -100,7 +100,7 @@ export function CrossWalletSteps({
     <div className="space-y-4">
       {cost && (
         <dl className="space-y-2 text-sm">
-          <Line label="Split" value={`$${cost.amount}`} />
+          <Line label="Payment" value={`$${cost.amount}`} />
           <Line label="Splits fee" value={`$${cost.fee}`} />
           <Line label="Circle's fee, at most" value={`$${cost.circleMax}`} note="Any unused part comes back to you on Arc." />
           <Line label="Your network fee" value={`Paid in ${gas} on ${chainName}`} />

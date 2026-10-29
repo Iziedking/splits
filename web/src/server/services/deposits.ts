@@ -295,8 +295,8 @@ async function openMoves(ctx: Ctx, limit: number) {
         await notify(ctx, d.userId, {
           sourceKey: `deposit:${wallet.id}:waiting:${ctx.now().toISOString().slice(0, 10)}`,
           kind: "deposit_waiting",
-          title: `$${usd(BigInt(d.amount))} arrived on ${chain.name}`,
-          body: `It moves to Arc once you have $${usd(chain.minUnits)} there.`,
+          title: `$${usd(BigInt(d.amount))} arrived`,
+          body: `It reaches your balance once at least $${usd(chain.minUnits)} has arrived.`,
           href: "/home",
           amount: usd(BigInt(d.amount)),
           email: false,
@@ -321,8 +321,8 @@ async function openMoves(ctx: Ctx, limit: number) {
         await notify(ctx, d.userId, {
           sourceKey: `deposit:${d.id}:arrived`,
           kind: "deposit_arrived",
-          title: `$${usd(BigInt(d.amount))} arrived on ${chain.name}`,
-          body: "Moving it to Arc. It will be ready to spend in about a minute.",
+          title: `$${usd(BigInt(d.amount))} arrived`,
+          body: "Adding it to your balance. It will be ready to spend in about a minute.",
           href: "/home",
           amount: usd(BigInt(d.amount)),
           email: false,
@@ -501,8 +501,8 @@ async function reportIfSlow(ctx: Ctx, move: Move, chain: SourceChain) {
   await notify(ctx, move.userId, {
     sourceKey: `move:${move.id}:stuck`,
     kind: "deposit_stuck",
-    title: `Your $${usd(BigInt(move.burnAmount))} is safe on ${chain.name}`,
-    body: "Moving it to Arc is taking longer than usual; Splits keeps trying.",
+    title: `Your $${usd(BigInt(move.burnAmount))} is safe`,
+    body: "Adding it to your balance is taking longer than usual; Splits keeps trying.",
     href: "/home",
     amount: usd(BigInt(move.burnAmount)),
     email: true,
@@ -520,8 +520,8 @@ async function finish(ctx: Ctx, move: Move, chain: SourceChain, minted: bigint) 
   await notify(ctx, move.userId, {
     sourceKey: `move:${move.id}:ready`,
     kind: "deposit_ready",
-    title: `Ready: $${usd(minted)} is in your balance`,
-    body: `It arrived from ${chain.name} and is ready to split.`,
+    title: `$${usd(minted)} is in your balance`,
+    body: "It arrived and is ready to send.",
     href: "/home",
     amount: usd(minted),
     email: true,

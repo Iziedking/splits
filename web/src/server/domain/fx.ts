@@ -28,7 +28,7 @@ export function ratesFromConfig(config: { FX_GBP_USDC: string; FX_EUR_USDC: stri
  */
 export function quote(currency: FiatCurrency, fiatMinor: number, rates: FxRates): Quote & { usdcAmount: bigint } {
   if (!Number.isSafeInteger(fiatMinor) || fiatMinor <= 0) throw new QuoteError("Enter an amount above zero");
-  if (fiatMinor > 1_000_000) throw new QuoteError("The limit is 10,000 per transfer");
+  if (fiatMinor > 1_000_000) throw new QuoteError("The limit is 10,000 per payment");
   const rate = rates[currency];
   const usdcAmount = (BigInt(fiatMinor) * rate) / 100n / CENT * CENT;
   if (usdcAmount === 0n) throw new QuoteError("That amount is too small to send");

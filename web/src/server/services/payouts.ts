@@ -53,9 +53,9 @@ export type PayoutCheck = {
 
 const MESSAGES = {
   duplicate: "This person is already on the list",
-  self: "That's your own wallet",
-  cant_receive: "This address can't receive USDC right now",
-  wallet_failed: "Couldn't set up a wallet for this email. Check again to retry.",
+  self: "That's you",
+  cant_receive: "This person can't receive money right now",
+  wallet_failed: "Couldn't set up an account for this email. Check again to retry.",
   wallets_busy: "Too many new people were added in the last hour. Check again later.",
   check_failed: "Couldn't check this line. Check again.",
   no_amount: "Add an amount, like 5 or 2.50",
@@ -98,7 +98,7 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
   try {
     purposeToBytes32(input.label);
   } catch {
-    throw badRequest("LABEL_TOO_LONG", "The label is longer than 31 bytes");
+    throw badRequest("LABEL_TOO_LONG", "Keep the label under 32 characters");
   }
   const parsed = parsePayoutLines(input.text);
   if (parsed.length === 0) throw badRequest("EMPTY_LIST", "Add at least one person");

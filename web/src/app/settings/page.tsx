@@ -175,7 +175,7 @@ function EmailAlertsSwitch({ on, onChanged }: { on: boolean; onChanged: () => Pr
         onChange={() => void toggle()}
         disabled={busy}
         label="Email me about my money"
-        description="Deposits ready, payments landed or failed."
+        description="Money added, payments landed or failed."
       />
       {error && <Notice tone="error" className="mt-2">{error}</Notice>}
     </div>

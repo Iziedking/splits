@@ -157,7 +157,7 @@ function Pay() {
       if (transfer.status === "awaiting_confirmation") setError("Payment not sent. Check again to pay.");
       else router.replace(`/payments/${id}`);
     } catch {
-      setError("We couldn't tell whether this payment went through. Check Activity on Home before paying again.");
+      setError("We couldn't tell whether this payment went through. Check Recent transfers on Home before paying again.");
     }
   }
 
@@ -170,7 +170,7 @@ function Pay() {
       <div>
         <h1 className="text-title leading-tight font-extrabold">Send money</h1>
         <p className="mt-2 text-muted-foreground">
-          Anyone, by email or account address. Everyone is paid at once, or nobody is.
+          Anyone, by email. Everyone is paid at once, or nobody is.
         </p>
 
         {me.agent && (
@@ -178,7 +178,7 @@ function Pay() {
             checked={agentOn}
             onChange={setAgentOn}
             disabled={drafting}
-            label="Try agentic mode"
+            label="Paste a list, Splits fills it in"
             className="mt-6 rounded-full bg-white/60 px-4 font-semibold ring-1 ring-white"
           />
         )}

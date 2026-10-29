@@ -73,7 +73,7 @@ function NewRule() {
         <div>
           <p className="figure text-7xl">{percent}%</p>
           <p className="mt-2 text-muted-foreground">
-            of every payment that reaches your wallet goes straight to {pocketName.trim() || "your pocket"}. The rest
+            of every payment you receive goes straight to {pocketName.trim() || "your pocket"}. The rest
             stays for spending.
           </p>
         </div>

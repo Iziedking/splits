@@ -112,7 +112,7 @@ export function ActivityList({
               <li key={`r-${r.txHash}`} className="surface p-4">
                 <span className="block font-bold text-primary-text tabular-nums">+${cents(r.amount)}</span>
                 <span className="mt-0.5 block truncate text-sm text-muted-foreground">
-                  {r.source === "topup" ? "Demo card top-up" : r.source === "deposit" ? r.fromLabel : `From ${r.fromLabel ?? short(r.from)}`}
+                  {r.source === "topup" ? "Test card top-up" : r.source === "deposit" ? r.fromLabel : `From ${r.fromLabel ?? short(r.from)}`}
                   {r.purpose && <> · for {r.purpose}</>} · {day(row.at)}
                   {r.explorerUrl && (
                     <>

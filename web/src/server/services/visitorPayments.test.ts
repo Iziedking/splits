@@ -118,7 +118,7 @@ describe("paying from your own wallet", () => {
     await submitVisitorPayment(ctx, p.transfer.visitorToken!, payFromWallet(arc, p, other));
     const t = await drive(ctx, p.transfer.id);
     expect(t.status).toBe("failed");
-    expect(t.lastError).toMatch(/does not match/);
+    expect(t.lastError).toMatch(/doesn't match what you approved/);
     expect(await ctx.db.select().from(notices)).toHaveLength(0);
   });
 

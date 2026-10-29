@@ -55,7 +55,7 @@ describe("payment notifications", () => {
     const { ctx, ada, transfer } = await setup();
     await notifyPaymentOutcome(ctx, transfer({ status: "failed" }));
     expect(await rows(ctx)).toEqual([
-      { who: ada.id, key: `transfer:${transfer({}).id}:failed`, title: "Payment failed: nothing was sent", body: "Your $30.45 payment didn't go through. No one was paid.", email: "pending" },
+      { who: ada.id, key: `transfer:${transfer({}).id}:failed`, title: "Payment not sent", body: "Your $30.45 payment didn't go through. No one was paid.", email: "pending" },
     ]);
   });
 
@@ -63,10 +63,10 @@ describe("payment notifications", () => {
     const { ctx, transfer } = await setup();
     await notifyPaymentOutcome(
       ctx,
-      transfer({ status: "failed", txHash: "0xabc", lastError: "Onchain receipt does not match what was approved. Flagged for review." }),
+      transfer({ status: "failed", txHash: "0xabc", lastError: "The payment record doesn't match what you approved. Flagged for review." }),
     );
     expect((await rows(ctx)).map((r) => [r.title, r.body])).toEqual([
-      ["Payment flagged for review", "Your $30.45 payment reached Arc but didn't match what you approved. Splits is checking it."],
+      ["Payment flagged for review", "Your $30.45 payment went out but didn't match what you approved. Splits is checking it."],
     ]);
   });
 

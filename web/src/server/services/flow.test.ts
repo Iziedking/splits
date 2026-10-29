@@ -445,7 +445,7 @@ describe("failure is honest and nothing is paid twice", () => {
 
     const t = await pay(ctx, user, split.id, 1000);
     expect(t.status).toBe("failed");
-    expect(t.lastError).toMatch(/can't receive USDC/);
+    expect(t.lastError).toMatch(/can't receive money/);
     expect(await balanceOf(ctx, "landlord@example.com")).toBe(0n);
     // The top-up landed and stays in the sender's wallet, where the app shows it.
     expect(await balanceOf(ctx, "ada@example.com")).toBe(12_700_000n);
@@ -673,7 +673,7 @@ describe("paying a checked list in one transaction", () => {
     const t = await payDraft(ctx, user, draft);
     expect(t.status).toBe("failed");
     expect(t.lastError).toBe(
-      "One recipient can't receive USDC right now. Arc reverted it, so nobody was paid. Splits covered Arc's network fee for the attempt. $2.00 from the demo card is still in your balance.",
+      "One person can't receive money right now. It was rejected, so nobody was paid. You weren't charged. $2.00 from the test card is still in your balance.",
     );
     expect(await ctx.chain.usdcBalance(winner(1))).toBe(0n);
     expect(await balanceOf(ctx, "host@example.com")).toBe(2_000_000n);
@@ -692,7 +692,7 @@ describe("paying a checked list in one transaction", () => {
     };
     const t = await payDraft(ctx, user, draft);
     expect(t.status).toBe("failed");
-    expect(t.lastError).toBe("Arc rejected the payment. Nothing was sent. $2.00 from the demo card is still in your balance.");
+    expect(t.lastError).toBe("The payment was rejected. Nothing was sent. $2.00 from the test card is still in your balance.");
   });
 
   it("runs a winner's automatic split on what they received", async () => {
@@ -782,7 +782,7 @@ describe("activity", () => {
 
     // The demo card's top-up comes from the app's treasury; it is named, not shown as a bare address.
     const hostActivity = await activityFor(ctx, host);
-    expect(hostActivity.received).toEqual([expect.objectContaining({ amount: "2.00", fromLabel: "Demo card top-up", source: "topup" })]);
+    expect(hostActivity.received).toEqual([expect.objectContaining({ amount: "2.00", fromLabel: "Test card top-up", source: "topup" })]);
 
     ctx.wallets.listInbound = async () => {
       throw new Error("down");

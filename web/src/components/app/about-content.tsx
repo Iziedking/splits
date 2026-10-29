@@ -13,9 +13,9 @@ const EXAMPLE = [
 const ALSO = [
   ["Giveaways and prizes", "Paste the winners, split a pot to the cent and pay all of them in one go."],
   ["Team and revenue shares", "Divide what comes in between partners the same way every time."],
-  ["One person", "Pay anyone by email or Arc address. The receipt says what it was for."],
+  ["One person", "Pay anyone by email. The receipt says what it was for."],
   ["Automatic splits", "Have a share of everything you receive moved to savings by itself."],
-  ["Describe it, I split it", "Paste a rough note, or a screenshot of a chat or spreadsheet, and Splits fills in the list for you to check."],
+  ["Describe it, Splits fills in the list", "Paste a rough note, or a screenshot of a chat or spreadsheet, and Splits fills in the list for you to check."],
   ["No account needed", "Pay straight from your own wallet, in your browser or with WalletConnect."],
 ] as const;
 
@@ -91,7 +91,7 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
             payment never lands half done.
           </p>
           <p>
-            Your family doesn&apos;t need an app or a crypto wallet. Their email address is their wallet, and the money is
+            Your family doesn&apos;t need an app or anything to set up. Their email is enough, and the money is
             waiting when they sign in. Each person gets a private receipt showing their part and what it was for.
           </p>
           <p className="text-muted-foreground">

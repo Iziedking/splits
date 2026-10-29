@@ -63,12 +63,12 @@ export async function activityFor(ctx: Ctx, user: User) {
     const leg = match?.t.expected.find((l) => l.address.toLowerCase() === me);
     const topUp = !match && i.from.toLowerCase() === ctx.treasuryAddress.toLowerCase();
     const deposit = minted.find((m) => m.hash?.toLowerCase() === i.txHash.toLowerCase());
-    const depositLabel = deposit ? `Deposit from ${SOURCE_CHAINS[deposit.chain as ChainKey]?.name ?? deposit.chain}` : null;
+    const depositLabel = deposit ? "Money added" : null;
     return {
       txHash: i.txHash,
       amount: formatUsdc(i.amount),
       from: i.from,
-      fromLabel: match?.payer ?? (topUp ? "Demo card top-up" : depositLabel),
+      fromLabel: match?.payer ?? (topUp ? "Test card top-up" : depositLabel),
       source: match ? "splits" : topUp ? "topup" : deposit ? "deposit" : "external",
       purpose: leg?.purpose ?? null,
       at: i.at.toISOString(),

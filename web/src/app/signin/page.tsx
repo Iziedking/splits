@@ -124,7 +124,7 @@ export default function SignIn() {
             <BackLink onClick={() => setStep("welcome")} />
             <h1 className="mt-4 text-title leading-tight font-extrabold">{returning ? "Welcome back" : "Create an account"}</h1>
             <p className="mt-2 text-muted-foreground">
-              {returning ? "Sign in with the email you used before." : "Your email is your account and your wallet. No password to remember."}
+              {returning ? "Sign in with the email you used before." : "Your email is your account. No password to remember."}
             </p>
             <div className="surface mt-6 p-5">
               <Field

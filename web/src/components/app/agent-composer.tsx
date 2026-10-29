@@ -81,7 +81,7 @@ export function AgentComposer({ onFilled, onBusy }: { onFilled: (fill: ComposerF
     <form onSubmit={submit} className="space-y-4">
       <div>
         <label htmlFor="agent-text" className="mb-1.5 block text-sm font-medium">
-          Describe it, I split it
+          Describe it, Splits fills in the list
         </label>
         <textarea
           id="agent-text"
@@ -96,7 +96,7 @@ export function AgentComposer({ onFilled, onBusy }: { onFilled: (fill: ComposerF
             }
           }}
           maxLength={4000}
-          placeholder="Paste names, emails, wallets and amounts, or describe the split…"
+          placeholder="Paste names, emails and amounts, or describe the split…"
           className={cn(inputClass, "min-h-40 py-3 leading-6 lg:text-sm")}
         />
       </div>

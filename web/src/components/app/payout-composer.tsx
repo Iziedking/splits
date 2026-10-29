@@ -14,8 +14,22 @@ const bytes = (s: string) => new TextEncoder().encode(s.trim()).length;
  * server check. Any edit after a check clears it, so a stale list can never be approved.
  */
 const WORDS = {
-  account: { address: "account address", unit: "$", sample: "chidi@example.com", memo: "Saved with the payment, like a memo." },
-  wallet: { address: "Arc address", unit: "USDC", sample: "0x8f3c…a12b", memo: "Saved with the payment on Arc, like a memo." },
+  account: {
+    who: "Email",
+    whoHint: "No account needed. Money sent to an email waits in their Splits balance until they sign in. You can also paste an account address.",
+    address: "account address",
+    unit: "$",
+    sample: "chidi@example.com",
+    memo: "Saved with the payment, like a memo.",
+  },
+  wallet: {
+    who: "Email or Arc address",
+    whoHint: "No account needed. Money sent to an email waits in their Splits balance until they sign in.",
+    address: "Arc address",
+    unit: "USDC",
+    sample: "0x8f3c…a12b",
+    memo: "Saved with the payment on Arc, like a memo.",
+  },
 };
 
 export function PayoutComposer({
@@ -136,12 +150,12 @@ export function PayoutComposer({
       {mode === "one" ? (
         <>
           <Field
-            label={`Email or ${words.address}`}
+            label={words.who}
             value={who}
             onChange={(e) => edit(setWho)(e.target.value)}
             autoComplete="off"
             spellCheck={false}
-            hint="No account needed. Money sent to an email waits in their Splits balance until they sign in."
+            hint={words.whoHint}
           />
           <Field
             label={`Amount (${words.unit})`}

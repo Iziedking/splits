@@ -32,7 +32,7 @@ async function withoutCard(page) {
 
 /** Fills the one-person composer and checks it, so the review column and the funding choice show. */
 async function composeOne(page) {
-  await page.getByLabel(/^Email or/).fill("landlord@example.com");
+  await page.getByLabel("Email", { exact: true }).fill("landlord@example.com");
   await page.getByLabel(/^Amount/).fill("25");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
@@ -77,10 +77,13 @@ const SHOTS = [
   { name: "landed", path: (c) => `/payments/${c.paymentId}`, vocab: true },
   { name: "receipt", path: (c) => c.receipt, signedIn: false, vocab: true },
   { name: "receipt-details-open", path: (c) => c.receipt, signedIn: false, act: (p) => p.getByText("Payment details").click() },
+  // WP6: the rest of the signed-in screens, also checked for crypto words.
+  { name: "split-new", path: "/splits/new", vocab: true },
+  { name: "rule-new", path: "/rules/new", vocab: true },
 ];
 
 /** Shots on the consumer path, checked for crypto vocabulary. */
-const VOCAB = new Set(["signin", "home", "pay", "pay-review-mainnet", "profile", "sheet-add-money"]);
+const VOCAB = new Set(["signin", "home", "pay", "pay-many", "pay-review-mainnet", "send-split-mainnet", "profile", "settings", "history", "earn", "sheet-add-money", "sheet-notifications"]);
 const FORBIDDEN = /\bArc\b|USDC|0x[0-9a-fA-F]|\bEVM\b|explorer|transaction/i;
 
 /** Visible text outside the fold and the crypto panel, with any crypto words it contains. */
@@ -103,7 +106,7 @@ async function openSheet(page, name) {
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  const session = await previewSession(BASE);
+  const session = await previewSession(BASE, `ada.${Date.now()}@example.com`);
   const paymentId = await settledPayment(session.call);
   const receipt = (await session.call("GET", `/api/transfers/${paymentId}`)).data.transfer.legs[0].receipt;
   const ctx = { ...session, paymentId, receipt };

@@ -115,7 +115,7 @@ export function ShareReceipts({
           type="search"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          placeholder="Find a name or address"
+          placeholder="Find a name"
           aria-label="Find a recipient"
           className="mt-4 min-h-11 w-full rounded-full border border-border bg-white px-4 text-base lg:text-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />

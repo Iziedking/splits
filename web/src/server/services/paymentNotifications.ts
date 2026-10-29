@@ -25,7 +25,7 @@ export async function notifyPaymentOutcome(ctx: Ctx, t: Transfer): Promise<void>
         sourceKey: `transfer:${t.id}:failed`,
         kind: "payment_failed",
         title: "Payment flagged for review",
-        body: `Your $${charged} payment reached Arc but didn't match what you approved. Splits is checking it.`,
+        body: `Your $${charged} payment went out but didn't match what you approved. Splits is checking it.`,
         href: `/payments/${t.id}`,
         amount: charged,
         email: true,
@@ -36,7 +36,7 @@ export async function notifyPaymentOutcome(ctx: Ctx, t: Transfer): Promise<void>
       await notify(ctx, t.payerUserId, {
         sourceKey: `transfer:${t.id}:failed`,
         kind: "payment_failed",
-        title: "Payment failed: nothing was sent",
+        title: "Payment not sent",
         body: `Your $${charged} payment didn't go through. No one was paid.`,
         href: `/payments/${t.id}`,
         amount: charged,

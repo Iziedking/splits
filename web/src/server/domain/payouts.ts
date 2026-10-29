@@ -65,7 +65,7 @@ export function parsePayoutLines(text: string): ParsedLine[] {
       try {
         const amount = parseUsdc(amountText);
         if (amount === 0n) parsed.problem = "Amount must be more than zero";
-        else if (amount % CENT !== 0n) parsed.problem = "Amounts must be whole cents";
+        else if (amount % CENT !== 0n) parsed.problem = "Use whole cents, like 25.50";
         else parsed.amount = amount;
       } catch {
         parsed.problem = "Amount isn't a number like 5 or 2.50";
@@ -76,7 +76,7 @@ export function parsePayoutLines(text: string): ParsedLine[] {
         purposeToBytes32(labelText);
         parsed.label = labelText;
       } catch (err) {
-        parsed.problem = err instanceof MoneyError ? "Label is longer than 31 bytes" : "Label isn't valid";
+        parsed.problem = err instanceof MoneyError ? "Keep the label under 32 characters" : "Label isn't valid";
       }
     }
     out.push(parsed);
@@ -90,7 +90,7 @@ export function parsePayoutLines(text: string): ParsedLine[] {
  */
 export function equalPot(pot: bigint, count: number): bigint[] {
   if (count < 1) throw new SplitRuleError("NO_LEGS", "Add at least one recipient");
-  if (pot % CENT !== 0n) throw new SplitRuleError("AMOUNT_NOT_CENTS", "The pot must be whole cents");
+  if (pot % CENT !== 0n) throw new SplitRuleError("AMOUNT_NOT_CENTS", "Use whole cents for the pot, like 100.50");
   const cents = pot / CENT;
   const n = BigInt(count);
   if (cents < n) throw new SplitRuleError("AMOUNT_BELOW_FIXED", "The pot must give everyone at least one cent each");

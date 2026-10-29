@@ -86,8 +86,20 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   return data as T;
 }
 
+/**
+ * Server messages name a time as "14:05 UTC" (the next 24 hours, at most). People read it in their
+ * own time: the next moment that UTC time comes round, in the browser's locale and zone.
+ */
+export function localTimes(text: string, now = new Date()): string {
+  return text.replace(/\b([01]\d|2[0-3]):([0-5]\d) UTC\b/g, (_, h: string, m: string) => {
+    const at = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), Number(h), Number(m)));
+    if (at.getTime() < now.getTime()) at.setUTCDate(at.getUTCDate() + 1);
+    return at.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  });
+}
+
 export function errorMessage(err: unknown): string {
-  if (err instanceof ApiError) return err.message;
+  if (err instanceof ApiError) return localTimes(err.message);
   if (err instanceof Error && err.name === "NotAllowedError") return "Face ID or fingerprint was cancelled.";
   return "Something went wrong. Try again.";
 }

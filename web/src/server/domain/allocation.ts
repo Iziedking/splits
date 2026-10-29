@@ -63,7 +63,7 @@ export function validateLegs(legs: readonly LegRule[], forbidden: readonly Addre
       throw new SplitRuleError("LEG_NEEDS_EXACTLY_ONE_RULE", "Give each recipient a fixed amount or a percentage", i);
     }
     if (leg.fixedAmount % CENT !== 0n) {
-      throw new SplitRuleError("FIXED_AMOUNT_NOT_CENTS", "Fixed amounts must be whole cents", i);
+      throw new SplitRuleError("FIXED_AMOUNT_NOT_CENTS", "Use whole cents, like 25.50", i);
     }
     totalBps += leg.shareBps;
   });
@@ -80,7 +80,7 @@ export function validateLegs(legs: readonly LegRule[], forbidden: readonly Addre
  */
 export function allocate(legs: readonly Pick<LegRule, "fixedAmount" | "shareBps">[], amount: bigint): bigint[] {
   if (amount <= 0n) throw new SplitRuleError("ZERO_AMOUNT", "Amount must be more than zero");
-  if (amount % CENT !== 0n) throw new SplitRuleError("AMOUNT_NOT_CENTS", "Amounts must be whole cents");
+  if (amount % CENT !== 0n) throw new SplitRuleError("AMOUNT_NOT_CENTS", "Use whole cents, like 25.50");
 
   let fixedTotal = 0n;
   let lastShare = -1;

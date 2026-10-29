@@ -91,9 +91,9 @@ export function actionView(action: Action) {
 }
 
 const STEP_LABELS: Record<string, string> = {
-  fund: "Card top-up (simulated card, real USDC)",
-  approve: "Allow the split contract to move this amount",
-  send: "Pay everyone on Arc",
+  fund: "Card top-up",
+  approve: "Approve the amount",
+  send: "Pay everyone",
 };
 
 export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [], receipts: string[] | null = null) {

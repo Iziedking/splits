@@ -115,7 +115,7 @@ function NewSplit() {
       <BackLink href="/home" />
       <h1 className="mt-1 text-title leading-tight font-extrabold">Build the split</h1>
       <p className="mt-2 text-lg text-muted-foreground">
-        Who gets paid, and what for. Recipients don't need an app: their email becomes their wallet.
+        Who gets paid, and what for. Recipients don't need an app. Their email is enough.
       </p>
 
       <form onSubmit={review} className="mt-8 space-y-6">
@@ -193,7 +193,7 @@ function NewSplit() {
                       onChange={(kind) => update(leg.key, { kind, value: "" })}
                     />
                     <input
-                      aria-label={leg.kind === "percent" ? "Percentage" : "Fixed amount in USDC"}
+                      aria-label={leg.kind === "percent" ? "Percentage" : "Fixed amount in dollars"}
                       className={inputClass}
                       inputMode="decimal"
                       placeholder={leg.kind === "percent" ? EXAMPLES[i % EXAMPLES.length]!.percent : "150.00"}
@@ -257,7 +257,7 @@ function NewSplit() {
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-muted-foreground">This is saved on Arc, so every payment through it is checkable.</p>
+            <p className="text-xs text-muted-foreground">Every payment through this split gets its own receipt.</p>
           </div>
         )}
       </ConfirmDialog>

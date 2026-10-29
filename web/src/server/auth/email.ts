@@ -9,9 +9,9 @@ export type AlertEmail = { subject: string; title: string; body: string; url: st
 
 /** The small label above an alert's title, by what happened. */
 const ALERT_LABEL: Record<string, string> = {
-  deposit_ready: "Deposit ready",
-  deposit_waiting: "Deposit arrived",
-  deposit_stuck: "Deposit update",
+  deposit_ready: "Money added",
+  deposit_waiting: "Money arrived",
+  deposit_stuck: "Money update",
   payment_landed: "Payment landed",
   payment_failed: "Payment needs a look",
 };
@@ -84,9 +84,9 @@ export function createResendEmail(apiKey: string, from: string, appUrl?: string)
           eyebrow: "Payment landed",
           title: "Your payment landed",
           amount: `$${r.amount}`,
-          details: [["Network", "Arc · USDC"], ["Paid from", "Your own wallet"]],
+          details: [["Paid from", "Your own wallet"]],
           preheader: `Your $${r.amount} payment landed, divided. Each person has a receipt.`,
-          body: ["Everyone was paid in one transaction on Arc. Open your receipt to see who got what, and share each person's own receipt."],
+          body: ["Everyone was paid at once. Open your receipt to see who got what, and share each person's own receipt."],
           button: { label: "View receipt", url: r.url },
           footer: "You're getting this because you asked for a receipt when you paid with Splits.",
         }),
@@ -121,10 +121,9 @@ export function paymentNoticeEmail(n: PaymentNotice): { subject: string; text: s
     details: [
       ["From", n.from],
       ["For", n.purpose],
-      ["Network", "Arc · USDC"],
     ],
     preheader: `${n.from} sent you $${n.amount} for "${n.purpose}".`,
-    body: [`${n.from} sent you $${n.amount} USDC for "${n.purpose}".`, `Sign in with this email at ${n.appUrl} to use it. There's nothing to install and no password.`],
+    body: [`${n.from} sent you $${n.amount} for ${n.purpose}.`, `Sign in with this email at ${n.appUrl} to use it. There's nothing to install and no password.`],
     button: { label: "Open Splits", url: `${n.appUrl}/signin` },
     footer: "You're getting this because someone paid this email address through Splits.",
   });

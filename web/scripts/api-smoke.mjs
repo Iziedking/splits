@@ -261,7 +261,7 @@ try {
   assert.equal(latest?.status, "ready", JSON.stringify({ latest, deposits: (await call("GET", "/api/deposits")).data }));
   assert.equal(latest.minted, "4.99");
   const feed = (await call("GET", "/api/notifications")).data;
-  assert.ok(feed.items.some((n) => n.title === "Ready: $4.99 is in your balance"), JSON.stringify(feed.items.map((n) => n.title)));
+  assert.ok(feed.items.some((n) => n.title === "$4.99 is in your balance"), JSON.stringify(feed.items.map((n) => n.title)));
   assert.ok(feed.unread > 0);
   assert.equal((await call("POST", "/api/notifications/read")).status, 200);
   assert.equal((await call("GET", "/api/notifications")).data.unread, 0);

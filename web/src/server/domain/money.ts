@@ -33,7 +33,7 @@ export function purposeToBytes32(label: string): Hex {
   const trimmed = label.trim();
   if (!trimmed) throw new MoneyError("A purpose label is required");
   if (new TextEncoder().encode(trimmed).length > MAX_PURPOSE_BYTES) {
-    throw new MoneyError(`"${trimmed}" is too long for a purpose label (31 bytes max)`);
+    throw new MoneyError(`Keep what it's for under 32 characters ("${trimmed}" is too long)`);
   }
   return stringToHex(trimmed, { size: 32 });
 }

@@ -47,8 +47,8 @@ describe("moving a deposit from another chain to Arc", () => {
     const [d] = await ctx.db.select().from(deposits);
     expect(d!.status).toBe("ready");
     expect(await notes(ctx)).toEqual([
-      { key: "deposit:<id>:arrived", title: "$5.00 arrived on Base", email: "none" },
-      { key: "move:<id>:ready", title: "Ready: $4.99 is in your balance", email: "pending" },
+      { key: "deposit:<id>:arrived", title: "$5.00 arrived", email: "none" },
+      { key: "move:<id>:ready", title: "$4.99 is in your balance", email: "pending" },
     ]);
     expect(await latestDepositFor(ctx, user.id)).toMatchObject({ chain: "base", chainName: "Base", amount: "5.00", status: "ready", minted: "4.99" });
   });
@@ -117,7 +117,7 @@ describe("moving a deposit from another chain to Arc", () => {
     arc.simulateDeposit("base", address, 5_000_000n);
     await drive(ctx, clock);
     const { received } = await activityFor(ctx, user);
-    expect(received.map((r) => [r.amount, r.source, r.fromLabel])).toEqual([["4.9995", "deposit", "Deposit from Base"]]);
+    expect(received.map((r) => [r.amount, r.source, r.fromLabel])).toEqual([["4.9995", "deposit", "Money added"]]);
   });
 
   it("ignores a report that the chain doesn't back up, and records a real one once (Review Focus 1)", async () => {
@@ -233,7 +233,7 @@ describe("moving a deposit from another chain to Arc", () => {
     arc.simulateDeposit("base", address, 500_000n);
     await drive(ctx, clock, 4);
     expect((await ctx.db.select().from(deposits))[0]!.status).toBe("waiting");
-    expect(await notes(ctx)).toEqual([{ key: "deposit:<id>:waiting:<day>", title: "$0.50 arrived on Base", email: "none" }]);
+    expect(await notes(ctx)).toEqual([{ key: "deposit:<id>:waiting:<day>", title: "$0.50 arrived", email: "none" }]);
 
     arc.simulateDeposit("base", address, 700_000n);
     await drive(ctx, clock);
@@ -255,7 +255,7 @@ describe("moving a deposit from another chain to Arc", () => {
     attested = true;
     await drive(sctx, clock);
     expect((await notes(ctx)).map((n) => n.key)).toEqual(["deposit:<id>:arrived", "move:<id>:stuck", "move:<id>:ready"]);
-    expect((await notes(ctx)).find((n) => n.key === "move:<id>:stuck")).toMatchObject({ title: "Your $5.00 is safe on Base", email: "pending" });
+    expect((await notes(ctx)).find((n) => n.key === "move:<id>:stuck")).toMatchObject({ title: "Your $5.00 is safe", email: "pending" });
   });
 
   it("never mints a message addressed to someone else", async () => {
@@ -463,7 +463,7 @@ describe("moving a deposit from another chain to Arc", () => {
     const { ctx, arc, clock, address } = await setup();
     for (let i = 0; i < 5; i++) arc.simulateDeposit("base", address, 1n);
     await drive(ctx, clock, 6);
-    expect(await notes(ctx)).toEqual([{ key: "deposit:<id>:waiting:<day>", title: "$0.00 arrived on Base", email: "none" }]);
+    expect(await notes(ctx)).toEqual([{ key: "deposit:<id>:waiting:<day>", title: "$0.00 arrived", email: "none" }]);
   });
 
   it("doesn't read the chain again for a deposit it already has (final review I6)", async () => {

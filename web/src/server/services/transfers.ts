@@ -137,12 +137,12 @@ export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput
 
 async function assertBalance(ctx: Ctx, address: Address, amount: bigint) {
   const balance = await ctx.chain.usdcBalance(address);
-  if (balance < amount) throw badRequest("INSUFFICIENT_BALANCE", `You have ${formatUsdc(balance)} USDC`);
+  if (balance < amount) throw badRequest("INSUFFICIENT_BALANCE", `You have $${formatUsdc(balance)}`);
 }
 
 async function priceTransfer(ctx: Ctx, user: User, input: TransferInput) {
   const wallet = await mainWallet(ctx, user.id);
-  if (!wallet) throw conflict("NO_WALLET", "Your wallet is still being set up");
+  if (!wallet) throw conflict("NO_WALLET", "Your account is still being set up");
 
   if ("draftId" in input) {
     const draft = await claimDraft(ctx, user, input.draftId, input.draftHash);
@@ -243,7 +243,7 @@ export async function confirmTransfer(ctx: Ctx, user: User, actionId: string, pr
 function assertFundingShape(ctx: Ctx, topUp: bigint) {
   if (!ctx.limits.fundingEnabled) throw forbidden("FUNDING_OFF", "Card top-ups are switched off right now");
   if (topUp > ctx.limits.maxPerTopUp) {
-    throw badRequest("FUNDING_LIMIT", `Card top-ups are limited to ${formatUsdc(ctx.limits.maxPerTopUp)} USDC each`);
+    throw badRequest("FUNDING_LIMIT", `Card top-ups are limited to $${formatUsdc(ctx.limits.maxPerTopUp)} each`);
   }
 }
 
@@ -279,7 +279,7 @@ async function reserveFunding(ctx: Ctx, t: Transfer): Promise<string | null> {
     const userTotal = BigInt(sums?.user ?? "0") + topUp;
     const globalTotal = BigInt(sums?.global ?? "0") + topUp;
     if (userTotal > ctx.limits.perUserDaily) {
-      return `You've reached today's card top-up limit of ${formatUsdc(ctx.limits.perUserDaily)} USDC`;
+      return `You've reached today's card top-up limit of $${formatUsdc(ctx.limits.perUserDaily)}`;
     }
     if (globalTotal > ctx.limits.globalDaily) return "Card top-ups are at today's limit. Try again tomorrow.";
     await tx.update(transfers).set({ fundedAt: now }).where(eq(transfers.id, t.id));
@@ -544,10 +544,10 @@ async function verify(ctx: Ctx, t: Transfer): Promise<StepResult> {
   const on = await routerIdentity(ctx, t);
   if (t.funding === "own_wallet" && !(receipt && receiptMatches(t, receipt, on))) return recoverOwnWallet(ctx, t, receipt);
   if (!receipt) return waitLong(ctx, t, `no receipt for ${t.txHash}`);
-  if (receipt.status !== "success") return fail(`Arc reverted the payment, so nobody was paid. ${SPONSORED_FEE}`);
+  if (receipt.status !== "success") return fail(`The payment was rejected, so nobody was paid. ${SPONSORED_FEE}`);
   // Read at the receipt's block: a fallback node a few blocks behind must not turn a landed payment into a failure.
   if (!receiptMatches(t, receipt, on) || !(await ctx.chain.refUsed(on.payer, on.ref, receipt.blockNumber))) {
-    return fail("Onchain receipt does not match what was approved. Flagged for review.");
+    return fail("The payment record doesn't match what you approved. Flagged for review.");
   }
   return { status: "settled", patch: { lastError: null } };
 }
@@ -572,14 +572,14 @@ async function recoverOwnWallet(ctx: Ctx, t: Transfer, receipt: RouterReceipt | 
     const found = await ctx.chain.findSplitSent(payer, t.ref as Hex, t.fromBlock ?? 0n);
     if (found && found.toLowerCase() !== t.txHash!.toLowerCase()) return { status: "verifying", patch: { txHash: found } };
     if (!found) return "wait"; // spent, but the node hasn't indexed the log yet
-    return fail("Onchain receipt does not match what was approved. Flagged for review.");
+    return fail("The payment record doesn't match what you approved. Flagged for review.");
   }
   // Nothing has left the visitor's wallet under this reservation.
   const expired = t.expiresAt !== null && t.expiresAt <= ctx.now();
   const reopen = (lastError: string): StepResult =>
     expired ? { status: "cancelled", patch: { txHash: null, lastError } } : { status: "awaiting_wallet", patch: { txHash: null, lastError } };
   if (receipt?.status === "reverted") return reopen(`Arc reverted the send, so nobody was paid. ${OWN_WALLET_FEE}`);
-  if (receipt) return fail("Onchain receipt does not match what was approved. Flagged for review.");
+  if (receipt) return fail("The payment record doesn't match what you approved. Flagged for review.");
   if (t.expiresAt && t.expiresAt.getTime() + UNSEEN_HASH_GRACE_MS <= ctx.now().getTime()) {
     return reopen("That transaction never appeared on Arc. Nothing moved from your wallet.");
   }
@@ -615,7 +615,7 @@ function receiptMatches(t: Transfer, receipt: RouterReceipt, on: { payer: Addres
  * A failed payment costs gas only if Arc mined it, so the messages say which happened. Splits pays
  * the gas of email wallets (Circle Gas Station); a visitor's own wallet pays its own.
  */
-const SPONSORED_FEE = "Splits covered Arc's network fee for the attempt.";
+const SPONSORED_FEE = "You weren't charged.";
 export const OWN_WALLET_FEE = "Only Arc's network fee for the attempt left your wallet.";
 
 /** Whether the provider's failed call reached Arc: mined, then reverted. */
@@ -626,19 +626,19 @@ export const OWN_WALLET_FEE = "Only Arc's network fee for the attempt left your 
  */
 function notSent(t: Transfer, error: string, reverted = false): string {
   const topUp = BigInt(t.topUp);
-  const kept = topUp > 0n ? ` $${formatUsdc(topUp)} from the demo card is still in your balance.` : "";
-  const what = reverted ? `Arc reverted it, so nobody was paid. ${SPONSORED_FEE}` : "Nothing was sent.";
+  const kept = topUp > 0n ? ` $${formatUsdc(topUp)} from the test card is still in your balance.` : "";
+  const what = reverted ? `It was rejected, so nobody was paid. ${SPONSORED_FEE}` : "Nothing was sent.";
   return `${revertReason(error)} ${what}${kept}`;
 }
 
 function revertReason(error: string): string {
   if (error.includes("VersionMismatch")) return "The split changed after you confirmed.";
   if (error.includes("SplitInactive")) return "This split is paused.";
-  if (error.includes("Blocklist")) return "One recipient can't receive USDC right now.";
-  if (error.includes("InsufficientBalance")) return "Not enough USDC in your wallet.";
-  if (error.includes("InsufficientAllowance")) return "Approval was too low.";
+  if (error.includes("Blocklist")) return "One person can't receive money right now.";
+  if (error.includes("InsufficientBalance")) return "Not enough money in your balance.";
+  if (error.includes("InsufficientAllowance")) return "The payment was rejected.";
   if (error.includes("InvalidRecipient")) return "One recipient can't be paid.";
-  return "Arc rejected the payment.";
+  return "The payment was rejected.";
 }
 
 /** Transfers that still have work to do and nobody holding them. */

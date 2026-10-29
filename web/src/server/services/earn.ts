@@ -247,7 +247,7 @@ async function stepIn(ctx: Ctx, move: EarnMove): Promise<EarnMove> {
     sourceKey: `earn:${move.id}:done`,
     kind: "earn_in",
     title: `$${formatUsdc(amount)} moved to your Earning pocket`,
-    body: "It starts earning once it is in the vault, usually within a minute.",
+    body: "It starts earning within about a minute.",
     href: "/earn",
     amount: formatUsdc(amount),
     email: false,

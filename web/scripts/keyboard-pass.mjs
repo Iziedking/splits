@@ -90,7 +90,7 @@ async function pay(page) {
 
   // The approval dialog: focus starts on the PIN, stays inside, Escape closes it.
   await page.getByRole("tab", { name: "One person" }).click();
-  await page.getByLabel(/^Email or/).fill("landlord@example.com");
+  await page.getByLabel("Email", { exact: true }).fill("landlord@example.com");
   await page.getByLabel(/^Amount/).fill("2");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
