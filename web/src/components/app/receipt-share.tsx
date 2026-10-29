@@ -37,7 +37,7 @@ export function ManualLink({ path }: { path: string }) {
       aria-label="Receipt link"
       autoFocus
       onFocus={(e) => e.currentTarget.select()}
-      className="mt-2 min-h-11 w-full rounded-xl border border-border bg-white px-3 text-base text-foreground lg:text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="mt-2 min-h-11 w-full rounded-md border border-border bg-white px-3 text-base text-foreground lg:text-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     />
   );
 }
@@ -115,7 +115,7 @@ export function ShareReceipts({
         onClose();
       }}
       aria-labelledby="share-receipts-title"
-      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px] sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
+      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-2xl bg-card p-0 text-card-foreground shadow-dialog backdrop:bg-foreground/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-2xl sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
     >
       <div className="flex max-h-[85dvh] flex-col p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-start justify-between gap-4">
@@ -142,7 +142,7 @@ export function ShareReceipts({
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Find a name or address"
             aria-label="Find a recipient"
-            className="mt-4 min-h-11 w-full rounded-full border border-border bg-white px-4 text-base lg:text-[15px] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="mt-4 min-h-11 w-full rounded-full border border-border bg-white px-4 text-base lg:text-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           />
         )}
 
@@ -157,7 +157,7 @@ export function ShareReceipts({
                   {leg.purpose && ` for ${leg.purpose}`}
                 </span>
                 {done?.index === index && (
-                  <span role="status" className={cn("block text-sm font-semibold", done.result === "failed" ? "text-destructive" : "text-primary")}>
+                  <span role="status" className={cn("block text-sm font-semibold", done.result === "failed" ? "text-destructive" : "text-primary-text")}>
                     {done.result === "copied" ? "Link copied" : done.result === "shared" ? "Shared" : "Copy this link to share it:"}
                   </span>
                 )}
@@ -169,7 +169,7 @@ export function ShareReceipts({
                     href={leg.receipt}
                     onClick={() => rememberReturn(returnTo, leg.receipt!)}
                     aria-label={`View ${leg.name}'s receipt`}
-                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-primary hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-primary-text hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <ReceiptText className="h-[18px] w-[18px]" aria-hidden="true" />
                   </Link>
@@ -177,7 +177,7 @@ export function ShareReceipts({
                     type="button"
                     onClick={() => void share(leg, index)}
                     aria-label={`Share ${leg.name}'s receipt`}
-                    className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary-fill px-4 text-sm font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                   >
                     {done?.index === index && done.result !== "failed" ? (
                       <Check className="h-4 w-4" aria-hidden="true" />

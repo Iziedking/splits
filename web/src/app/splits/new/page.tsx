@@ -112,7 +112,7 @@ function NewSplit() {
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">Build the split</h1>
+      <h1 className="mt-1 text-title leading-tight font-extrabold">Build the split</h1>
       <p className="mt-2 text-lg text-muted-foreground">
         Who gets paid, and what for. Recipients don't need an app: their email becomes their wallet.
       </p>
@@ -147,7 +147,7 @@ function NewSplit() {
               className="surface p-5"
             >
               <div className="mb-4 flex items-center justify-between">
-                <legend className="float-left flex min-w-0 items-center gap-2.5 text-[15px] font-bold">
+                <legend className="float-left flex min-w-0 items-center gap-2.5 text-ui font-bold">
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
                   <span className="truncate">{leg.name || `Recipient ${i + 1}`}</span>
                   {leg.value && (
@@ -186,7 +186,7 @@ function NewSplit() {
                           onClick={() => update(leg.key, { kind, value: "" })}
                           className={cn(
                             "min-h-10 min-w-10 rounded-full px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            leg.kind === kind ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                            leg.kind === kind ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                           )}
                         >
                           {kind === "percent" ? "%" : "$"}
@@ -215,7 +215,7 @@ function NewSplit() {
         </fieldset>
 
         {percentLegs.length > 0 && (
-          <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-primary" : "text-muted-foreground")}>
+          <p role="status" className={cn("text-sm font-semibold", sharesOk ? "text-primary-text" : "text-muted-foreground")}>
             {totalBps > 10_000
               ? `${totalBps / 100}% allocated. Bring it down to 100% or less.`
               : totalBps === 10_000

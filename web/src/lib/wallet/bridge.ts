@@ -1,6 +1,7 @@
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import type { ContractLeg, VisitorConfig } from "@/lib/api";
+import { TEAL } from "@/lib/palette";
 import { waitForAccount } from "@/lib/wallet/flow";
 
 /** The SplitsRouter `pay` and USDC `approve` fragments the visitor's wallet signs. */
@@ -140,7 +141,7 @@ async function build(config: VisitorConfig, projectId: string): Promise<WalletBr
     features: { analytics: false, email: false, socials: false, swaps: false, onramp: false },
     themeMode: "light",
     themeVariables: {
-      "--w3m-accent": "#0FA39A",
+      "--w3m-accent": TEAL,
       "--w3m-font-family": "var(--font-manrope), Manrope, sans-serif",
       "--w3m-border-radius-master": "4px",
     },

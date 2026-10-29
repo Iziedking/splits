@@ -46,7 +46,7 @@ export function Landed({
     <div className="enter flex flex-col gap-6 pt-6 lg:grid lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
       <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-6">
         <div className="order-1 lg:order-none">
-          <h1 className="text-[2rem] leading-tight font-extrabold">{t.recipients === 1 ? "Landed." : "Landed, divided."}</h1>
+          <h1 className="text-title leading-tight font-extrabold">{t.recipients === 1 ? "Landed." : "Landed, divided."}</h1>
           <p className="mt-1 text-muted-foreground">
             <CountUp value={t.amount} /> reached {t.recipients === 1 ? (t.legs[0]?.name ?? "their wallet") : `${t.recipients} wallets`}.
           </p>
@@ -57,7 +57,7 @@ export function Landed({
           )}
         </div>
 
-        <p className="order-3 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary lg:order-none">
+        <p className="order-3 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary-text lg:order-none">
           {t.explorerUrl && (
             <a href={t.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
               View on Arc explorer
@@ -103,7 +103,7 @@ export function Landed({
                       href={leg.receipt}
                       onClick={() => rememberReturn(returnTo, leg.receipt!)}
                       aria-label={`View ${leg.name}'s receipt`}
-                      className="-my-2 -mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-primary hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="-my-2 -mr-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-primary-text hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <ReceiptText className="h-4 w-4" aria-hidden="true" />
                     </Link>
@@ -115,14 +115,14 @@ export function Landed({
                 <span className="block truncate text-sm text-muted-foreground">
                   {leg.name} · {leg.purpose}
                 </span>
-                <span className="figure mt-1 block text-[1.75rem] leading-none">${leg.amount}</span>
+                <span className="figure mt-1 block text-figure leading-none">${leg.amount}</span>
                 <span className="mt-3 flex items-center justify-between gap-3">
                   <span aria-hidden="true" className="block h-1.5 w-14 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
                   {leg.receipt && (
                     <Link
                       href={leg.receipt}
                       onClick={() => rememberReturn(returnTo, leg.receipt!)}
-                      className="-my-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="-my-3 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <ReceiptText className="h-4 w-4" aria-hidden="true" />
                       View receipt

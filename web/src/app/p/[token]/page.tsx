@@ -68,13 +68,13 @@ export default function VisitorPayment() {
         {!p ? (
           error ? (
             <div className="enter space-y-3 pt-6">
-              <h1 className="text-[2rem] leading-tight font-extrabold">This payment link doesn&apos;t open.</h1>
+              <h1 className="text-title leading-tight font-extrabold">This payment link doesn&apos;t open.</h1>
               <p className="text-muted-foreground">
                 {error === "Payment not found"
                   ? "It may have been cut short when it was copied. Check the link, or start a new payment."
                   : error}
               </p>
-              <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
+              <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
                 Pay from your wallet
               </Link>
             </div>
@@ -90,7 +90,7 @@ export default function VisitorPayment() {
               actions={
                 <Link
                   href="/send"
-                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-white/70 px-6 text-[15px] font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-white/70 px-6 text-ui font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   Pay someone else
                 </Link>
@@ -100,7 +100,7 @@ export default function VisitorPayment() {
           </>
         ) : p.cross ? (
           <div className="enter space-y-4 pt-6 lg:max-w-md">
-            <h1 className="text-[2rem] leading-tight font-extrabold">{p.cross.canPay ? `Pay from ${p.cross.chainName}` : "On its way to Arc"}</h1>
+            <h1 className="text-title leading-tight font-extrabold">{p.cross.canPay ? `Pay from ${p.cross.chainName}` : "On its way to Arc"}</h1>
             <p className="text-muted-foreground">${p.amount}, from {p.cross.chainName}, paid out on Arc. This link keeps working if you close it.</p>
             {p.cross.canPay && burnSent(typeof window === "undefined" ? null : window.localStorage, token) ? (
               <Notice>{CROSS_WALLET_TEXT.sentWaiting(p.cross.chainName)}</Notice>
@@ -123,7 +123,7 @@ export default function VisitorPayment() {
           </div>
         ) : p.status === "verifying" ? (
           <div className="enter pt-6">
-            <h1 className="text-[2rem] leading-tight font-extrabold">Sending…</h1>
+            <h1 className="text-title leading-tight font-extrabold">Sending…</h1>
             <p className="mt-1 text-white/70">${p.amount}, settling on Arc.</p>
             <ol aria-label="Progress" className="surface-night mt-6 space-y-4 p-5">
               {STEPS.map((step) => (
@@ -142,13 +142,13 @@ export default function VisitorPayment() {
             <Expired error={p.error} />
           ) : (
             <div className="enter space-y-3 pt-6">
-              <h1 className="text-[2rem] leading-tight font-extrabold">Waiting for your wallet</h1>
+              <h1 className="text-title leading-tight font-extrabold">Waiting for your wallet</h1>
               {p.error && <LastTry error={p.error} />}
               <p className="text-muted-foreground">
                 Finish both steps on the page where you started. This page updates by itself as soon as the payment reaches Arc,
                 and this link keeps working if you close it.
               </p>
-              <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
+              <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
                 Closed that page? Start again
               </Link>
             </div>
@@ -157,14 +157,14 @@ export default function VisitorPayment() {
           <Expired error={p.error} />
         ) : (
           <div className="enter space-y-4 pt-6">
-            <h1 className="text-[2rem] leading-tight font-extrabold">Not sent</h1>
+            <h1 className="text-title leading-tight font-extrabold">Not sent</h1>
             {p.error && (
               <Notice tone="error" className="flex items-start gap-2">
                 <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 {p.error}
               </Notice>
             )}
-            <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
+            <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
               Back to Pay
             </Link>
           </div>
@@ -187,13 +187,13 @@ function LastTry({ error }: { error: string }) {
 function Expired({ error }: { error?: string | null }) {
   return (
     <div className="enter space-y-3 pt-6">
-      <h1 className="text-[2rem] leading-tight font-extrabold">This took longer than 30 minutes</h1>
+      <h1 className="text-title leading-tight font-extrabold">This took longer than 30 minutes</h1>
       {error && <LastTry error={error} />}
       <p className="text-muted-foreground">
         No payment has reached Arc for this link yet. If you did send it, this page will show it as soon as it lands; otherwise,
         check the list again to pay.
       </p>
-      <Link href="/send" className="font-semibold text-primary underline underline-offset-4">
+      <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
         Check the list again
       </Link>
     </div>

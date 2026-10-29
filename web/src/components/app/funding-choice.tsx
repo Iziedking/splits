@@ -40,7 +40,7 @@ export function FundingChoice({
             disabled={disabled}
             onClick={() => onChange(option)}
             className={cn(
-              "min-h-16 rounded-2xl px-4 py-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
+              "min-h-16 rounded-md px-4 py-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
               value === option ? "bg-white ring-2 ring-primary" : "bg-white/60 ring-1 ring-white hover:bg-white",
             )}
           >
@@ -86,7 +86,7 @@ export function FundingToggle({
           {value === option && (
             <motion.span
               layoutId="fund-with"
-              className="absolute inset-0 -z-10 rounded-full bg-primary"
+              className="absolute inset-0 -z-10 rounded-full bg-primary-fill"
               transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
             />
           )}

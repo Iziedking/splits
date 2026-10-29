@@ -2,7 +2,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export const inputClass =
-  "block min-h-12 w-full rounded-[14px] border border-input bg-white/80 px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive";
+  "block min-h-12 w-full rounded-sm border border-input bg-white/80 px-4 text-base text-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-invalid:border-destructive";
 
 export interface FieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -50,10 +50,10 @@ export function Notice({ tone = "info", children, className }: { tone?: "info" |
     <div
       role={tone === "error" ? "alert" : "status"}
       className={cn(
-        "rounded-[14px] px-4 py-3 text-sm",
+        "rounded-sm px-4 py-3 text-sm",
         tone === "error" && "bg-destructive/10 text-destructive",
         tone === "info" && "bg-white/70 text-muted-foreground ring-1 ring-white",
-        tone === "success" && "bg-success/10 text-success",
+        tone === "success" && "bg-success/10 text-success-text",
         className,
       )}
     >

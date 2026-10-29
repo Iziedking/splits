@@ -117,7 +117,7 @@ export function PayoutComposer({
               ))}
             </ul>
           )}
-          <button type="button" onClick={undo} className="mt-2 min-h-11 font-semibold text-primary underline underline-offset-4">
+          <button type="button" onClick={undo} className="mt-2 min-h-11 font-semibold text-primary-text underline underline-offset-4">
             Undo
           </button>
         </Notice>
@@ -157,7 +157,7 @@ export function PayoutComposer({
                 onClick={() => edit(setSplit)(value)}
                 className={cn(
                   "min-h-11 rounded-full px-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  split === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  split === value ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {text}

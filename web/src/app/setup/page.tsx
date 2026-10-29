@@ -71,7 +71,7 @@ function Setup() {
       {!me.user.hasPin ? (
         <form onSubmit={savePin} className="space-y-4">
           <ShieldCheck className="h-8 w-8" aria-hidden="true" />
-          <h1 className="text-[2rem] leading-tight font-extrabold">Choose a payment PIN</h1>
+          <h1 className="text-title leading-tight font-extrabold">Choose a payment PIN</h1>
           <p className="text-sm text-muted-foreground">
             You'll enter it to approve every payment. Five wrong tries locks payments for 15 minutes.
           </p>
@@ -102,7 +102,7 @@ function Setup() {
       ) : (
         <div className="space-y-4">
           <Fingerprint className="h-8 w-8" aria-hidden="true" />
-          <h1 className="text-[2rem] leading-tight font-extrabold">Approve with Face ID or fingerprint</h1>
+          <h1 className="text-title leading-tight font-extrabold">Approve with Face ID or fingerprint</h1>
           <p className="text-sm text-muted-foreground">
             Faster than typing your PIN. Your PIN keeps working as a backup.
           </p>

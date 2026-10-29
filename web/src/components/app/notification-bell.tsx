@@ -100,7 +100,7 @@ export function NotificationBell() {
       >
         <Bell className="h-5 w-5" aria-hidden="true" />
         {unread > 0 && (
-          <span aria-hidden="true" className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+          <span aria-hidden="true" className="absolute top-1.5 right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-fill px-1 text-xs leading-none font-bold text-primary-foreground">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
@@ -110,7 +110,7 @@ export function NotificationBell() {
         ref={ref}
         onClose={() => setOpen(false)}
         aria-labelledby="notifications-title"
-        className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px]"
+        className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-2xl bg-card p-0 text-card-foreground shadow-dialog backdrop:bg-foreground/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-2xl"
       >
         <div className="max-h-[80dvh] overflow-y-auto p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
           <div className="flex items-start gap-2">
@@ -123,7 +123,7 @@ export function NotificationBell() {
                 type="button"
                 onClick={() => void clearAll()}
                 disabled={clearing}
-                className="-my-1 inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
+                className="-my-1 inline-flex min-h-11 items-center rounded-full px-3 text-sm font-semibold text-primary-text hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-50"
               >
                 Clear all
               </button>
@@ -162,12 +162,12 @@ export function NotificationBell() {
                           <Link
                             href={n.href}
                             onClick={() => setOpen(false)}
-                            className="block rounded-[16px] bg-white/70 p-3.5 ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            className="block rounded-md bg-white/70 p-3.5 ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                           >
                             {body}
                           </Link>
                         ) : (
-                          <div className="rounded-[16px] bg-white/70 p-3.5 ring-1 ring-border">{body}</div>
+                          <div className="rounded-md bg-white/70 p-3.5 ring-1 ring-border">{body}</div>
                         )}
                       </li>
                     );
@@ -188,7 +188,7 @@ export function NotificationBell() {
               setOpen(true);
             }}
             className={cn(
-              "pointer-events-auto w-full max-w-sm rounded-[18px] bg-foreground px-4 py-3 text-left text-sm text-background shadow-[0_18px_40px_-14px_rgb(14_28_43/0.6)]",
+              "pointer-events-auto w-full max-w-sm rounded-lg bg-foreground px-4 py-3 text-left text-sm text-background shadow-toast",
               "motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]",
             )}
           >

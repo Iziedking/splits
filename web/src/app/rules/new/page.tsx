@@ -70,7 +70,7 @@ function NewRule() {
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">Split money you receive</h1>
+      <h1 className="mt-1 text-title leading-tight font-extrabold">Split money you receive</h1>
       <form onSubmit={review} className="surface mt-6 space-y-6 p-6">
         <div>
           <p className="figure text-7xl">{percent}%</p>
@@ -124,7 +124,7 @@ function NewRule() {
                   type="button"
                   aria-pressed={pocketName.trim().toLowerCase() === w.label.toLowerCase()}
                   onClick={() => setPocketName(w.label)}
-                  className="min-h-10 rounded-full bg-white/80 px-4 text-sm font-semibold ring-1 ring-border aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:ring-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="min-h-10 rounded-full bg-white/80 px-4 text-sm font-semibold ring-1 ring-border aria-pressed:bg-primary-fill aria-pressed:text-primary-foreground aria-pressed:ring-primary-fill focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {w.earn ? "Earning pocket" : w.label}
                 </button>

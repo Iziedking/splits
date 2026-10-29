@@ -35,7 +35,7 @@ function Profile() {
   return (
     <div className="enter space-y-6 pt-4">
       <div className="space-y-6">
-        <h1 className="text-[2rem] leading-tight font-extrabold">Profile</h1>
+        <h1 className="text-title leading-tight font-extrabold">Profile</h1>
 
         {main && (
           <section aria-labelledby="address-heading" className="surface p-6">
@@ -78,7 +78,7 @@ function Profile() {
             Automatic split
           </h2>
           {rule === undefined ? (
-            <div aria-busy="true" className="mt-3 h-10 rounded-[14px] bg-muted motion-safe:animate-pulse" />
+            <div aria-busy="true" className="mt-3 h-10 rounded-sm bg-muted motion-safe:animate-pulse" />
           ) : rule ? (
             <>
               <p className="mt-1 text-muted-foreground">{rule.name}. Runs by itself on every payment that reaches your wallet.</p>
@@ -89,7 +89,7 @@ function Profile() {
               <p className="mt-1 text-muted-foreground">Put part of every payment you receive into savings, automatically.</p>
               <Link
                 href="/rules/new"
-                className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 Set it up
               </Link>
@@ -107,7 +107,7 @@ function Profile() {
             </p>
             <Link
               href="/earn"
-              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Open
             </Link>
@@ -134,7 +134,7 @@ function Profile() {
           </dl>
           <Link
             href="/settings"
-            className="mt-4 flex min-h-11 items-center justify-between rounded-[14px] bg-white/70 px-4 text-sm font-semibold ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="mt-4 flex min-h-11 items-center justify-between rounded-sm bg-white/70 px-4 text-sm font-semibold ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             Settings
             <span className="text-xs font-normal text-muted-foreground">PIN, Face ID, email alerts</span>

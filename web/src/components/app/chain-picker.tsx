@@ -130,7 +130,7 @@ export function ChainPicker({
               openList();
             }
           }}
-          className="flex min-h-[60px] w-full items-center gap-3 rounded-[14px] bg-white/80 px-4 py-3 text-left ring-1 ring-white hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex min-h-[60px] w-full items-center gap-3 rounded-sm bg-white/80 px-4 py-3 text-left ring-1 ring-white hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           {selected ? (
             <>
@@ -157,7 +157,7 @@ export function ChainPicker({
             aria-labelledby={`${listId}-label`}
             aria-activedescendant={`${listId}-${active}`}
             onKeyDown={onListKey}
-            className="absolute inset-x-0 top-full z-20 mt-2 max-h-[min(26rem,60vh)] overflow-y-auto rounded-[14px] bg-white p-1 shadow-lg ring-1 ring-black/5 focus:outline-none"
+            className="absolute inset-x-0 top-full z-20 mt-2 max-h-[min(26rem,60vh)] overflow-y-auto rounded-sm bg-white p-1 shadow-dialog ring-1 ring-border focus:outline-none"
           >
             {rows.map((r, i) => (
               <li
@@ -169,7 +169,7 @@ export function ChainPicker({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => choose(i)}
                 className={cn(
-                  "flex cursor-pointer items-start gap-3 rounded-[10px] px-3 py-2.5",
+                  "flex cursor-pointer items-start gap-3 rounded-sm px-3 py-2.5",
                   i === active && !r.disabled && "bg-primary/10",
                   r.disabled && "cursor-not-allowed opacity-60",
                 )}

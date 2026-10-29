@@ -122,7 +122,7 @@ export function AgentComposer({ onFilled, onBusy }: { onFilled: (fill: ComposerF
           {shots.map((s, i) => (
             <li key={s.id} className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element -- a local blob preview */}
-              <img src={s.url} alt={`Screenshot ${i + 1}`} className="h-14 w-14 rounded-xl object-cover ring-1 ring-white" />
+              <img src={s.url} alt={`Screenshot ${i + 1}`} className="h-14 w-14 rounded-md object-cover ring-1 ring-white" />
               <button
                 type="button"
                 onClick={() => remove(s.id)}

@@ -28,7 +28,7 @@ function Row({ label, order, children }: { label: string; order: number; childre
   return (
     <div style={lineIn(order)} className="enter flex items-start justify-between gap-4 py-3 print:animate-none">
       <dt className="shrink-0 text-sm text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 text-right text-[15px] font-medium">{children}</dd>
+      <dd className="min-w-0 text-right text-ui font-medium">{children}</dd>
     </div>
   );
 }
@@ -61,10 +61,10 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         </Link>
       )}
       <div className="text-center">
-        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_12px_28px_-12px_rgb(15_163_154/0.8)] motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both] print:animate-none">
+        <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-badge motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both] print:animate-none">
           <Check className="h-7 w-7" strokeWidth={3} aria-hidden="true" />
         </span>
-        <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">Received on Arc.</h1>
+        <h1 className="mt-4 text-title leading-tight font-extrabold">Received on Arc.</h1>
         <p className="mt-1 text-muted-foreground">
           {receipt.whole
             ? `A payment from ${receipt.from}.`
@@ -78,7 +78,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
           <p style={lineIn(0)} className="enter text-sm text-muted-foreground print:animate-none">
             {receipt.purpose ? `For ${receipt.purpose}` : "Payment"}
           </p>
-          <p style={lineIn(1)} className="enter figure mt-1 text-[2.75rem] leading-none print:animate-none">
+          <p style={lineIn(1)} className="enter figure mt-1 text-figure-xl leading-none print:animate-none">
             ${receipt.amount}
           </p>
           <p style={lineIn(1)} className="enter mt-2 text-sm text-muted-foreground print:animate-none">
@@ -91,8 +91,8 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         <dl className="divide-y divide-foreground/[0.07] px-5 pb-2">
           <div style={lineIn(2)} className="enter print:animate-none grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 py-3">
             <dt className="text-sm text-muted-foreground">To</dt>
-            {!addressName && <dd className="truncate text-right text-[15px] font-medium">{receipt.name}</dd>}
-            <dd className="col-span-2 mt-1.5 rounded-lg bg-foreground/[0.04] px-2.5 py-1.5 text-[13px] leading-snug break-all text-muted-foreground tabular-nums">
+            {!addressName && <dd className="truncate text-right text-ui font-medium">{receipt.name}</dd>}
+            <dd className="col-span-2 mt-1.5 rounded-lg bg-foreground/[0.04] px-2.5 py-1.5 text-micro leading-snug break-all text-muted-foreground tabular-nums">
               {receipt.to}
             </dd>
           </div>
@@ -110,7 +110,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
                 href={receipt.explorerUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-11 items-center gap-1 font-semibold text-primary tabular-nums underline-offset-4 hover:underline"
+                className="inline-flex min-h-11 items-center gap-1 font-semibold text-primary-text tabular-nums underline-offset-4 hover:underline"
               >
                 {short(receipt.txHash, 8)}
                 <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
@@ -134,7 +134,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
             href={receipt.explorerUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)] hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground shadow-pill hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             View on Arc explorer
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -162,7 +162,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         {receipt.explorerUrl
           ? "Splits checked this payment against the Arc transaction before showing it as settled."
           : "This receipt comes from a preview server, so no money moved."}{" "}
-        <Link href="/" className="font-semibold text-primary underline-offset-4 hover:underline print:hidden">
+        <Link href="/" className="font-semibold text-primary-text underline-offset-4 hover:underline print:hidden">
           Send money with Splits
         </Link>
       </p>

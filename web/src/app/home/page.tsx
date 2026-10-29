@@ -85,12 +85,12 @@ function Home() {
   // column wrappers are `contents` on a phone, so their children join the single flex list.
   return (
     <div className="enter pt-4">
-      <h1 className="text-[2rem] leading-tight font-extrabold">Hi, {greetingName(me.user.email)}</h1>
+      <h1 className="text-title leading-tight font-extrabold">Hi, {greetingName(me.user.email)}</h1>
       <div className="mt-7 flex flex-col gap-7 lg:grid lg:grid-cols-[minmax(0,1.6fr)_minmax(22rem,1fr)] lg:items-start lg:gap-12">
         <div className="contents lg:flex lg:flex-col lg:gap-7">
           <section aria-label="Your balance" className="surface order-1 p-5 lg:order-none">
             <p className="text-sm text-muted-foreground">Balance</p>
-            <p className="figure mt-1 text-[2.6rem] leading-none">
+            <p className="figure mt-1 text-display leading-none">
               <CountUp value={main?.balance ?? "0.00"} />
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -148,7 +148,7 @@ function Home() {
               {sendSplits.length > 0 && (
                 <Link
                   href="/splits/new"
-                  className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary-text focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <Plus className="h-4 w-4" aria-hidden="true" />
                   New split
@@ -223,7 +223,7 @@ function Home() {
               </h2>
               <Link
                 href="/history"
-                className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-sm font-semibold text-primary-text focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 See all
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />

@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:is(.dark *));
-
 /* "Glass and teal" (UI_BRIEF.md v4), from the design team's Figma. shadcn token names. */
 :root {
   --radius: 1.125rem;
@@ -11,20 +9,35 @@
   --card-foreground: #0e1c2b;
   --popover: #ffffff;
   --popover-foreground: #0e1c2b;
+  /* Brand teal: dots, figures, icons and graphics (3:1 on white). Never small text. */
   --primary: #0fa39a;
   --primary-foreground: #ffffff;
   --primary-deep: #0b8780;
+  /* Pills and selected segments: white text on it reads at 5.2:1 (owner's choice, 2026-10-29). */
+  --primary-fill: #0a7a73;
+  --primary-fill-hover: #086660;
+  /* Teal text, links and statuses under 24px: at least 5:1 on white, mist, glass and tints. */
+  --primary-text: #08706a;
   --secondary: #e7f1f1;
   --secondary-foreground: #0e1c2b;
   --muted: #e8eef0;
   --muted-foreground: #5b6b78;
   --accent: #d9f2ef;
   --accent-foreground: #0e1c2b;
-  --destructive: #d2344a;
+  --destructive: #c02a40;
   --border: #dde6e9;
   --input: #d3dde1;
   --ring: #0fa39a;
   --success: #0f9a72;
+  --success-text: #0a7356;
+
+  /* The haze behind every screen, and the dark settlement screen (components/app/backdrop.tsx). */
+  --haze-teal: #8fe3dc;
+  --haze-lilac: #c9c1f8;
+  --haze-peach: #f9cbb8;
+  --night: #0a1a22;
+  --night-glow-teal: #1d4f5a;
+  --night-glow-warm: #6b4a3a;
 
   /* One fill per part of a split, in order. */
   --purpose-1: #2bc4ba;
@@ -35,32 +48,22 @@
   --purpose-6: #8fcb5a;
 }
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-}
 
 @theme inline {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --color-primary-deep: var(--primary-deep);
+  --color-primary-fill: var(--primary-fill);
+  --color-primary-fill-hover: var(--primary-fill-hover);
+  --color-primary-text: var(--primary-text);
   --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-haze-teal: var(--haze-teal);
+  --color-haze-lilac: var(--haze-lilac);
+  --color-haze-peach: var(--haze-peach);
+  --color-night: var(--night);
+  --color-night-glow-teal: var(--night-glow-teal);
+  --color-night-glow-warm: var(--night-glow-warm);
   --color-purpose-1: var(--purpose-1);
   --color-purpose-2: var(--purpose-2);
   --color-purpose-3: var(--purpose-3);
@@ -89,6 +92,32 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Sheets and dialogs. */
+  --radius-2xl: 24px;
+}
+
+/* Type scale: page titles, the three figure sizes, UI text and small print. */
+@theme {
+  --text-title: 2rem;
+  --text-display: 2.6rem;
+  --text-figure-xl: 2.75rem;
+  --text-figure-lg: 2.4rem;
+  --text-figure: 1.75rem;
+  --text-heading: 1.1875rem;
+  --text-lead: 1.0625rem;
+  --text-ui: 0.9375rem;
+  --text-micro: 0.8125rem;
+
+  /* Elevation: the pill's teal glow, sheets and dialogs, toasts, glass. */
+  --shadow-pill: 0 10px 24px -12px rgb(10 122 115 / 0.7);
+  --shadow-pill-hover: 0 14px 28px -12px rgb(10 122 115 / 0.75);
+  --shadow-badge: 0 12px 28px -12px rgb(15 163 154 / 0.8);
+  --shadow-dialog: 0 24px 60px -12px rgb(14 28 43 / 0.35);
+  --shadow-panel: 0 30px 60px -20px rgb(14 28 43 / 0.45);
+  --shadow-toast: 0 18px 40px -14px rgb(14 28 43 / 0.6);
+  --shadow-glass: inset 0 1px 0 rgb(255 255 255 / 0.8), 0 10px 36px rgb(14 28 43 / 0.1);
+  --shadow-lift: 0 8px 24px rgb(14 28 43 / 0.1);
+  --shadow-thumb: 0 1px 3px rgb(14 28 43 / 0.2);
 }
 
 /* One easing family. Entry: short upward settle. Reduced motion turns it off (see UI_BRIEF.md). */
@@ -223,6 +252,21 @@
   border-radius: 18px;
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
+}
+
+/* The landing page's brighter glass: same fallbacks as `surface`. */
+@utility surface-hero {
+  background: rgb(255 255 255 / 0.6);
+  border: 1px solid rgb(255 255 255 / 0.7);
+  box-shadow: var(--shadow-glass);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: #ffffff;
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: #ffffff;
+  }
 }
 
 /* Landing page (components/landing): the haze drifts slowly; reduced motion holds it still. */

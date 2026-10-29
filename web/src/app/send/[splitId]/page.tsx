@@ -121,7 +121,7 @@ function Send() {
       <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
         Back
       </Link>
-      <h1 className="mt-1 text-[2rem] leading-tight font-extrabold">How much are you sending?</h1>
+      <h1 className="mt-1 text-title leading-tight font-extrabold">How much are you sending?</h1>
       <p className="mt-2 inline-flex rounded-full bg-white/70 px-3 py-1 text-sm font-semibold ring-1 ring-white">Through {split.name}</p>
 
       <div className="surface mt-6 p-5">
@@ -173,7 +173,7 @@ function Send() {
           </p>
         )}
 
-        <div className="mt-6 rounded-2xl bg-white/60 p-5 ring-1 ring-white" aria-live="polite">
+        <div className="mt-6 rounded-md bg-white/60 p-5 ring-1 ring-white" aria-live="polite">
           {preview ? (
             <>
               <div className="flex items-baseline justify-between gap-4">

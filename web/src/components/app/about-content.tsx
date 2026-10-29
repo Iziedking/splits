@@ -41,8 +41,8 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
       <header className="lg:grid lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-end lg:gap-12">
         <div>
           {top}
-          <p className="mt-3 text-sm font-semibold text-primary">About Splits</p>
-          <h1 className="mt-2 text-[2.4rem] leading-[1.08] font-extrabold lg:text-[3rem]">
+          <p className="mt-3 text-sm font-semibold text-primary-text">About Splits</p>
+          <h1 className="mt-2 text-figure-lg leading-[1.08] font-extrabold lg:text-5xl">
             Money home,
             <br />
             already divided.
@@ -121,7 +121,7 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
               href="https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2?tab=contract"
               target="_blank"
               rel="noreferrer"
-              className="font-semibold text-primary underline underline-offset-4"
+              className="font-semibold text-primary-text underline underline-offset-4"
             >
               Its code is public and verified on Sourcify and the Arc explorer.
             </a>
@@ -157,13 +157,13 @@ export function AboutSignUp() {
     <div className="mx-auto w-full max-w-sm space-y-3">
       <Link
         href="/signin"
-        className="flex min-h-[52px] items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)] hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+        className="flex min-h-[52px] items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground shadow-pill hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Get started
       </Link>
       <Link
         href="/send"
-        className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Pay without an account
       </Link>

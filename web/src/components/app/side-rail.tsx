@@ -19,7 +19,7 @@ const TOP: { href: string; label: string; icon: LucideIcon }[] = [
  * it to show labels; closed, each icon names itself on hover and focus. Phones keep the floating nav.
  *
  * Closed, it is the frame's brand teal: white icons on it pass the 3:1 contrast graphics need.
- * Open, labels are text, so it darkens to #0A7A73 where small white text reads at 5:1.
+ * Open, labels are text, so it darkens to the pill fill (--primary-fill) where small white text reads at 5:1.
  */
 export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const pathname = usePathname();
@@ -27,8 +27,8 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
   const current = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   const item = cn(
-    "group relative flex min-h-12 items-center gap-3 rounded-2xl text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:outline-none",
-    open ? "w-full px-4 focus-visible:ring-offset-[#0A7A73]" : "w-12 justify-center focus-visible:ring-offset-primary",
+    "group relative flex min-h-12 items-center gap-3 rounded-md text-sm font-semibold text-white transition-colors hover:bg-white/15 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:outline-none",
+    open ? "w-full px-4 focus-visible:ring-offset-primary-fill" : "w-12 justify-center focus-visible:ring-offset-primary",
   );
   const label = (text: string) =>
     open ? (
@@ -50,7 +50,7 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
     <aside
       className={cn(
         "fixed inset-y-0 left-0 z-30 hidden flex-col py-6 text-white transition-[width,background-color] duration-200 lg:flex",
-        open ? "w-56 items-stretch bg-[#0A7A73] px-4" : "w-20 items-center bg-primary",
+        open ? "w-56 items-stretch bg-primary-fill px-4" : "w-20 items-center bg-primary",
       )}
     >
       <div className={cn("flex items-center gap-1", !open && "justify-center")}>
@@ -67,7 +67,7 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
 
       <nav aria-label="Main" className={cn("mt-10 flex flex-col gap-2", !open && "items-center")}>
         {TOP.map(({ href, label: text, icon: Icon }) => (
-          <Link key={href} href={href} aria-current={current(href) ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-[#0A7A73]")}>
+          <Link key={href} href={href} aria-current={current(href) ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-primary-fill")}>
             <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
             {label(text)}
           </Link>
@@ -75,7 +75,7 @@ export function SideRail({ open, onToggle }: { open: boolean; onToggle: () => vo
       </nav>
 
       <div className={cn("mt-auto flex flex-col gap-2", !open && "items-center")}>
-        <Link href="/settings" aria-current={current("/settings") ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-[#0A7A73]")}>
+        <Link href="/settings" aria-current={current("/settings") ? "page" : undefined} className={cn(item, "aria-[current=page]:bg-white aria-[current=page]:text-primary-fill")}>
           <Settings className="h-5 w-5 shrink-0" aria-hidden="true" />
           {label("Settings")}
         </Link>

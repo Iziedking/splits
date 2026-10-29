@@ -10,7 +10,7 @@ const short = (r: string) => (r.startsWith("0x") ? `${r.slice(0, 6)}…${r.slice
 function Status({ line }: { line: CheckLine }) {
   const ok = line.status === "ready";
   return (
-    <span className={cn("inline-flex items-start gap-2 text-sm", ok ? "text-success" : "text-destructive")}>
+    <span className={cn("inline-flex items-start gap-2 text-sm", ok ? "text-success-text" : "text-destructive")}>
       <span aria-hidden="true" className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", ok ? "bg-success" : "bg-destructive")} />
       {ok ? "Ready" : line.message}
     </span>

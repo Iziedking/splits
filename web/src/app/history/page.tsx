@@ -39,7 +39,7 @@ function History() {
   return (
     <div className="enter space-y-6 pt-4">
       <div>
-        <h1 className="text-[2rem] leading-tight font-extrabold">History</h1>
+        <h1 className="text-title leading-tight font-extrabold">History</h1>
         <p className="mt-1 text-muted-foreground">Everything you sent and received, each with its receipt.</p>
       </div>
       <ActivityList activity={activity} splitNames={splitNames} onRetry={() => void load()} />

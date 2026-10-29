@@ -163,7 +163,7 @@ function Pay() {
   return (
     <div className="enter space-y-6 pt-4 lg:grid lg:max-w-6xl lg:grid-cols-[minmax(0,1fr)_minmax(0,26rem)] lg:items-start lg:gap-10 lg:space-y-0">
       <div>
-        <h1 className="text-[2rem] leading-tight font-extrabold">Send money</h1>
+        <h1 className="text-title leading-tight font-extrabold">Send money</h1>
         <p className="mt-2 text-muted-foreground">
           Anyone, by email or Arc address. Everyone is paid in one transaction, or nobody is.
         </p>
@@ -181,7 +181,7 @@ function Pay() {
             <span className={cn("relative h-6 w-10 rounded-full transition-colors motion-reduce:transition-none", agentOn ? "bg-primary" : "bg-muted")} aria-hidden="true">
               <span
                 className={cn(
-                  "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none",
+                  "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow-thumb transition-transform motion-reduce:transition-none",
                   agentOn ? "translate-x-[18px]" : "translate-x-0.5",
                 )}
               />
@@ -212,7 +212,7 @@ function Pay() {
                   {mode === tab.mode && (
                     <motion.span
                       layoutId="pay-mode"
-                      className="absolute inset-0 -z-10 rounded-full bg-primary"
+                      className="absolute inset-0 -z-10 rounded-full bg-primary-fill"
                       transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
                     />
                   )}
@@ -254,7 +254,7 @@ function Pay() {
 
       <div className="space-y-4 lg:sticky lg:top-6" aria-live="polite">
         {!agentOn && mode !== "saved" && !check && (
-          <div className="rounded-[20px] border border-dashed border-border p-6 text-muted-foreground">
+          <div className="rounded-lg border border-dashed border-border p-6 text-muted-foreground">
             <Ribbon height={10} parts={[1, 1, 1, 1, 1].map((w, i) => ({ label: `Person ${i + 1}`, weight: w }))} />
             <p className="mt-4">Check {mode === "one" ? "the payment" : "your list"} to see exactly what each person gets before anything moves.</p>
           </div>
@@ -323,7 +323,7 @@ function Pay() {
 }
 
 function SavedSplits({ splits }: { splits: SplitView[] | null }) {
-  if (!splits) return <div aria-busy="true" aria-label="Loading splits" className="h-32 rounded-2xl bg-white/60 motion-safe:animate-pulse" />;
+  if (!splits) return <div aria-busy="true" aria-label="Loading splits" className="h-32 rounded-md bg-white/60 motion-safe:animate-pulse" />;
   const ready = splits.filter((s) => !s.automatic && s.status === "active");
   if (ready.length === 0) {
     return (
@@ -331,7 +331,7 @@ function SavedSplits({ splits }: { splits: SplitView[] | null }) {
         <p className="text-muted-foreground">A saved split pays the same people the same way every time, like rent, school fees and upkeep.</p>
         <Link
           href="/splits/new"
-          className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+          className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
         >
           Create a split
         </Link>
@@ -344,7 +344,7 @@ function SavedSplits({ splits }: { splits: SplitView[] | null }) {
         <li key={s.id}>
           <Link
             href={`/send/${s.id}`}
-            className="flex min-h-16 items-center gap-4 rounded-2xl bg-white/70 p-4 ring-1 ring-white transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex min-h-16 items-center gap-4 rounded-md bg-white/70 p-4 ring-1 ring-white transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate font-semibold">{s.name}</span>

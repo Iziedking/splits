@@ -44,12 +44,12 @@ export function CrossProgress({ cross, payer, config }: { cross: Cross; payer: s
       {cross.owed && cross.crossPay && config && <ClaimRefund crossPay={cross.crossPay as `0x${string}`} payer={payer as `0x${string}`} config={config} />}
       <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
         {cross.burnUrl && (
-          <a href={cross.burnUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary underline underline-offset-4">
+          <a href={cross.burnUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary-text underline underline-offset-4">
             View on {cross.chainName}
           </a>
         )}
         {cross.relayUrl && (
-          <a href={cross.relayUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary underline underline-offset-4">
+          <a href={cross.relayUrl} target="_blank" rel="noreferrer" className="font-semibold text-primary-text underline underline-offset-4">
             View on Arc
           </a>
         )}

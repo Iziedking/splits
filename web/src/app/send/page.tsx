@@ -162,7 +162,7 @@ export default function VisitorPay() {
         {/* The heading spans both columns, so the list and its review start on the same line. */}
         <div className="mb-6 lg:col-span-2 lg:mb-0">
           <BackLink />
-          <h1 className="mt-2 text-[2rem] leading-tight font-extrabold">Pay from your wallet</h1>
+          <h1 className="mt-2 text-title leading-tight font-extrabold">Pay from your wallet</h1>
           <p className="mt-2 text-muted-foreground">No account needed. Pay anyone by email or Arc address, in one transaction.</p>
         </div>
 
@@ -181,7 +181,7 @@ export default function VisitorPay() {
                 }}
                 className={cn(
                   "min-h-11 rounded-full text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+                  mode === m ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {m === "one" ? "One person" : "Many people"}
@@ -220,7 +220,7 @@ export default function VisitorPay() {
           {wallet && (
             <p className="text-sm text-muted-foreground">
               Paying from {wallet.slice(0, 6)}…{wallet.slice(-4)}.{" "}
-              <button type="button" onClick={() => void switchWallet()} className="font-semibold text-primary underline underline-offset-4">
+              <button type="button" onClick={() => void switchWallet()} className="font-semibold text-primary-text underline underline-offset-4">
                 Use another wallet
               </button>
             </p>

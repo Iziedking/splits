@@ -48,7 +48,7 @@ export default function CardDemo() {
         {opened ? `Opened ${opened}` : ""}
       </p>
       {opened && (
-        <p className="fixed bottom-6 rounded-full bg-primary px-4 py-2 text-sm text-primary-foreground">
+        <p className="fixed bottom-6 rounded-full bg-primary-fill px-4 py-2 text-sm text-primary-foreground">
           Opened {opened}
         </p>
       )}

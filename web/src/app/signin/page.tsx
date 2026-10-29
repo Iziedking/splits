@@ -94,7 +94,7 @@ export default function SignIn() {
 
         {step === "welcome" && (
           <section className="enter mt-auto lg:mb-auto">
-            <h1 className="text-[2.6rem] leading-[1.08] font-extrabold">
+            <h1 className="text-display leading-[1.08] font-extrabold">
               Send once.
               <br />
               It lands divided.
@@ -111,7 +111,7 @@ export default function SignIn() {
               </Button>
               <Link
                 href="/send"
-                className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 Pay without an account
               </Link>
@@ -122,7 +122,7 @@ export default function SignIn() {
         {step === "email" && (
           <form onSubmit={sendCode} className="enter mt-10 flex flex-1 flex-col">
             <BackButton onClick={() => setStep("welcome")} />
-            <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">{returning ? "Welcome back" : "Create an account"}</h1>
+            <h1 className="mt-4 text-title leading-tight font-extrabold">{returning ? "Welcome back" : "Create an account"}</h1>
             <p className="mt-2 text-muted-foreground">
               {returning ? "Sign in with the email you used before." : "Your email is your account and your wallet. No password to remember."}
             </p>
@@ -159,7 +159,7 @@ export default function SignIn() {
                 setError(null);
               }}
             />
-            <h1 className="mt-4 text-[2rem] leading-tight font-extrabold">Check your email</h1>
+            <h1 className="mt-4 text-title leading-tight font-extrabold">Check your email</h1>
             <p className="mt-2 text-muted-foreground">
               We sent a code to <span className="font-semibold text-foreground">{email}</span>.
             </p>

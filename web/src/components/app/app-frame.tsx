@@ -156,7 +156,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
               href={href}
               aria-current={isCurrent(pathname, href) ? "page" : undefined}
               className={cn(
-                "flex min-h-12 items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground",
+                "flex min-h-12 items-center justify-center gap-1.5 rounded-full text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none aria-[current=page]:bg-primary-fill aria-[current=page]:text-primary-foreground",
                 night ? "text-white/70" : "text-muted-foreground",
               )}
             >

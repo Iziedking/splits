@@ -5,8 +5,8 @@ type Variant = "primary" | "secondary" | "ghost" | "light" | "outlineLight";
 
 /** Pills (UI_BRIEF.md v4): one teal primary per screen, a teal outline for the secondary action. */
 const variants: Record<Variant, string> = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary-deep shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)]",
-  secondary: "bg-white/70 text-primary ring-1 ring-primary/70 hover:bg-white",
+  primary: "bg-primary-fill text-primary-foreground hover:bg-primary-fill-hover shadow-pill",
+  secondary: "bg-white/70 text-primary-text ring-1 ring-primary/70 hover:bg-white",
   ghost: "text-muted-foreground hover:bg-white/60 hover:text-foreground",
   /** On a dark or tinted fill. */
   light: "bg-white text-foreground hover:bg-white/90",
@@ -27,7 +27,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       disabled={disabled || busy}
       aria-busy={busy || undefined}
       className={cn(
-        "inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 text-[15px] font-semibold transition-[transform,background-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
+        "inline-flex min-h-[52px] items-center justify-center gap-2 rounded-full px-6 text-ui font-semibold transition-[transform,background-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none disabled:active:scale-100 motion-reduce:transition-none motion-reduce:active:scale-100",
         variants[variant],
         className,
       )}

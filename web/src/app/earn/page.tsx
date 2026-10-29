@@ -97,7 +97,7 @@ function Earn() {
     return (
       <div className="enter space-y-6 pt-4">
         <BackLink fallback="/home" />
-        <h1 className="text-[2rem] leading-tight font-extrabold">Earning pocket</h1>
+        <h1 className="text-title leading-tight font-extrabold">Earning pocket</h1>
         {loadError ? (
           <div className="space-y-4">
             <Notice tone="error">{loadError}</Notice>
@@ -106,7 +106,7 @@ function Earn() {
             </Button>
           </div>
         ) : (
-          <div aria-busy="true" aria-label="Loading your Earning pocket" className="h-40 rounded-[22px] bg-muted motion-safe:animate-pulse" />
+          <div aria-busy="true" aria-label="Loading your Earning pocket" className="h-40 rounded-xl bg-muted motion-safe:animate-pulse" />
         )}
       </div>
     );
@@ -116,7 +116,7 @@ function Earn() {
   return (
     <div className="enter space-y-6 pt-4">
       <BackLink fallback="/home" />
-      <h1 className="text-[2rem] leading-tight font-extrabold">Earning pocket</h1>
+      <h1 className="text-title leading-tight font-extrabold">Earning pocket</h1>
       {error && <Notice tone="error">{error}</Notice>}
 
       {!status.available ? (
@@ -143,7 +143,7 @@ function Earn() {
         <>
           <section aria-label="Earning pocket balance" className="surface p-6">
             <p className="text-sm text-muted-foreground">In your Earning pocket</p>
-            <p className="figure mt-1 text-[2.4rem] leading-none">≈ ${cents(status.pocket.total)}</p>
+            <p className="figure mt-1 text-figure-lg leading-none">≈ ${cents(status.pocket.total)}</p>
             <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div>
                 <dt className="text-muted-foreground">Earning now</dt>

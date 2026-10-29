@@ -26,7 +26,7 @@ function Settings() {
   const { me, refresh } = useMe();
   return (
     <div className="enter space-y-6 pt-4">
-      <h1 className="text-[2rem] leading-tight font-extrabold">Settings</h1>
+      <h1 className="text-title leading-tight font-extrabold">Settings</h1>
       <section aria-labelledby="alerts-heading" className="surface p-6">
         <h2 id="alerts-heading" className="text-lg font-extrabold">
           Notifications
@@ -185,7 +185,7 @@ function EmailAlertsSwitch({ on, onChanged }: { on: boolean; onChanged: () => Pr
         <span className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors motion-reduce:transition-none", on ? "bg-primary" : "bg-muted")} aria-hidden="true">
           <span
             className={cn(
-              "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow transition-transform motion-reduce:transition-none",
+              "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow-thumb transition-transform motion-reduce:transition-none",
               on ? "translate-x-[18px]" : "translate-x-0.5",
             )}
           />

@@ -69,7 +69,7 @@ export const PaymentSummaryCard = React.forwardRef<HTMLDivElement, PaymentSummar
     return (
       <div
         ref={ref}
-        className={cn("w-full max-w-sm rounded-2xl bg-card p-6 text-card-foreground shadow-lg", className)}
+        className={cn("w-full max-w-sm rounded-md bg-card p-6 text-card-foreground shadow-dialog", className)}
       >
         <h2 className="text-lg font-medium text-muted-foreground">{title}</h2>
 
@@ -82,7 +82,7 @@ export const PaymentSummaryCard = React.forwardRef<HTMLDivElement, PaymentSummar
           type="button"
           onClick={onSubCardClick}
           aria-label={`${subCardTitle}, ${subCardSubtitle}, ${people} ${people === 1 ? "person" : "people"}`}
-          className="group mt-8 block w-full cursor-pointer rounded-xl bg-muted/50 p-4 text-left transition-all duration-300 ease-in-out hover:bg-muted/80 hover:shadow-md focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:transition-none"
+          className="group mt-8 block w-full cursor-pointer rounded-xl bg-muted/50 p-4 text-left transition-all duration-300 ease-in-out hover:bg-muted/80 hover:shadow-lift focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none motion-reduce:transition-none"
         >
           <span className="flex items-start justify-between">
             <span>
@@ -101,7 +101,7 @@ export const PaymentSummaryCard = React.forwardRef<HTMLDivElement, PaymentSummar
             {moreCount !== undefined && moreCount > 0 && (
               <span
                 aria-hidden="true"
-                className="ml-[-12px] flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-primary text-sm font-semibold text-primary-foreground"
+                className="ml-[-12px] flex h-10 w-10 items-center justify-center rounded-full border-2 border-background bg-primary-fill text-sm font-semibold text-primary-foreground"
               >
                 +{moreCount}
               </span>

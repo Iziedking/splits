@@ -141,7 +141,7 @@ function Sending({ t, error }: { t: TransferView; error: string | null }) {
   const steps = stepsFor(t);
   return (
     <div className="enter pt-6" aria-live="polite">
-      <h1 className="text-[2rem] leading-tight font-extrabold">Sending…</h1>
+      <h1 className="text-title leading-tight font-extrabold">Sending…</h1>
       <p className="mt-1 text-white/70">
         ${t.amount} to {who(t)}, settling on Arc.
       </p>
@@ -185,7 +185,7 @@ function NotSent({ t }: { t: TransferView }) {
   return (
     <div className="enter space-y-6 pt-6">
       <div>
-        <h1 className="text-[2rem] leading-tight font-extrabold">{t.status === "failed" ? "Not sent" : "Not started"}</h1>
+        <h1 className="text-title leading-tight font-extrabold">{t.status === "failed" ? "Not sent" : "Not started"}</h1>
         <p className="mt-1 text-muted-foreground">
           ${t.amount} to {who(t)}
         </p>
@@ -222,7 +222,7 @@ function NotSent({ t }: { t: TransferView }) {
         {t.kind === "pay" && (
           <Link
             href={`/pay${t.recipients > 1 ? "?mode=many" : ""}`}
-            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-primary-foreground hover:bg-primary-deep focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             Back to Pay
           </Link>

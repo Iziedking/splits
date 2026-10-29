@@ -7,6 +7,7 @@ import * as React from "react";
 import { CopyAddress } from "@/components/app/copy-address";
 import { Notice } from "@/components/ui/field";
 import { api, type DepositView } from "@/lib/api";
+import { INK, WHITE } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -22,7 +23,7 @@ export function AddressQr({ address, size = 184 }: { address: string; size?: num
     let live = true;
     // Only ever our own, validated address goes in, so the SVG string is safe to render.
     if (!ADDRESS.test(address)) return;
-    void QRCode.toString(address, { type: "svg", margin: 1, color: { dark: "#0E1C2B", light: "#FFFFFF" } }).then((out) => {
+    void QRCode.toString(address, { type: "svg", margin: 1, color: { dark: INK, light: WHITE } }).then((out) => {
       if (live) setSvg(out);
     });
     return () => {
@@ -34,7 +35,7 @@ export function AddressQr({ address, size = 184 }: { address: string; size?: num
     <div
       role="img"
       aria-label="QR code of your wallet address"
-      className="overflow-hidden rounded-[14px] bg-white p-2 ring-1 ring-border [&_svg]:h-full [&_svg]:w-full"
+      className="overflow-hidden rounded-sm bg-white p-2 ring-1 ring-border [&_svg]:h-full [&_svg]:w-full"
       style={{ width: size, height: size }}
       dangerouslySetInnerHTML={svg ? { __html: svg } : undefined}
     />
@@ -130,7 +131,7 @@ export function AddMoney({
       ref={ref}
       onClose={onClose}
       aria-labelledby="add-money-title"
-      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-[24px] bg-card p-0 text-card-foreground shadow-[0_24px_60px_-12px_rgb(14_28_43/0.35)] backdrop:bg-[#0e1c2b]/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-[24px] sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
+      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-2xl bg-card p-0 text-card-foreground shadow-dialog backdrop:bg-foreground/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-2xl sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
     >
       <div className="max-h-[90dvh] overflow-y-auto p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-start justify-between gap-4">
@@ -198,7 +199,7 @@ export function AddMoney({
                     onClick={() => setAbout(about === c.key ? null : c.key)}
                     className={cn(
                       "inline-flex min-h-11 items-center gap-2 rounded-full px-3.5 text-sm font-medium ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                      about === c.key ? "bg-primary/10 text-primary ring-primary/50" : "bg-white/70 ring-border hover:ring-primary/40",
+                      about === c.key ? "bg-primary/10 text-primary-text ring-primary/50" : "bg-white/70 ring-border hover:ring-primary/40",
                     )}
                   >
                     <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", c.key === "arc" ? "bg-primary" : "bg-foreground/50")} />
@@ -221,7 +222,7 @@ export function AddMoney({
                 type="button"
                 onClick={() => void simulate()}
                 disabled={simulating}
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4 disabled:opacity-50"
+                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4 disabled:opacity-50"
               >
                 Simulate $5.00 from {chains[0]!.name} (preview)
               </button>
@@ -231,7 +232,7 @@ export function AddMoney({
                 href="https://faucet.circle.com"
                 target="_blank"
                 rel="noreferrer"
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-4"
+                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4"
               >
                 Get testnet USDC
               </a>
@@ -256,7 +257,7 @@ export function AddMoney({
             </p>
             <Link
               href="/pay?fund=card"
-              className="mt-3 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white/70 px-6 text-[15px] font-semibold text-primary ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="mt-3 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white/70 px-6 text-ui font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <CreditCard className="h-4 w-4" aria-hidden="true" />
               Pay with the demo card

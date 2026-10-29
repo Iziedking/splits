@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 export function Loader({ label = "Loading", className }: { label?: string; className?: string }) {
   return (
     <div role="status" className={cn("flex min-h-[40vh] items-center justify-center", className)}>
-      <svg viewBox="150 150 442 394" aria-hidden="true" className="h-14 w-auto text-[#0EA5A4]">
+      <svg viewBox="150 150 442 394" aria-hidden="true" className="h-14 w-auto text-primary-text">
         <g transform="matrix(1,0,0,1,-293,-382)" fill="currentColor">
           <g transform="matrix(2.25317,0,0,2.25317,-909.210836,-434.962492)">
             <g transform="matrix(0.501415,0,0,0.420441,35.186976,297.745019)">

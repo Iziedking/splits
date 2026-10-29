@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Manrope } from "next/font/google";
+import { MIST } from "@/lib/palette";
 import "./globals.css";
 
 const body = Manrope({ subsets: ["latin"], variable: "--font-body", display: "swap" });
@@ -21,7 +22,7 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: "Splits: send once, it lands divided", description },
 };
 
-export const viewport = { themeColor: "#f3f7f8" };
+export const viewport = { themeColor: MIST };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

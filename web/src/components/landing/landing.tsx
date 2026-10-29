@@ -33,15 +33,14 @@ const sm = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-const glass =
-  "border border-white/70 bg-white/60 shadow-[inset_0_1px_0_rgb(255_255_255/0.8),0_10px_36px_rgb(14_28_43/0.10)] backdrop-blur-xl backdrop-saturate-150";
+const glass = "surface-hero";
 
 function Haze() {
   return (
     <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-background">
-      <i className="absolute -top-[10vw] -left-[12vw] h-[46vw] w-[46vw] rounded-full bg-[#8fe3dc] opacity-70 blur-[90px] will-change-transform animate-drift-a motion-reduce:animate-none" />
-      <i className="absolute top-[18vh] -right-[10vw] h-[40vw] w-[40vw] rounded-full bg-[#c9c1f8] opacity-70 blur-[100px] will-change-transform animate-drift-b motion-reduce:animate-none" />
-      <i className="absolute -bottom-[20vw] left-[12vw] h-[44vw] w-[44vw] rounded-full bg-[#f9cbb8] opacity-60 blur-[100px] will-change-transform animate-drift-c motion-reduce:animate-none" />
+      <i className="absolute -top-[10vw] -left-[12vw] h-[46vw] w-[46vw] rounded-full bg-haze-teal opacity-70 blur-[90px] will-change-transform animate-drift-a motion-reduce:animate-none" />
+      <i className="absolute top-[18vh] -right-[10vw] h-[40vw] w-[40vw] rounded-full bg-haze-lilac opacity-70 blur-[100px] will-change-transform animate-drift-b motion-reduce:animate-none" />
+      <i className="absolute -bottom-[20vw] left-[12vw] h-[44vw] w-[44vw] rounded-full bg-haze-peach opacity-60 blur-[100px] will-change-transform animate-drift-c motion-reduce:animate-none" />
     </div>
   );
 }
@@ -64,10 +63,10 @@ function CtaLink({ href, children, tone = "primary", className }: { href: string
     <Link
       href={href}
       className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[15px] font-bold transition-[transform,box-shadow,background-color] duration-150 ease-out hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:translate-y-0",
+        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-ui font-bold transition-[transform,box-shadow,background-color] duration-150 ease-out hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:translate-y-0",
         tone === "primary"
-          ? "bg-primary text-primary-foreground shadow-[0_10px_24px_-12px_rgb(15_163_154/0.7)] hover:bg-primary-deep hover:shadow-[0_14px_28px_-12px_rgb(15_163_154/0.75)]"
-          : "border border-border bg-white/60 text-foreground backdrop-blur-md hover:bg-white/80 hover:shadow-[0_8px_24px_rgb(14_28_43/0.10)]",
+          ? "bg-primary-fill text-primary-foreground shadow-pill hover:bg-primary-fill-hover hover:shadow-pill-hover"
+          : "border border-border bg-white/60 text-foreground backdrop-blur-md hover:bg-white/80 hover:shadow-lift",
         className,
       )}
     >
@@ -83,7 +82,7 @@ function Nav({ signedIn }: { signedIn: boolean }) {
         <Link href="#top" aria-label="Splits home" className="inline-flex min-h-11 items-center rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
           <Logo />
         </Link>
-        <nav aria-label="Sections" className="hidden items-center gap-7 text-[15px] font-semibold text-muted-foreground md:flex">
+        <nav aria-label="Sections" className="hidden items-center gap-7 text-ui font-semibold text-muted-foreground md:flex">
           <a href="#how" className="hover:text-foreground">How it works</a>
           <a href="#try" className="hover:text-foreground">Try a split</a>
           <a href="#safe" className="hover:text-foreground">Why it&apos;s safe</a>
@@ -91,7 +90,7 @@ function Nav({ signedIn }: { signedIn: boolean }) {
         </nav>
         <Link
           href={signedIn ? "/home" : "/signin"}
-          className="inline-flex min-h-10 items-center rounded-full border border-border bg-white/60 px-5 text-[15px] font-bold text-foreground transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-10 items-center rounded-full border border-border bg-white/60 px-5 text-ui font-bold text-foreground transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           {signedIn ? "Home" : "Sign in"}
         </Link>
@@ -173,7 +172,7 @@ function Scene({ signedIn }: { signedIn: boolean }) {
       <div className="sticky top-0 flex h-svh min-h-[560px] flex-col justify-center gap-[clamp(16px,3vh,32px)] pt-[72px] pb-4 motion-reduce:static motion-reduce:h-auto motion-reduce:min-h-0 motion-reduce:py-24">
         <div className="mx-auto w-[min(1120px,calc(100%-2rem))]">
           <div className="flex max-w-[1000px] flex-col gap-[clamp(10px,2vh,16px)]">
-            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-accent px-3 py-1 text-[13px] font-bold text-primary-deep">
+            <span className="inline-flex w-fit items-center gap-2 rounded-full bg-accent px-3 py-1 text-micro font-bold text-primary-text">
               <span className="h-2 w-2 rounded-full bg-primary" /> Live now
             </span>
             <h1 id="hero-title" className="text-[clamp(2.25rem,min(6.2vw,8.5vh),4rem)] leading-[1.06] font-extrabold tracking-[-0.02em] text-balance">
@@ -204,11 +203,11 @@ function Scene({ signedIn }: { signedIn: boolean }) {
                   <div
                     key={p.who}
                     style={{ "--c": p.color, borderColor: "color-mix(in srgb, rgb(255 255 255 / 0.7) calc(var(--bo, 0) * 100%), transparent)" } as React.CSSProperties}
-                    className="pane relative flex h-[clamp(170px,27vh,280px)] flex-col justify-between overflow-hidden border bg-white/60 p-5 shadow-[inset_0_1px_0_rgb(255_255_255/0.8),0_10px_36px_rgb(14_28_43/0.10)] backdrop-blur-[18px] backdrop-saturate-150 max-sm:h-[clamp(76px,11vh,96px)] max-sm:flex-row max-sm:items-center max-sm:gap-3 max-sm:px-[18px] max-sm:py-3.5"
+                    className="pane relative flex h-[clamp(170px,27vh,280px)] flex-col justify-between overflow-hidden border bg-white/60 p-5 shadow-glass backdrop-blur-[18px] backdrop-saturate-150 max-sm:h-[clamp(76px,11vh,96px)] max-sm:flex-row max-sm:items-center max-sm:gap-3 max-sm:px-[18px] max-sm:py-3.5"
                   >
                     <div className="absolute inset-x-0 top-0 h-1.5 bg-(--c)" style={{ opacity: "var(--rv, 0)" }} />
                     <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(165deg,color-mix(in_srgb,var(--c)_24%,transparent),transparent_62%)]" style={{ opacity: "var(--rv, 0)" }} />
-                    <div className="relative z-10 text-[17px] font-bold" style={{ opacity: "var(--rv, 0)" }}>
+                    <div className="relative z-10 text-lead font-bold" style={{ opacity: "var(--rv, 0)" }}>
                       {p.who}
                       <small className="block text-sm font-medium text-muted-foreground max-sm:hidden">
                         {p.what} · {p.share}%
@@ -218,23 +217,23 @@ function Scene({ signedIn }: { signedIn: boolean }) {
                       <div data-amt className="text-[clamp(1.5rem,3.2vw,2.25rem)] leading-[1.1] font-extrabold tracking-[-0.02em] tabular-nums">
                         $0.00
                       </div>
-                      <div className="mt-1.5 flex min-h-[1.3em] items-center gap-1.5 text-sm font-bold text-success max-sm:mt-0.5" style={{ opacity: "var(--lv, 0)" }}>
+                      <div className="mt-1.5 flex min-h-[1.3em] items-center gap-1.5 text-sm font-bold text-success-text max-sm:mt-0.5" style={{ opacity: "var(--lv, 0)" }}>
                         <Check aria-hidden="true" className="h-4 w-4" /> Landed · receipt
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-              <div ref={frameRef} className="pointer-events-none absolute inset-0 rounded-[28px] border border-white/70 bg-white/80 shadow-[inset_0_1px_0_rgb(255_255_255/0.8),0_10px_36px_rgb(14_28_43/0.10)] backdrop-blur-[18px]" />
+              <div ref={frameRef} className="pointer-events-none absolute inset-0 rounded-3xl border border-white/70 bg-white/80 shadow-glass backdrop-blur-[18px]" />
               <div ref={wholeRef} className="pointer-events-none absolute inset-0 flex flex-col items-start justify-between px-7 py-6 max-sm:px-[18px] max-sm:py-3.5">
                 <div className="font-bold text-muted-foreground">Monthly support home</div>
-                <div className="text-[clamp(2rem,6vw,3.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] tabular-nums max-sm:text-[2rem]">
+                <div className="text-[clamp(2rem,6vw,3.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] tabular-nums max-sm:text-title">
                   $450.00
                   <span className="block text-[0.5em] font-bold tracking-[-0.01em] text-muted-foreground">Sent once</span>
                 </div>
               </div>
             </div>
-            <div className="mt-4 flex min-h-[1.6em] justify-between gap-4 text-[15px] font-medium text-muted-foreground">
+            <div className="mt-4 flex min-h-[1.6em] justify-between gap-4 text-ui font-medium text-muted-foreground">
               <span ref={statusRef}>One payment, ready to send</span>
               <span ref={hintRef} className="transition-opacity duration-200 motion-reduce:hidden">
                 Scroll to send
@@ -257,7 +256,7 @@ function Section({ id, children, className }: { id?: string; children: React.Rea
 const H2 = ({ children }: { children: React.ReactNode }) => (
   <h2 className="max-w-[22ch] text-[clamp(1.75rem,4vw,2.5rem)] leading-[1.08] font-extrabold tracking-[-0.02em] text-balance">{children}</h2>
 );
-const Lede = ({ children }: { children: React.ReactNode }) => <p className="mt-4 max-w-[58ch] text-[17px] text-muted-foreground">{children}</p>;
+const Lede = ({ children }: { children: React.ReactNode }) => <p className="mt-4 max-w-[58ch] text-lead text-muted-foreground">{children}</p>;
 
 const STEPS = [
   { title: "Add money", body: "Add money to your Splits balance, or pay from a wallet you already have." },
@@ -288,8 +287,8 @@ function Calculator() {
   return (
     <div className={cn(glass, "flex min-w-0 flex-col gap-5 rounded-3xl p-[clamp(18px,3vw,28px)]")}>
       <div>
-        <label htmlFor="try-amount" className="text-[15px] font-bold">You send</label>
-        <div className="mt-2 flex items-center gap-2 rounded-2xl border border-input bg-background/70 px-4 focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-ring">
+        <label htmlFor="try-amount" className="text-ui font-bold">You send</label>
+        <div className="mt-2 flex items-center gap-2 rounded-md border border-input bg-background/70 px-4 focus-within:outline-3 focus-within:outline-offset-2 focus-within:outline-ring">
           <span aria-hidden="true" className="text-2xl font-extrabold text-muted-foreground">$</span>
           <input
             id="try-amount"
@@ -300,7 +299,7 @@ function Calculator() {
             step={10}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="min-w-0 flex-1 bg-transparent py-3.5 text-[28px] leading-none font-extrabold tabular-nums outline-none"
+            className="min-w-0 flex-1 bg-transparent py-3.5 text-figure leading-none font-extrabold tabular-nums outline-none"
           />
         </div>
         <p role="status" className="mt-1.5 min-h-[1.2em] text-sm font-medium text-destructive">{error}</p>
@@ -385,9 +384,9 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           <ol className="mt-12 grid grid-cols-4 gap-4 max-[860px]:grid-cols-2 max-sm:grid-cols-1">
             {STEPS.map((s, i) => (
               <li key={s.title} className={cn(glass, "flex min-w-0 flex-col gap-2.5 rounded-3xl p-[22px]")}>
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-primary text-[15px] font-extrabold text-primary-foreground">{i + 1}</span>
-                <h3 className="text-[19px] font-extrabold tracking-[-0.01em]">{s.title}</h3>
-                <p className="text-[15px] text-muted-foreground">{s.body}</p>
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-primary-fill text-ui font-extrabold text-primary-foreground">{i + 1}</span>
+                <h3 className="text-heading font-extrabold tracking-[-0.01em]">{s.title}</h3>
+                <p className="text-ui text-muted-foreground">{s.body}</p>
               </li>
             ))}
           </ol>
@@ -408,7 +407,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
             <div aria-label="Example of an automatic split" className={cn(glass, "order-1 flex flex-col gap-4 rounded-3xl p-[clamp(18px,3vw,28px)] max-[860px]:order-2")}>
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <span className="font-semibold">Money received</span>
-                <b className="text-[32px] font-extrabold tracking-[-0.02em] tabular-nums">$200.00</b>
+                <b className="text-title font-extrabold tracking-[-0.02em] tabular-nums">$200.00</b>
               </div>
               <div aria-hidden="true" className="flex h-3 gap-1">
                 <i className="block h-full rounded-md bg-purpose-1" style={{ flexGrow: 30 }} />
@@ -432,8 +431,8 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           <div className="mt-12 grid grid-cols-2 gap-4 max-sm:grid-cols-1">
             {WAYS.map((w) => (
               <div key={w.title} className={cn(glass, "min-w-0 rounded-3xl p-6")}>
-                <h3 className="text-[19px] font-extrabold tracking-[-0.01em]">{w.title}</h3>
-                <p className="mt-2 text-[15px] text-muted-foreground">{w.body}</p>
+                <h3 className="text-heading font-extrabold tracking-[-0.01em]">{w.title}</h3>
+                <p className="mt-2 text-ui text-muted-foreground">{w.body}</p>
               </div>
             ))}
           </div>
@@ -445,16 +444,16 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           <div className="mt-12 grid grid-cols-3 gap-4 max-[860px]:grid-cols-1">
             {SAFE.map((x) => (
               <div key={x.title} className={cn(glass, "min-w-0 rounded-3xl p-6")}>
-                <h3 className="text-[19px] font-extrabold tracking-[-0.01em]">{x.title}</h3>
-                <p className="mt-2 text-[15px] text-muted-foreground">{x.body}</p>
+                <h3 className="text-heading font-extrabold tracking-[-0.01em]">{x.title}</h3>
+                <p className="mt-2 text-ui text-muted-foreground">{x.body}</p>
               </div>
             ))}
           </div>
           <div className={cn(glass, "mt-4 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6")}>
-            <p className="max-w-[62ch] text-[15px] text-muted-foreground">
+            <p className="max-w-[62ch] text-ui text-muted-foreground">
               <b className="text-foreground">Checked before it says Landed.</b> Every payment needs your approval, and Splits checks the result before it tells anyone the money arrived. How that works, and the public code behind it, is on the About page.
             </p>
-            <Link href={TECHNICAL} className="inline-flex items-center gap-1.5 text-[15px] font-bold text-primary-deep underline-offset-4 hover:underline">
+            <Link href={TECHNICAL} className="inline-flex items-center gap-1.5 text-ui font-bold text-primary-text underline-offset-4 hover:underline">
               Technical details <ArrowRight aria-hidden="true" className="h-4 w-4" />
             </Link>
           </div>
@@ -467,18 +466,18 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
             {NEXT.map((n, i) => (
               <div key={n.title} className="min-w-0 rounded-3xl border border-border bg-card p-6" style={{ "--c": n.color } as React.CSSProperties}>
                 <div className="flex items-baseline justify-between gap-3 border-b border-border pb-4">
-                  <span className="text-[28px] leading-none font-extrabold tracking-[-0.02em] text-(--c) tabular-nums">0{i + 1}</span>
-                  <span className="text-[12px] font-bold tracking-[0.14em] text-muted-foreground uppercase">Planned</span>
+                  <span className="text-figure leading-none font-extrabold tracking-[-0.02em] text-(--c) tabular-nums">0{i + 1}</span>
+                  <span className="text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">Planned</span>
                 </div>
-                <h3 className="mt-4 text-[19px] font-extrabold tracking-[-0.01em]">{n.title}</h3>
-                <p className="mt-2 text-[15px] text-muted-foreground">{n.body}</p>
+                <h3 className="mt-4 text-heading font-extrabold tracking-[-0.01em]">{n.title}</h3>
+                <p className="mt-2 text-ui text-muted-foreground">{n.body}</p>
               </div>
             ))}
           </div>
         </Section>
 
         <Section>
-          <div className={cn(glass, "grid grid-cols-2 items-center gap-[clamp(20px,4vw,48px)] rounded-[28px] p-[clamp(24px,5vw,56px)] max-[860px]:grid-cols-1")}>
+          <div className={cn(glass, "grid grid-cols-2 items-center gap-[clamp(20px,4vw,48px)] rounded-3xl p-[clamp(24px,5vw,56px)] max-[860px]:grid-cols-1")}>
             <div>
               <H2>Send your first split</H2>
               <Lede>Live now. Up to ${LIMIT} per payment while identity verification is built.</Lede>
