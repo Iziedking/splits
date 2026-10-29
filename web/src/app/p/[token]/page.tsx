@@ -7,6 +7,7 @@ import * as React from "react";
 import { Backdrop } from "@/components/app/backdrop";
 import { CrossProgress } from "@/components/app/cross-progress";
 import { CrossWalletSteps } from "@/components/app/cross-wallet-steps";
+import { HelpLink } from "@/components/app/help-link";
 import { Landed } from "@/components/app/landed";
 import { StepList } from "@/components/app/step-list";
 import { VisitorHeader } from "@/components/app/visitor-header";
@@ -108,7 +109,12 @@ export default function VisitorPayment() {
                   Pay someone else
                 </ButtonLink>
               }
-              aside={<EmailReceipt token={token} />}
+              aside={
+                <div className="space-y-3">
+                  <EmailReceipt token={token} />
+                  <HelpLink paymentId={p.id} />
+                </div>
+              }
             />
           </>
         ) : p.cross ? (

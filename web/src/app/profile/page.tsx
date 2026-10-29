@@ -157,6 +157,13 @@ function Profile() {
             Settings
             <span className="text-xs font-normal text-muted-foreground">PIN, Face ID, email alerts</span>
           </Link>
+          <Link
+            href="/help"
+            className="mt-3 flex min-h-11 items-center justify-between rounded-sm bg-white/70 px-4 text-sm font-semibold ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          >
+            Help
+            <span className="text-xs font-normal text-muted-foreground">Questions, terms, privacy</span>
+          </Link>
           <Button variant="secondary" className="mt-5 w-full" disabled={signingOut} onClick={() => void signOut()}>
             Sign out
           </Button>

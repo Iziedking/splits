@@ -2,6 +2,7 @@
 
 import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { Switch } from "@/components/app/switch";
@@ -36,6 +37,17 @@ function Settings() {
       </section>
       <ChangePin />
       <Passkey hasPasskey={me.user.hasPasskey} onAdded={refresh} />
+      <nav aria-label="Help and legal" className="flex flex-wrap gap-x-5 text-sm font-semibold text-primary-text">
+        <Link href="/help" className="inline-flex min-h-11 items-center underline-offset-4 hover:underline">
+          Help
+        </Link>
+        <Link href="/legal/terms" className="inline-flex min-h-11 items-center underline-offset-4 hover:underline">
+          Terms of use
+        </Link>
+        <Link href="/legal/privacy" className="inline-flex min-h-11 items-center underline-offset-4 hover:underline">
+          Privacy notice
+        </Link>
+      </nav>
     </div>
   );
 }

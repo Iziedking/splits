@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, Info, LogOut, Menu, PanelsTopLeft, Settings, UserRound, type LucideIcon } from "lucide-react";
+import { Home, Info, LifeBuoy, LogOut, Menu, PanelsTopLeft, Settings, UserRound, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSignOut } from "@/components/app/sign-out";
@@ -11,6 +11,7 @@ const TOP: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/profile", label: "Profile", icon: UserRound },
   { href: "/history", label: "History", icon: PanelsTopLeft },
   { href: "/about", label: "About", icon: Info },
+  { href: "/help", label: "Help", icon: LifeBuoy },
 ];
 
 /**

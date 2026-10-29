@@ -178,7 +178,7 @@ function Pay() {
             checked={agentOn}
             onChange={setAgentOn}
             disabled={drafting}
-            label="Paste a list, Splits fills it in"
+            label="Try agentic mode"
             className="mt-6 rounded-full bg-white/60 px-4 font-semibold ring-1 ring-white"
           />
         )}

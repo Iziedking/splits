@@ -503,6 +503,9 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           <nav aria-label="Footer" className="flex flex-wrap gap-5 font-semibold">
             <Link href="/about" className="hover:text-foreground">About</Link>
             <Link href={TECHNICAL} className="hover:text-foreground">Technical details</Link>
+            <Link href="/help" className="hover:text-foreground">Help</Link>
+            <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>
+            <Link href="/legal/privacy" className="hover:text-foreground">Privacy</Link>
           </nav>
         </div>
         <MoneyNotice className="mt-6 max-w-3xl px-[clamp(16px,5vw,72px)]" />

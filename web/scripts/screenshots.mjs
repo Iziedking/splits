@@ -89,6 +89,11 @@ const SHOTS = [
       await p.waitForTimeout(900);
     },
   },
+  // WP7: Help (with a payment's reference), Terms and Privacy, signed out and in.
+  { name: "help", path: "/help", signedIn: false, vocab: true },
+  { name: "help-with-ref", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, vocab: true },
+  { name: "terms", path: "/legal/terms", signedIn: false, vocab: true },
+  { name: "privacy", path: "/legal/privacy", vocab: true },
   // WP6: the rest of the signed-in screens, also checked for crypto words.
   { name: "split-new", path: "/splits/new", vocab: true },
   { name: "rule-new", path: "/rules/new", vocab: true },

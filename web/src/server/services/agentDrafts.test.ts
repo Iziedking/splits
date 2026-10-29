@@ -70,7 +70,7 @@ describe("agent drafts", () => {
     expect(await failure(draftPayout(ctx, bola, { text: `${A1}, 1`, files: [] }))).toEqual({
       status: 429,
       code: "TOO_MANY_DRAFTS",
-      message: "List filling is busy right now. Try again at 10:00 UTC.",
+      message: "Agentic mode is busy right now. Try again at 10:00 UTC.",
     });
   });
 

@@ -41,7 +41,7 @@ export async function draftPayout(
   opts: { timeoutMs?: number } = {},
 ): Promise<ComposerFill> {
   const model = ctx.agent;
-  if (!model) throw new AppError(404, "AGENT_OFF", "List filling isn't available right now");
+  if (!model) throw new AppError(404, "AGENT_OFF", "Agentic mode isn't available right now");
   const input = checkAgentInput(raw);
 
   // The person's own cap first, so someone at their cap can't use up everyone's hourly budget.
@@ -60,7 +60,7 @@ export async function draftPayout(
   const allowed = await modelCallAllowed();
   if (allowed !== "ok") {
     await refundRateHit(ctx, accountKey, DAY);
-    throw tooMany("TOO_MANY_DRAFTS", `List filling is busy right now. Try again at ${windowEnds(ctx, allowed === "hour" ? HOUR : DAY)} UTC.`);
+    throw tooMany("TOO_MANY_DRAFTS", `Agentic mode is busy right now. Try again at ${windowEnds(ctx, allowed === "hour" ? HOUR : DAY)} UTC.`);
   }
 
   const started = Date.now();

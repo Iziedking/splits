@@ -4,6 +4,7 @@ import { CircleAlert } from "lucide-react";
 import { useParams } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useFrameTone, useMe } from "@/components/app/app-frame";
+import { HelpLink } from "@/components/app/help-link";
 import { Loader } from "@/components/app/loader";
 import { Landed } from "@/components/app/landed";
 import { StepList, type StepState } from "@/components/app/step-list";
@@ -168,6 +169,7 @@ function PaymentState({ t, error, preview, moving }: { t: TransferView; error: s
             <ButtonLink href={again} variant="secondary" className="w-full">
               Send again
             </ButtonLink>
+            <HelpLink paymentId={t.id} />
           </>
         }
       />
@@ -227,6 +229,7 @@ function NotSent({ t }: { t: TransferView }) {
         <ButtonLink href="/home" variant="secondary" className="w-full">
           Home
         </ButtonLink>
+        <HelpLink paymentId={t.id} />
       </div>
     </div>
   );
