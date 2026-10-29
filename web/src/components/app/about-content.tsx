@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MoneyNotice } from "@/components/app/money-notice";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ButtonLink } from "@/components/ui/button";
 import { Ribbon } from "@/components/app/ribbon";
@@ -136,6 +137,7 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
             your own keys, pay from your own wallet.
           </p>
           <p className="text-muted-foreground">While we add identity checks, nobody can send more than $500 a day.</p>
+          <MoneyNotice />
         </Topic>
 
         <Topic id="next-heading" title="What comes next">

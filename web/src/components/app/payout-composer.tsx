@@ -13,11 +13,17 @@ const bytes = (s: string) => new TextEncoder().encode(s.trim()).length;
  * Who gets paid and how much. One person is a one-line list, so both modes go through the same
  * server check. Any edit after a check clears it, so a stale list can never be approved.
  */
+const WORDS = {
+  account: { address: "account address", unit: "$", sample: "chidi@example.com", memo: "Saved with the payment, like a memo." },
+  wallet: { address: "Arc address", unit: "USDC", sample: "0x8f3c…a12b", memo: "Saved with the payment on Arc, like a memo." },
+};
+
 export function PayoutComposer({
   mode,
   initialLabel,
   onChecked,
   checkPath = "/api/payouts/check",
+  vocabulary = "account",
   fill = null,
 }: {
   mode: "one" | "many";
@@ -25,9 +31,12 @@ export function PayoutComposer({
   onChecked: (check: PayoutCheck | null) => void;
   /** Visitors check through /api/visitor/check; accounts use the default. */
   checkPath?: string;
+  /** Visitors paying from their own wallet keep wallet words; account holders read money words. */
+  vocabulary?: "account" | "wallet";
   /** A list drafted by agentic mode; applied once per id, with Undo. */
   fill?: (ComposerFill & { id: number }) | null;
 }) {
+  const words = WORDS[vocabulary];
   const [who, setWho] = React.useState("");
   const [amount, setAmount] = React.useState("");
   const [text, setText] = React.useState("");
@@ -127,7 +136,7 @@ export function PayoutComposer({
       {mode === "one" ? (
         <>
           <Field
-            label="Email or Arc address"
+            label={`Email or ${words.address}`}
             value={who}
             onChange={(e) => edit(setWho)(e.target.value)}
             autoComplete="off"
@@ -135,7 +144,7 @@ export function PayoutComposer({
             hint="No account needed. Money sent to an email waits in their Splits balance until they sign in."
           />
           <Field
-            label="Amount (USDC)"
+            label={`Amount (${words.unit})`}
             inputMode="decimal"
             placeholder="0.00"
             value={amount}
@@ -167,19 +176,19 @@ export function PayoutComposer({
               aria-describedby="payout-list-hint"
               placeholder={
                 split === "equal"
-                  ? "ada@example.com\n0x8f3c…a12b\nbola@example.com"
-                  : "ada@example.com, 50, 1st place\n0x8f3c…a12b, 30, 2nd place\nbola@example.com, 20"
+                  ? `ada@example.com\n${words.sample}\nbola@example.com`
+                  : `ada@example.com, 50, 1st place\n${words.sample}, 30, 2nd place\nbola@example.com, 20`
               }
               className={cn(inputClass, "min-h-44 py-3 font-mono leading-6 lg:text-sm")}
             />
             <p id="payout-list-hint" className="mt-1 text-sm text-muted-foreground">
-              One person per line: an email or Arc address
+              One person per line: an email or {words.address}
               {split === "each" ? ", then the amount, then an optional label" : ", with an optional label after two commas"}.
             </p>
           </div>
           {split === "equal" && (
             <Field
-              label="Pot to share (USDC)"
+              label={`Pot to share (${words.unit})`}
               inputMode="decimal"
               placeholder="100.00"
               value={pot}
@@ -194,7 +203,7 @@ export function PayoutComposer({
         value={label}
         onChange={(e) => edit(setLabel)(e.target.value)}
         error={labelTooLong ? "Keep it under 32 characters" : null}
-        hint="Saved with the payment on Arc, like a memo."
+        hint={words.memo}
       />
       {error && <Notice tone="error">{error}</Notice>}
       <Button type="submit" variant="secondary" className="w-full" busy={busy} disabled={!canCheck} aria-describedby={canCheck ? undefined : waitingId}>

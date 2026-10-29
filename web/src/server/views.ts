@@ -33,6 +33,8 @@ export function meView(ctx: Ctx, user: User, hasPasskey: boolean, wallets: (Wall
     agent: ctx.agent !== null,
     earn: ctx.earn !== null,
     demoCard: ctx.limits.fundingEnabled,
+    /** What an account may send without identity verification, for Profile (read-only). */
+    limits: { perPayment: formatUsdc(ctx.limits.sendPerPayment), daily: formatUsdc(ctx.limits.sendDaily) },
     user: userView(user, hasPasskey),
     wallets: wallets.map((w) => walletView(ctx, w)),
   };

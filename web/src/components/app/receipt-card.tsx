@@ -1,15 +1,15 @@
 "use client";
 
-import { Check, ExternalLink, Printer, Share2 } from "lucide-react";
+import { Check, Printer, Share2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { BackLink } from "@/components/app/back-link";
+import { networkName, PaymentDetails, shortHex } from "@/components/app/payment-details";
 import { ManualLink, readReturn, receiptText, shareLink } from "@/components/app/receipt-share";
-import { Button, buttonClass } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import type { ReceiptView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
 
-const short = (value: string, head = 6) => `${value.slice(0, head)}…${value.slice(-4)}`;
 /**
  * The reveal is CSS, not script: it starts on first paint, so the receipt is readable without
  * JavaScript, in print, and in link previews. Lines settle in reading order.
@@ -59,7 +59,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-badge motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both] print:animate-none">
           <Check className="h-7 w-7" strokeWidth={3} aria-hidden="true" />
         </span>
-        <h1 className="mt-4 text-title leading-tight font-extrabold">Received on Arc.</h1>
+        <h1 className="mt-4 text-title leading-tight font-extrabold">Received.</h1>
         <p className="mt-1 text-muted-foreground">
           {receipt.whole
             ? `A payment from ${receipt.from}.`
@@ -73,69 +73,46 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
           <p style={lineIn(0)} className="enter text-sm text-muted-foreground print:animate-none">
             {receipt.purpose ? `For ${receipt.purpose}` : "Payment"}
           </p>
-          <p style={lineIn(1)} className="enter figure mt-1 text-figure-xl leading-none print:animate-none">
+          <p style={lineIn(1)} className="enter figure mt-1 pb-2 text-figure-xl leading-none print:animate-none">
             ${receipt.amount}
-          </p>
-          <p style={lineIn(1)} className="enter mt-2 text-sm text-muted-foreground print:animate-none">
-            USDC
           </p>
         </div>
 
         <div aria-hidden="true" className="mx-5 mt-3 border-t border-dashed border-foreground/15" />
 
         <dl className="divide-y divide-foreground/[0.07] px-5 pb-2">
-          <div style={lineIn(2)} className="enter print:animate-none grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 py-3">
-            <dt className="text-sm text-muted-foreground">To</dt>
-            {!addressName && <dd className="truncate text-right text-ui font-medium">{receipt.name}</dd>}
-            <dd className="col-span-2 mt-1.5 rounded-lg bg-foreground/[0.04] px-2.5 py-1.5 text-micro leading-snug break-all text-muted-foreground tabular-nums">
-              {receipt.to}
-            </dd>
-          </div>
+          {!addressName && (
+            <Row label="To" order={2}>
+              {receipt.name}
+            </Row>
+          )}
           <Row label="From" order={3}>
-            <span className="block">{receipt.from}</span>
-            <span className="block text-sm text-muted-foreground tabular-nums">{short(receipt.fromAddress)}</span>
+            {receipt.from}
           </Row>
           <Row label="Paid" order={4}>
             <PaidAt iso={receipt.paidAt} />
           </Row>
-          <Row label="Network" order={5}>{receipt.network === "arc" ? "Arc" : "Arc Testnet"}</Row>
-          <Row label="Transaction" order={6}>
-            {receipt.explorerUrl && receipt.txHash ? (
-              <a
-                href={receipt.explorerUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex min-h-11 items-center gap-1 font-semibold text-primary-text tabular-nums underline-offset-4 hover:underline"
-              >
-                {short(receipt.txHash, 8)}
-                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-              </a>
-            ) : (
-              <span className="text-muted-foreground">Simulated in preview</span>
-            )}
-          </Row>
-          <Row label="Status" order={7}>
+          <Row label="Status" order={5}>
             <span className="inline-flex items-center gap-2">
               <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-primary" />
-              {receipt.simulated ? "Settled (simulated)" : "Settled and checked"}
+              {receipt.simulated ? "Paid (test)" : "Paid and checked"}
             </span>
           </Row>
         </dl>
+        <PaymentDetails
+          className="mx-3 mb-3"
+          proofUrl={receipt.explorerUrl}
+          rows={[
+            { label: "To", value: receipt.to },
+            { label: "From", value: receipt.fromAddress },
+            { label: "Network", value: networkName(receipt.network) },
+            { label: "Reference", value: receipt.txHash ? shortHex(receipt.txHash, 10) : "Test payment" },
+          ]}
+        />
       </section>
 
       <div className="space-y-3 print:hidden">
-        {receipt.explorerUrl ? (
-          <a
-            href={receipt.explorerUrl}
-            target="_blank"
-            rel="noreferrer"
-            className={buttonClass({ className: "w-full" })}
-          >
-            View on Arc explorer
-            <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          </a>
-        ) : null}
-        <Button variant={receipt.explorerUrl ? "secondary" : "primary"} className="w-full" onClick={() => void share()}>
+        <Button className="w-full" onClick={() => void share()}>
           {shared === "copied" ? <Check className="h-4 w-4" aria-hidden="true" /> : <Share2 className="h-4 w-4" aria-hidden="true" />}
           {shared === "copied" ? "Link copied" : "Share receipt"}
         </Button>
@@ -154,9 +131,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        {receipt.explorerUrl
-          ? "Splits checked this payment against the Arc transaction before showing it as settled."
-          : "This receipt comes from a preview server, so no money moved."}{" "}
+        {receipt.simulated ? "This is a test receipt. No money moved." : "Splits checked this payment before marking it paid."}{" "}
         <Link href="/" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline-offset-4 hover:underline print:hidden">
           Send money with Splits
         </Link>

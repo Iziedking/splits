@@ -12,7 +12,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
-import { previewSession } from "./preview-session.mjs";
+import { previewSession, settledPayment } from "./preview-session.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((pairs, a, i, all) => (a.startsWith("--") ? [...pairs, [a.slice(2), all[i + 1]]] : pairs), []),
@@ -32,8 +32,8 @@ async function withoutCard(page) {
 
 /** Fills the one-person composer and checks it, so the review column and the funding choice show. */
 async function composeOne(page) {
-  await page.getByLabel("Email or Arc address").fill("landlord@example.com");
-  await page.getByLabel("Amount (USDC)").fill("25");
+  await page.getByLabel(/^Email or/).fill("landlord@example.com");
+  await page.getByLabel(/^Amount/).fill("25");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
   await page.getByRole("button", { name: /^Pay/ }).waitFor({ timeout: 10_000 });
@@ -70,7 +70,31 @@ const SHOTS = [
     fullPage: false,
   },
   { name: "payment-not-found", path: "/payments/00000000-0000-0000-0000-000000000000" },
+  // WP5: the account surfaces. `vocab` shots fail if a consumer meets crypto words outside the
+  // Payment details fold (or the crypto wallet panel, which only people who chose crypto open).
+  { name: "sheet-add-money-crypto", path: "/profile", act: (p) => openSheet(p, "Add money").then(() => p.getByRole("button", { name: /From a crypto wallet/ }).click()), fullPage: false },
+  { name: "sheet-receive", path: "/home", act: (p) => openSheet(p, "Receive"), fullPage: false, vocab: true },
+  { name: "landed", path: (c) => `/payments/${c.paymentId}`, vocab: true },
+  { name: "receipt", path: (c) => c.receipt, signedIn: false, vocab: true },
+  { name: "receipt-details-open", path: (c) => c.receipt, signedIn: false, act: (p) => p.getByText("Payment details").click() },
 ];
+
+/** Shots on the consumer path, checked for crypto vocabulary. */
+const VOCAB = new Set(["signin", "home", "pay", "pay-review-mainnet", "profile", "sheet-add-money"]);
+const FORBIDDEN = /\bArc\b|USDC|0x[0-9a-fA-F]|\bEVM\b|explorer|transaction/i;
+
+/** Visible text outside the fold and the crypto panel, with any crypto words it contains. */
+async function vocabulary(page) {
+  return page.evaluate((source) => {
+    const exempt = [...document.querySelectorAll("[data-payment-details], [data-crypto-path]")];
+    const before = exempt.map((el) => el.style.display);
+    exempt.forEach((el) => (el.style.display = "none"));
+    const text = document.body.innerText;
+    exempt.forEach((el, i) => (el.style.display = before[i]));
+    const pattern = new RegExp(source, "gi");
+    return [...new Set(text.split("\n").filter((line) => pattern.test(line)).map((line) => line.trim().slice(0, 120)))];
+  }, FORBIDDEN.source);
+}
 
 async function openSheet(page, name) {
   await page.getByRole("button", { name }).click();
@@ -79,7 +103,10 @@ async function openSheet(page, name) {
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  const ctx = await previewSession(BASE);
+  const session = await previewSession(BASE);
+  const paymentId = await settledPayment(session.call);
+  const receipt = (await session.call("GET", `/api/transfers/${paymentId}`)).data.transfer.legs[0].receipt;
+  const ctx = { ...session, paymentId, receipt };
   const browser = await chromium.launch();
   const manifest = { base: BASE, at: new Date().toISOString(), widths: WIDTHS, shots: [] };
   try {
@@ -100,8 +127,9 @@ async function main() {
           // Whole pages: the funding choice and the Pay button sit below the fold on a phone.
           await page.screenshot({ path: path.join(OUT, file), fullPage: shot.fullPage ?? true });
           const bodyText = (await page.locator("body").innerText()).replace(/\s+/g, " ");
-          manifest.shots.push({ file, route, width, ok: true, textSample: bodyText.slice(0, 400) });
-          console.log(`ok - ${file}`);
+          const words = shot.vocab || VOCAB.has(shot.name) ? await vocabulary(page) : [];
+          manifest.shots.push({ file, route, width, ok: words.length === 0, textSample: bodyText.slice(0, 400), ...(words.length ? { cryptoWords: words } : {}) });
+          console.log(words.length ? `FAIL - ${file}: crypto words outside Payment details: ${words.join(" | ")}` : `ok - ${file}`);
         } catch (err) {
           manifest.shots.push({ file, width, ok: false, error: String(err?.message ?? err) });
           console.log(`FAIL - ${file}: ${err?.message ?? err}`);

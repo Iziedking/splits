@@ -1,9 +1,10 @@
 "use client";
 
-import { ExternalLink, ReceiptText, Share2 } from "lucide-react";
+import { ReceiptText, Share2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { CountUp } from "@/components/app/count-up";
+import { PaymentDetails, shortHex } from "@/components/app/payment-details";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ManualLink, receiptText, rememberReturn, shareLink, ShareReceipts } from "@/components/app/receipt-share";
 import type { TransferView } from "@/lib/api";
@@ -49,7 +50,7 @@ export function Landed({
         <div className="order-1 lg:order-none">
           <h1 className="text-title leading-tight font-extrabold">{t.recipients === 1 ? "Landed." : "Landed, divided."}</h1>
           <p className="mt-1 text-muted-foreground">
-            <CountUp value={t.amount} /> reached {t.recipients === 1 ? (t.legs[0]?.name ?? "their wallet") : `${t.recipients} wallets`}.
+            <CountUp value={t.amount} /> reached {t.recipients === 1 ? (t.legs[0]?.name ?? "1 person") : `${t.recipients} people`}.
           </p>
           {t.fee !== "0.00" && (
             <p className="mt-1 text-sm text-muted-foreground">
@@ -58,29 +59,27 @@ export function Landed({
           )}
         </div>
 
-        <p className="order-3 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary-text lg:order-none">
-          {t.explorerUrl && (
-            <a href={t.explorerUrl} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
-              View on Arc explorer
-              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-            </a>
-          )}
-          {t.explorerUrl && hasReceipts && <span aria-hidden="true">·</span>}
-          {hasReceipts && (
+        {hasReceipts && (
+          <p className="order-3 flex flex-wrap items-center gap-x-2 text-sm font-semibold text-primary-text lg:order-none">
             <button type="button" onClick={() => void share()} className="inline-flex min-h-11 items-center gap-1 underline-offset-4 hover:underline">
               {shared === "copied" ? "Receipt link copied" : t.legs.length === 1 ? "Share receipt" : "Share a receipt"}
               <Share2 className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
-          )}
-        </p>
+          </p>
+        )}
         {shared === "failed" && t.legs[0]?.receipt && (
           <div role="status" className="order-3 -mt-3 text-sm lg:order-none">
             <span className="font-semibold">Copy this link to share it:</span>
             <ManualLink path={t.legs[0].receipt} />
           </div>
         )}
-        {!t.explorerUrl && preview && (
-          <p className="order-3 text-sm text-muted-foreground lg:order-none">Preview mode: these receipts are simulated, so there is no explorer link.</p>
+        {!t.explorerUrl && preview && <p className="order-3 text-sm text-muted-foreground lg:order-none">Test build: these receipts are simulated.</p>}
+        {t.txHash && (
+          <PaymentDetails
+            className="order-3 lg:order-none"
+            proofUrl={t.explorerUrl}
+            rows={[{ label: "Reference", value: shortHex(t.txHash, 10) }]}
+          />
         )}
         <ShareReceipts legs={t.legs} returnTo={returnTo} open={picking} onClose={() => setPicking(false)} />
 

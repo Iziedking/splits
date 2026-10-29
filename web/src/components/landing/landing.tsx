@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Logo } from "@/components/app/logo";
+import { MoneyNotice } from "@/components/app/money-notice";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -501,6 +502,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
             <Link href={TECHNICAL} className="hover:text-foreground">Technical details</Link>
           </nav>
         </div>
+        <MoneyNotice className="mt-6 max-w-3xl px-[clamp(16px,5vw,72px)]" />
       </footer>
     </div>
   );

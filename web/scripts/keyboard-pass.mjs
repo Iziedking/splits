@@ -90,8 +90,8 @@ async function pay(page) {
 
   // The approval dialog: focus starts on the PIN, stays inside, Escape closes it.
   await page.getByRole("tab", { name: "One person" }).click();
-  await page.getByLabel("Email or Arc address").fill("landlord@example.com");
-  await page.getByLabel("Amount (USDC)").fill("2");
+  await page.getByLabel(/^Email or/).fill("landlord@example.com");
+  await page.getByLabel(/^Amount/).fill("2");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
   const payButton = page.getByRole("button", { name: /^Pay \$/ });
@@ -136,13 +136,30 @@ async function addMoney(page) {
   await page.goto(`${BASE}/profile`, { waitUntil: "networkidle" });
   await dialogFrom(page, s, page.getByRole("button", { name: "Add money" }), "Add money", async () => {
     await page.keyboard.press("Tab");
-    await step(page, s, "Tab", { inDialog: true });
-    const t = await tabTo(page, (f) => f.role === "tab", 10);
-    await step(page, s, `Tab x${t} reaches the network tabs`, { role: "tab", name: "EVM chains", selected: "true" });
-    await page.keyboard.press("ArrowRight");
-    await step(page, s, "ArrowRight", { role: "tab", name: "Solana", selected: "true", controlsExists: true });
-    await page.keyboard.press("ArrowLeft");
-    await step(page, s, "ArrowLeft", { role: "tab", name: "EVM chains", selected: "true", controlsExists: true });
+    await step(page, s, "Tab", { inDialog: true, name: "Close" });
+    const t = await tabTo(page, (f) => /From a crypto wallet/.test(f.name ?? ""), 10);
+    await step(page, s, `Tab x${t} reaches the crypto wallet method`, { tag: "button", inDialog: true });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(200);
+    const back = await tabTo(page, (f) => /All ways to add money/.test(f.name ?? ""), 10);
+    await step(page, s, `Enter opens it; Tab x${back} reaches the way back`, { tag: "button", inDialog: true });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(200);
+    const again = await tabTo(page, (f) => /From a crypto wallet/.test(f.name ?? ""), 10);
+    await step(page, s, `Back to the list; Tab x${again} reaches the method again`, { tag: "button", inDialog: true });
+  });
+}
+
+async function receive(page) {
+  const s = "receive";
+  await page.goto(`${BASE}/home`, { waitUntil: "networkidle" });
+  await dialogFrom(page, s, page.getByRole("button", { name: "Receive" }), "Receive money", async () => {
+    await page.keyboard.press("Tab");
+    await step(page, s, "Tab", { inDialog: true, name: "Close" });
+    await page.keyboard.press("Tab");
+    await step(page, s, "Tab", { inDialog: true, name: "Copy your email" });
+    await page.keyboard.press("Tab");
+    await step(page, s, "Tab reaches the crypto fold", { tag: "summary", inDialog: true });
   });
 }
 
@@ -174,7 +191,7 @@ async function main() {
   const paymentId = await settledPayment(session.call);
   const browser = await chromium.launch();
   try {
-    for (const run of [pay, addMoney, notifications, (p) => shareReceipt(p, paymentId)]) {
+    for (const run of [pay, addMoney, receive, notifications, (p) => shareReceipt(p, paymentId)]) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
       await context.addCookies([{ ...session.cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
       const page = await context.newPage();

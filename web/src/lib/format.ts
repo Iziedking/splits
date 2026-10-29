@@ -43,6 +43,14 @@ export const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
+/** The tracker's steps, in plain words; "Paid in" shows only when a card tops the payment up. */
+export const TRACKER_STEP = {
+  fund: "Paid in",
+  approve: "Approved",
+  send: "Sent",
+  verify: "Receipts ready",
+} as const;
+
 export function isFinal(status: string): boolean {
   return status === "settled" || status === "failed" || status === "cancelled";
 }

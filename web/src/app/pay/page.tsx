@@ -170,7 +170,7 @@ function Pay() {
       <div>
         <h1 className="text-title leading-tight font-extrabold">Send money</h1>
         <p className="mt-2 text-muted-foreground">
-          Anyone, by email or Arc address. Everyone is paid in one transaction, or nobody is.
+          Anyone, by email or account address. Everyone is paid at once, or nobody is.
         </p>
 
         {me.agent && (

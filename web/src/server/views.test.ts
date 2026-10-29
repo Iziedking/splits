@@ -13,6 +13,7 @@ describe("the /api/me view", () => {
     expect(withCard.mode).toBe("preview");
     expect(withCard.user.email).toBe("ada@example.com");
     expect(withCard.wallets.some((w) => w.kind === "main")).toBe(true);
+    expect(withCard.limits).toEqual({ perPayment: expect.stringMatching(/^\d+\.\d{2}$/), daily: expect.stringMatching(/^\d+\.\d{2}$/) });
 
     const off = await testCtx({ FUNDING_ENABLED: "false" });
     const bola = await signedInUser(off.ctx, "bola@example.com");

@@ -66,7 +66,7 @@ export function readReturn(receipt: string): string | null {
 }
 
 export const receiptText = (leg: Pick<Leg, "amount" | "purpose" | "name">) =>
-  `Receipt for $${leg.amount} to ${leg.name}${leg.purpose ? `, for ${leg.purpose}` : ""}. Paid with Splits on Arc.`;
+  `Receipt for $${leg.amount} to ${leg.name}${leg.purpose ? `, for ${leg.purpose}` : ""}. Paid with Splits.`;
 
 /**
  * Pick whose receipt to share. Each link opens that person's part only, so the list is the

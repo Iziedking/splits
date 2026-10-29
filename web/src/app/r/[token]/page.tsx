@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const receipt = await load((await params).token);
   return {
     title: `Receipt: $${receipt.amount}`,
-    description: `$${receipt.amount}${receipt.purpose ? ` for ${receipt.purpose}` : ""}, paid on ${receipt.network === "arc" ? "Arc" : "Arc Testnet"}.`,
+    description: `$${receipt.amount}${receipt.purpose ? ` for ${receipt.purpose}` : ""}, paid with Splits.`,
     robots: { index: false, follow: false },
     referrer: "no-referrer",
   };

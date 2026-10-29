@@ -185,7 +185,7 @@ export default function VisitorPay() {
           />
 
           <div className="surface p-5" {...tabPanelProps(tabs, mode)}>
-            <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" />
+            <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" vocabulary="wallet" />
           </div>
         </div>
 

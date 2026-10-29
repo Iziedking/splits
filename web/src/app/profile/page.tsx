@@ -1,12 +1,15 @@
 "use client";
 
-import { ExternalLink, Wallet } from "lucide-react";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
-import { AddMoney, AddressQr } from "@/components/app/add-money";
+import { AddMoneySheet } from "@/components/app/add-money-sheet";
+import { AddressQr } from "@/components/app/address-qr";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { useSignOut } from "@/components/app/sign-out";
 import { CopyAddress } from "@/components/app/copy-address";
+import { MoneyNotice } from "@/components/app/money-notice";
+import { PaymentDetails } from "@/components/app/payment-details";
 import { Ribbon } from "@/components/app/ribbon";
 import { Skeleton } from "@/components/app/skeleton";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -21,6 +24,10 @@ export default function ProfilePage() {
   );
 }
 
+/**
+ * Profile (fintech face WP5): the account first, then its limits, then what it does by itself. The
+ * account address is for people paying from a crypto wallet, so it sits in a fold.
+ */
 function Profile() {
   const { me } = useMe();
   const { signOut, signingOut, overlay } = useSignOut();
@@ -42,41 +49,63 @@ function Profile() {
       <div className="space-y-6">
         <h1 className="text-title leading-tight font-extrabold">Profile</h1>
 
-        {main && (
-          <section aria-labelledby="address-heading" className="surface p-6">
-            <h2 id="address-heading" className="text-lg font-extrabold">
-              Your wallet address
-            </h2>
-            <p className="mt-1 text-muted-foreground">
-              Anyone can pay you here with USDC on {me.network === "arc" ? "Arc" : "Arc Testnet"}. Your email works too, for
-              people using Splits.
-            </p>
-            <div className="mt-5 flex flex-col gap-5 sm:flex-row sm:items-center">
-              <AddressQr address={main.address} size={160} />
-              <div className="min-w-0 space-y-3">
-                <code className="block text-sm break-all">{main.address}</code>
-                <div className="flex flex-wrap gap-2">
-                  <CopyAddress address={main.address} tone="dark" />
-                  <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
-                    <Wallet className="h-4 w-4" aria-hidden="true" />
-                    Add money
-                  </Button>
-                </div>
-                {main.explorerUrl && (
-                  <a
-                    href={main.explorerUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold underline underline-offset-4"
-                  >
-                    See it on the Arc explorer
-                    <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                  </a>
-                )}
-              </div>
+        <section aria-labelledby="account-heading" className="surface p-6">
+          <h2 id="account-heading" className="text-lg font-extrabold">
+            Your account
+          </h2>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Email</dt>
+              <dd className="min-w-0 truncate font-medium">{me.user.email}</dd>
             </div>
-          </section>
-        )}
+            {(me.mode === "preview" || me.network === "arc-testnet") && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Money</dt>
+                <dd className="font-medium">{me.mode === "preview" ? "Test money, simulated" : "Test money, no value"}</dd>
+              </div>
+            )}
+          </dl>
+          {main && (
+            <>
+              <Button variant="secondary" size="sm" className="mt-4" onClick={() => setAdding(true)}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add money
+              </Button>
+              <PaymentDetails summary="Show account address" className="mt-4" proofUrl={main.explorerUrl}>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <AddressQr address={main.address} size={128} />
+                  <div className="min-w-0 space-y-2">
+                    <code className="block text-sm break-all">{main.address}</code>
+                    <CopyAddress address={main.address} tone="dark" />
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground">
+                  People on Splits can pay your email. Anyone else can send USDC to this address on{" "}
+                  {me.network === "arc" ? "Arc" : "Arc Testnet"}.
+                </p>
+              </PaymentDetails>
+            </>
+          )}
+          <MoneyNotice className="mt-4" />
+        </section>
+
+        <section aria-labelledby="limits-heading" className="surface p-6">
+          <h2 id="limits-heading" className="text-lg font-extrabold">
+            Verification and limits
+          </h2>
+          <p className="mt-1 text-sm text-muted-foreground">Splits doesn&apos;t verify identity yet, so every account has the same limits.</p>
+          <dl className="mt-3 space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Each payment</dt>
+              <dd className="font-medium tabular-nums">up to ${me.limits.perPayment}</dd>
+            </div>
+            <div className="flex justify-between gap-4">
+              <dt className="text-muted-foreground">Any 24 hours</dt>
+              <dd className="font-medium tabular-nums">up to ${me.limits.daily}</dd>
+            </div>
+          </dl>
+          <p className="mt-2 text-xs text-muted-foreground">Both include the Splits fee.</p>
+        </section>
 
         <section aria-labelledby="auto-heading" className="surface p-6">
           <h2 id="auto-heading" className="text-lg font-extrabold">
@@ -93,7 +122,7 @@ function Profile() {
             </div>
           ) : rule ? (
             <>
-              <p className="mt-1 text-muted-foreground">{rule.name}. Runs by itself on every payment that reaches your wallet.</p>
+              <p className="mt-1 text-muted-foreground">{rule.name}. Runs by itself on every payment you receive.</p>
               <Ribbon className="mt-4" parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />
             </>
           ) : (
@@ -111,9 +140,7 @@ function Profile() {
             <h2 id="earn-heading" className="text-lg font-extrabold">
               Earning pocket
             </h2>
-            <p className="mt-1 text-muted-foreground">
-              Keep part of your money earning a variable return through a vetted vault on Arc. Move it back whenever you like.
-            </p>
+            <p className="mt-1 text-muted-foreground">Keep part of your money earning a variable return. Move it back whenever you like.</p>
             <ButtonLink href="/earn" variant="secondary" size="sm" className="mt-4">
               Open
             </ButtonLink>
@@ -122,25 +149,10 @@ function Profile() {
       </div>
 
       <div className="space-y-6">
-        <section aria-labelledby="account-heading" className="surface p-6">
-          <h2 id="account-heading" className="text-lg font-extrabold">
-            Account
-          </h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Email</dt>
-              <dd className="min-w-0 truncate font-medium">{me.user.email}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-muted-foreground">Network</dt>
-              <dd className="font-medium">
-                {me.mode === "preview" ? "Preview (simulated)" : me.network === "arc" ? "Arc" : "Arc Testnet, test money with no value"}
-              </dd>
-            </div>
-          </dl>
+        <section aria-label="Settings and sign out" className="surface p-6">
           <Link
             href="/settings"
-            className="mt-4 flex min-h-11 items-center justify-between rounded-sm bg-white/70 px-4 text-sm font-semibold ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex min-h-11 items-center justify-between rounded-sm bg-white/70 px-4 text-sm font-semibold ring-1 ring-border hover:ring-primary/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             Settings
             <span className="text-xs font-normal text-muted-foreground">PIN, Face ID, email alerts</span>
@@ -158,7 +170,7 @@ function Profile() {
         About Splits
       </Link>
 
-      {main && <AddMoney address={main.address} network={me.network} open={adding} onClose={() => setAdding(false)} />}
+      {main && <AddMoneySheet address={main.address} network={me.network} open={adding} onClose={() => setAdding(false)} />}
       {overlay}
     </div>
   );

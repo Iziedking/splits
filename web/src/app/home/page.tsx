@@ -4,12 +4,12 @@ import { ArrowDownLeft, ChevronRight, Plus, Send } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { ActivityList } from "@/components/app/activity-list";
-import { AddMoney } from "@/components/app/add-money";
+import { AddMoneySheet } from "@/components/app/add-money-sheet";
 import { AppFrame, useMe } from "@/components/app/app-frame";
-import { CopyAddress } from "@/components/app/copy-address";
 import { CountUp } from "@/components/app/count-up";
 import { Ribbon } from "@/components/app/ribbon";
 import { Skeleton } from "@/components/app/skeleton";
+import { ReceiveSheet } from "@/components/app/receive-sheet";
 import { StartSomething } from "@/components/app/start-something";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
@@ -24,13 +24,15 @@ export default function HomePage() {
   );
 }
 
+const TILE = "min-h-16 flex-col gap-1 rounded-lg px-2 text-sm whitespace-nowrap";
+
 /** Home (UI_BRIEF.md v4, frames S2 Home and Dashboard). */
 function Home() {
   const { me, refresh } = useMe();
   const [splits, setSplits] = React.useState<SplitView[] | null>(null);
   const [activity, setActivity] = React.useState<ActivityView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [receiving, setReceiving] = React.useState(false);
+  const [sheet, setSheet] = React.useState<"add" | "receive" | null>(null);
   // The Earning pocket's chain balance leaves out what is in the vault; its total comes from /api/earn.
   // Until that answers the chip says so, rather than showing the smaller chain figure and jumping.
   // undefined: asking; null: no vault position, the chain balance is the total; false: no answer.
@@ -92,7 +94,7 @@ function Home() {
           <section aria-label="Your balance" className="surface order-1 p-5 lg:order-none">
             <p className="text-sm text-muted-foreground">Balance</p>
             <p className="figure mt-1 text-display leading-none">
-              <CountUp value={main?.balance ?? "0.00"} />
+              <CountUp value={cents(main?.balance ?? "0.00")} />
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               {pockets.map((p) =>
@@ -109,11 +111,10 @@ function Home() {
                   </Link>
                 ) : (
                   <span key={p.id} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/80 px-4 text-sm ring-1 ring-border">
-                    {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
+                    {p.label} <span className="font-semibold tabular-nums">${cents(p.balance ?? "0.00")}</span>
                   </span>
                 ),
               )}
-              {main && <CopyAddress address={main.address} tone="dark" className="ml-auto" />}
             </div>
           </section>
           {error && (
@@ -132,8 +133,8 @@ function Home() {
               <p className="mt-1 text-sm text-muted-foreground">
                 {rule
                   ? rule.status === "pending"
-                    ? "Setting up on Arc."
-                    : "Runs by itself on every payment that reaches your wallet."
+                    ? "Setting up."
+                    : "Runs by itself on every payment you receive."
                   : splits === null
                     ? error
                       ? "This didn't load."
@@ -194,7 +195,7 @@ function Home() {
                           parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))}
                         />
                         <span className="mt-2 block truncate text-sm text-muted-foreground">
-                          {split.status === "pending" ? "Setting up on Arc" : split.legs.map((l) => l.name).join(" · ")}
+                          {split.status === "pending" ? "Setting up" : split.legs.map((l) => l.name).join(" · ")}
                         </span>
                       </span>
                       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
@@ -209,22 +210,18 @@ function Home() {
           </div>
         </div>
         <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-7">
-          {/* The frame makes Receive the filled button on desktop; the phone keeps v4's Send. */}
-          <div className="order-2 grid grid-cols-2 gap-3 lg:order-none">
-            <ButtonLink href="/pay" className="gap-1.5 px-3 whitespace-nowrap lg:hidden">
-              <Send className="h-4 w-4" aria-hidden="true" />
-              Send money
-            </ButtonLink>
-            <ButtonLink href="/pay" variant="secondary" className="hidden lg:inline-flex">
-              <Send className="h-4 w-4" aria-hidden="true" />
-              Send money
-            </ButtonLink>
-            <Button variant="secondary" className="gap-1.5 px-3 whitespace-nowrap lg:hidden" onClick={() => setReceiving(true)}>
-              <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
-              Receive
+          {/* Three money actions, icon over label so they fit three across at 320px. Send is the filled one. */}
+          <div className="order-2 grid grid-cols-3 gap-3 lg:order-none">
+            <Button variant="secondary" size="sm" className={TILE} onClick={() => setSheet("add")}>
+              <Plus className="h-5 w-5" aria-hidden="true" />
+              Add money
             </Button>
-            <Button className="hidden lg:inline-flex" onClick={() => setReceiving(true)}>
-              <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
+            <ButtonLink href="/pay" size="sm" className={TILE}>
+              <Send className="h-5 w-5" aria-hidden="true" />
+              Send
+            </ButtonLink>
+            <Button variant="secondary" size="sm" className={TILE} onClick={() => setSheet("receive")}>
+              <ArrowDownLeft className="h-5 w-5" aria-hidden="true" />
               Receive
             </Button>
           </div>
@@ -247,13 +244,10 @@ function Home() {
       </div>
 
       {main && (
-        <AddMoney
-          title="Receive money"
-          address={main.address}
-          network={me.network}
-          open={receiving}
-          onClose={() => setReceiving(false)}
-        />
+        <>
+          <AddMoneySheet address={main.address} network={me.network} open={sheet === "add"} onClose={() => setSheet(null)} />
+          <ReceiveSheet email={me.user.email} address={main.address} open={sheet === "receive"} onClose={() => setSheet(null)} />
+        </>
       )}
     </div>
   );

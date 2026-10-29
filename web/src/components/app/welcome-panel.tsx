@@ -50,7 +50,7 @@ export function WelcomePanel() {
             ))}
           </ul>
         </div>
-        <p className="mt-5 text-white">Lands divided on Arc in seconds. Everyone gets a receipt.</p>
+        <p className="mt-5 text-white">Lands divided in seconds. Everyone gets a receipt.</p>
       </div>
     </aside>
   );

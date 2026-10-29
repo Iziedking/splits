@@ -10,7 +10,7 @@ import { StepList, type StepState } from "@/components/app/step-list";
 import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, ApiError, errorMessage, type TransferView } from "@/lib/api";
-import { isFinal } from "@/lib/format";
+import { isFinal, TRACKER_STEP } from "@/lib/format";
 
 export default function PaymentPage() {
   return (
@@ -26,11 +26,11 @@ type Step = { key: string; label: string; reachedAt: (typeof ORDER)[number] };
 /** The design's step list (S7), mapped onto the payment's real states (UI_BRIEF.md v4). */
 function stepsFor(t: TransferView): Step[] {
   const steps: Step[] = [];
-  if (t.quote) steps.push({ key: "fund", label: "Funded", reachedAt: "funding" });
+  if (t.quote) steps.push({ key: "fund", label: TRACKER_STEP.fund, reachedAt: "funding" });
   steps.push(
-    { key: "approve", label: "Approved", reachedAt: "approving" },
-    { key: "send", label: "Settled on Arc", reachedAt: "sending" },
-    { key: "verify", label: "Receipt checked", reachedAt: "verifying" },
+    { key: "approve", label: TRACKER_STEP.approve, reachedAt: "approving" },
+    { key: "send", label: TRACKER_STEP.send, reachedAt: "sending" },
+    { key: "verify", label: TRACKER_STEP.verify, reachedAt: "verifying" },
   );
   return steps;
 }
@@ -187,10 +187,10 @@ function Sending({ t, error }: { t: TransferView; error: string | null }) {
     <div className="enter pt-6">
       <h1 className="text-title leading-tight font-extrabold">Sending…</h1>
       <p className="mt-1 text-white/70">
-        ${t.amount} to {who(t)}, settling on Arc.
+        ${t.amount} to {who(t)}, on its way.
       </p>
       <StepList tone="night" className="surface-night mt-6 p-5" steps={listed(t, steps)} />
-      <p className="mt-4 text-sm text-white/60">Arc confirms in under a second once the payment is sent.</p>
+      <p className="mt-4 text-sm text-white/60">It usually lands within a few seconds.</p>
       {error && (
         <p role="status" className="mt-4 text-sm text-white/80">
           {error} Retrying.
