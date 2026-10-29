@@ -8,7 +8,8 @@ import { AppFrame, useMe } from "@/components/app/app-frame";
 import { useSignOut } from "@/components/app/sign-out";
 import { CopyAddress } from "@/components/app/copy-address";
 import { Ribbon } from "@/components/app/ribbon";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/app/skeleton";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { api, type SplitView } from "@/lib/api";
 
 export default function ProfilePage() {
@@ -52,7 +53,7 @@ function Profile() {
                 <code className="block text-sm break-all">{main.address}</code>
                 <div className="flex flex-wrap gap-2">
                   <CopyAddress address={main.address} tone="dark" />
-                  <Button variant="secondary" className="min-h-11" onClick={() => setAdding(true)}>
+                  <Button variant="secondary" size="sm" onClick={() => setAdding(true)}>
                     <Wallet className="h-4 w-4" aria-hidden="true" />
                     Add money
                   </Button>
@@ -78,7 +79,7 @@ function Profile() {
             Automatic split
           </h2>
           {rule === undefined ? (
-            <div aria-busy="true" className="mt-3 h-10 rounded-sm bg-muted motion-safe:animate-pulse" />
+            <Skeleton label="Loading your automatic split" className="mt-3 h-10" />
           ) : rule ? (
             <>
               <p className="mt-1 text-muted-foreground">{rule.name}. Runs by itself on every payment that reaches your wallet.</p>
@@ -87,12 +88,9 @@ function Profile() {
           ) : (
             <>
               <p className="mt-1 text-muted-foreground">Put part of every payment you receive into savings, automatically.</p>
-              <Link
-                href="/rules/new"
-                className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              >
+              <ButtonLink href="/rules/new" variant="secondary" size="sm" className="mt-4">
                 Set it up
-              </Link>
+              </ButtonLink>
             </>
           )}
         </section>
@@ -105,12 +103,9 @@ function Profile() {
             <p className="mt-1 text-muted-foreground">
               Keep part of your money earning a variable return through a vetted vault on Arc. Move it back whenever you like.
             </p>
-            <Link
-              href="/earn"
-              className="mt-4 inline-flex min-h-11 items-center rounded-full bg-white/70 px-5 text-sm font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-            >
+            <ButtonLink href="/earn" variant="secondary" size="sm" className="mt-4">
               Open
-            </Link>
+            </ButtonLink>
           </section>
         )}
       </div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
+import { Skeleton } from "@/components/app/skeleton";
 import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import type { ActivityView } from "@/lib/api";
@@ -40,11 +41,7 @@ export function ActivityList({
   const [page, setPage] = React.useState(0);
   if (!activity) {
     return (
-      <div aria-busy="true" aria-label="Loading activity" className="space-y-3">
-        {[0, 1].map((i) => (
-          <div key={i} className="surface h-[72px] motion-safe:animate-pulse" />
-        ))}
-      </div>
+      <Skeleton label="Loading activity" rows={2} className="h-[72px]" />
     );
   }
 
@@ -106,7 +103,7 @@ export function ActivityList({
                       </span>
                     </span>
                     {!isFinal(t.status) && (
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary motion-safe:animate-pulse" aria-label="In progress" />
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary motion-safe:animate-pulse" aria-hidden="true" />
                     )}
                   </Link>
                 </li>

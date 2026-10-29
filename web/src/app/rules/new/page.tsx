@@ -1,15 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView, type WalletView } from "@/lib/api";
-import { purposeFill } from "@/lib/palette";
 
 export default function NewRulePage() {
   return (
@@ -67,9 +67,7 @@ function NewRule() {
 
   return (
     <div className="enter pt-4">
-      <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
-        Back
-      </Link>
+      <BackLink href="/home" />
       <h1 className="mt-1 text-title leading-tight font-extrabold">Split money you receive</h1>
       <form onSubmit={review} className="surface mt-6 space-y-6 p-6">
         <div>
@@ -89,12 +87,12 @@ function NewRule() {
           />
           <div className="mt-2 flex justify-between text-sm font-semibold" aria-hidden="true">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(0) }} />
+              <PurposeDot index={0} />
               {pocketName.trim() || "Pocket"}
             </span>
             <span className="flex items-center gap-1.5">
               Spending
-              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(1) }} />
+              <PurposeDot index={1} />
             </span>
           </div>
         </div>
@@ -124,7 +122,7 @@ function NewRule() {
                   type="button"
                   aria-pressed={pocketName.trim().toLowerCase() === w.label.toLowerCase()}
                   onClick={() => setPocketName(w.label)}
-                  className="min-h-10 rounded-full bg-white/80 px-4 text-sm font-semibold ring-1 ring-border aria-pressed:bg-primary-fill aria-pressed:text-primary-foreground aria-pressed:ring-primary-fill focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="min-h-11 rounded-full bg-white/80 px-4 text-sm font-semibold ring-1 ring-border aria-pressed:bg-primary-fill aria-pressed:text-primary-foreground aria-pressed:ring-primary-fill focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {w.earn ? "Earning pocket" : w.label}
                 </button>

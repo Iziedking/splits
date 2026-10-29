@@ -4,11 +4,11 @@ import { browserSupportsWebAuthn } from "@simplewebauthn/browser";
 import { Fingerprint } from "lucide-react";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
+import { Switch } from "@/components/app/switch";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage } from "@/lib/api";
 import { registerPasskey } from "@/lib/passkey";
-import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
   return (
@@ -170,27 +170,13 @@ function EmailAlertsSwitch({ on, onChanged }: { on: boolean; onChanged: () => Pr
   }
   return (
     <div className="mt-4">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={on}
+      <Switch
+        checked={on}
+        onChange={() => void toggle()}
         disabled={busy}
-        onClick={() => void toggle()}
-        className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-      >
-        <span>
-          Email me about my money
-          <span className="block text-xs font-normal text-muted-foreground">Deposits ready, payments landed or failed.</span>
-        </span>
-        <span className={cn("relative h-6 w-10 shrink-0 rounded-full transition-colors motion-reduce:transition-none", on ? "bg-primary" : "bg-muted")} aria-hidden="true">
-          <span
-            className={cn(
-              "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow-thumb transition-transform motion-reduce:transition-none",
-              on ? "translate-x-[18px]" : "translate-x-0.5",
-            )}
-          />
-        </span>
-      </button>
+        label="Email me about my money"
+        description="Deposits ready, payments landed or failed."
+      />
       {error && <Notice tone="error" className="mt-2">{error}</Notice>}
     </div>
   );

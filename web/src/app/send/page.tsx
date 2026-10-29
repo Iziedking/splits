@@ -9,6 +9,7 @@ import { Backdrop } from "@/components/app/backdrop";
 import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
 import { ReviewTable } from "@/components/app/review-table";
+import { Segmented, tabPanelProps } from "@/components/app/segmented";
 import { VisitorHeader } from "@/components/app/visitor-header";
 import { VisitorLimit } from "@/components/app/visitor-limit";
 import { WalletSteps } from "@/components/app/wallet-steps";
@@ -18,7 +19,6 @@ import { api, ApiError, errorMessage, type ContractLeg, type CrossCall, type Cro
 import { loadWalletBridge } from "@/lib/wallet/bridge";
 import { rememberWallet, toUnits, walletRemembered } from "@/lib/wallet/flow";
 import { pickChain, readFunds, type ChainFunds } from "@/lib/wallet/sourceChains";
-import { cn } from "@/lib/utils";
 
 type Prepared = { payment: VisitorPaymentView; legs: ContractLeg[]; balance: string; allowance: string };
 type CrossPrepared = { payment: VisitorPaymentView; cost: CrossCost; call: CrossCall };
@@ -45,6 +45,7 @@ export default function VisitorPay() {
   const router = useRouter();
   const [config, setConfig] = React.useState<VisitorConfig | null>(null);
   const [mode, setMode] = React.useState<"one" | "many">("one");
+  const tabs = React.useId();
   const [check, setCheck] = React.useState<PayoutCheck | null>(null);
   const [prepared, setPrepared] = React.useState<Prepared | null>(null);
   const [crossPrepared, setCrossPrepared] = React.useState<CrossPrepared | null>(null);
@@ -168,28 +169,22 @@ export default function VisitorPay() {
 
         <div className="space-y-6">
 
-          <div role="tablist" aria-label="Who gets paid" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
-            {(["one", "many"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="tab"
-                aria-selected={mode === m}
-                onClick={() => {
-                  setMode(m);
-                  onChecked(null);
-                }}
-                className={cn(
-                  "min-h-11 rounded-full text-sm font-semibold focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  mode === m ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {m === "one" ? "One person" : "Many people"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            kind="tabs"
+            label="Who gets paid"
+            idBase={tabs}
+            options={[
+              { value: "one", label: "One person" },
+              { value: "many", label: "Many people" },
+            ]}
+            value={mode}
+            onChange={(next) => {
+              setMode(next);
+              onChecked(null);
+            }}
+          />
 
-          <div className="surface p-5">
+          <div className="surface p-5" {...tabPanelProps(tabs, mode)}>
             <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" />
           </div>
         </div>

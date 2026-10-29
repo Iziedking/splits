@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Logo } from "@/components/app/logo";
+import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /**
@@ -60,18 +61,13 @@ function Grain() {
 
 function CtaLink({ href, children, tone = "primary", className }: { href: string; children: React.ReactNode; tone?: "primary" | "glass"; className?: string }) {
   return (
-    <Link
+    <ButtonLink
       href={href}
-      className={cn(
-        "inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-ui font-bold transition-[transform,box-shadow,background-color] duration-150 ease-out hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:translate-y-0",
-        tone === "primary"
-          ? "bg-primary-fill text-primary-foreground shadow-pill hover:bg-primary-fill-hover hover:shadow-pill-hover"
-          : "border border-border bg-white/60 text-foreground backdrop-blur-md hover:bg-white/80 hover:shadow-lift",
-        className,
-      )}
+      variant={tone}
+      className={cn("hover:-translate-y-px motion-reduce:hover:translate-y-0", tone === "primary" && "hover:shadow-pill-hover", className)}
     >
       {children}
-    </Link>
+    </ButtonLink>
   );
 }
 
@@ -90,7 +86,7 @@ function Nav({ signedIn }: { signedIn: boolean }) {
         </nav>
         <Link
           href={signedIn ? "/home" : "/signin"}
-          className="inline-flex min-h-10 items-center rounded-full border border-border bg-white/60 px-5 text-ui font-bold text-foreground transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-11 items-center rounded-full border border-border bg-white/60 px-5 text-ui font-bold text-foreground transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           {signedIn ? "Home" : "Sign in"}
         </Link>

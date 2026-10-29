@@ -1,7 +1,6 @@
 "use client";
 
 import { ChevronRight, Landmark } from "lucide-react";
-import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -11,14 +10,16 @@ import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { FeeLines } from "@/components/app/fee-lines";
 import { FundingChoice, type FundWith } from "@/components/app/funding-choice";
 import { PayoutComposer } from "@/components/app/payout-composer";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { ReviewTable } from "@/components/app/review-table";
 import { Ribbon } from "@/components/app/ribbon";
+import { Segmented, tabPanelProps, type SegmentOption } from "@/components/app/segmented";
+import { Skeleton } from "@/components/app/skeleton";
+import { Switch } from "@/components/app/switch";
 import { VisitorLimit } from "@/components/app/visitor-limit";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, ApiError, errorMessage, type ActionView, type ComposerFill, type PayoutCheck, type SplitView, type TransferView } from "@/lib/api";
-import { purposeFill } from "@/lib/palette";
-import { cn } from "@/lib/utils";
 
 export default function PayPage() {
   return (
@@ -30,10 +31,10 @@ export default function PayPage() {
 
 type Mode = "one" | "many" | "saved";
 
-const TABS: { mode: Mode; label: string }[] = [
-  { mode: "one", label: "One person" },
-  { mode: "many", label: "Many people" },
-  { mode: "saved", label: "Saved split" },
+const TABS: SegmentOption<Mode>[] = [
+  { value: "one", label: "One person" },
+  { value: "many", label: "Many people" },
+  { value: "saved", label: "Saved split" },
 ];
 
 /** Cents of a USDC decimal string, for comparing a balance with a total without float error. */
@@ -44,7 +45,7 @@ function cents(value: string): number {
 
 function Pay() {
   const router = useRouter();
-  const reduce = useReducedMotion();
+  const tabs = React.useId();
   const { me } = useMe();
   const [mode, setMode] = React.useState<Mode>("one");
   const [label, setLabel] = React.useState("payment");
@@ -169,57 +170,32 @@ function Pay() {
         </p>
 
         {me.agent && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={agentOn}
+          <Switch
+            checked={agentOn}
+            onChange={setAgentOn}
             disabled={drafting}
-            onClick={() => setAgentOn((on) => !on)}
-            className="mt-6 flex min-h-11 w-full items-center justify-between gap-3 rounded-full bg-white/60 px-4 text-sm font-semibold ring-1 ring-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
-          >
-            Try agentic mode
-            <span className={cn("relative h-6 w-10 rounded-full transition-colors motion-reduce:transition-none", agentOn ? "bg-primary" : "bg-muted")} aria-hidden="true">
-              <span
-                className={cn(
-                  "absolute top-0.5 left-0 h-5 w-5 rounded-full bg-white shadow-thumb transition-transform motion-reduce:transition-none",
-                  agentOn ? "translate-x-[18px]" : "translate-x-0.5",
-                )}
-              />
-            </span>
-          </button>
+            label="Try agentic mode"
+            className="mt-6 rounded-full bg-white/60 px-4 font-semibold ring-1 ring-white"
+          />
         )}
 
         {!agentOn && (
           <>
-            <div role="tablist" aria-label="Who gets paid" className="mt-6 grid grid-cols-3 rounded-full bg-white/60 p-1 ring-1 ring-white">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.mode}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === tab.mode}
-                  onClick={() => {
-                    setMode(tab.mode);
-                    setFill(null);
-                    setCheck(null);
-                    setError(null);
-                  }}
-                  className={cn(
-                    "relative z-10 min-h-11 rounded-full px-1 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                    mode === tab.mode ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {mode === tab.mode && (
-                    <motion.span
-                      layoutId="pay-mode"
-                      className="absolute inset-0 -z-10 rounded-full bg-primary-fill"
-                      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
-                    />
-                  )}
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              kind="tabs"
+              label="Who gets paid"
+              idBase={tabs}
+              animated
+              className="mt-6"
+              options={TABS}
+              value={mode}
+              onChange={(next) => {
+                setMode(next);
+                setFill(null);
+                setCheck(null);
+                setError(null);
+              }}
+            />
             <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Landmark className="h-4 w-4" aria-hidden="true" />
               Bank or mobile money
@@ -228,7 +204,7 @@ function Pay() {
           </>
         )}
 
-        <div className="surface mt-6 p-5">
+        <div className="surface mt-6 p-5" {...(agentOn ? {} : tabPanelProps(tabs, mode))}>
           {agentOn && (
             <AgentComposer
               onBusy={setDrafting}
@@ -308,7 +284,7 @@ function Pay() {
               {pending.transfer.legs.map((leg, i) => (
                 <li key={i} className="flex justify-between gap-4">
                   <span className="flex min-w-0 items-center gap-2">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                    <PurposeDot index={i} />
                     <span className="truncate">{leg.name}</span>
                   </span>
                   <span className="font-semibold tabular-nums">${leg.amount}</span>
@@ -323,18 +299,15 @@ function Pay() {
 }
 
 function SavedSplits({ splits }: { splits: SplitView[] | null }) {
-  if (!splits) return <div aria-busy="true" aria-label="Loading splits" className="h-32 rounded-md bg-white/60 motion-safe:animate-pulse" />;
+  if (!splits) return <Skeleton label="Loading splits" className="h-32" />;
   const ready = splits.filter((s) => !s.automatic && s.status === "active");
   if (ready.length === 0) {
     return (
       <div className="space-y-4">
         <p className="text-muted-foreground">A saved split pays the same people the same way every time, like rent, school fees and upkeep.</p>
-        <Link
-          href="/splits/new"
-          className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
+        <ButtonLink href="/splits/new" className="w-full">
           Create a split
-        </Link>
+        </ButtonLink>
       </div>
     );
   }

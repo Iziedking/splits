@@ -5,6 +5,8 @@ import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { BackLink } from "@/components/app/back-link";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { Segmented } from "@/components/app/segmented";
+import { Skeleton } from "@/components/app/skeleton";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type EarnMoveView, type EarnStatus } from "@/lib/api";
@@ -106,7 +108,7 @@ function Earn() {
             </Button>
           </div>
         ) : (
-          <div aria-busy="true" aria-label="Loading your Earning pocket" className="h-40 rounded-xl bg-muted motion-safe:animate-pulse" />
+          <Skeleton label="Loading your Earning pocket" className="h-40" />
         )}
       </div>
     );
@@ -172,14 +174,16 @@ function Earn() {
           </section>
 
           <form onSubmit={(e) => void start(e)} className="surface space-y-4 p-6">
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Direction">
-              <Button type="button" variant={kind === "in" ? "primary" : "secondary"} aria-pressed={kind === "in"} onClick={() => setKind("in")}>
-                <ArrowDownToLine className="h-4 w-4" aria-hidden="true" /> Move in
-              </Button>
-              <Button type="button" variant={kind === "out" ? "primary" : "secondary"} aria-pressed={kind === "out"} onClick={() => setKind("out")}>
-                <ArrowUpFromLine className="h-4 w-4" aria-hidden="true" /> Move out
-              </Button>
-            </div>
+            <Segmented
+              kind="radio"
+              label="Direction"
+              options={[
+                { value: "in", label: <><ArrowDownToLine className="h-4 w-4" aria-hidden="true" /> Move in</> },
+                { value: "out", label: <><ArrowUpFromLine className="h-4 w-4" aria-hidden="true" /> Move out</> },
+              ]}
+              value={kind}
+              onChange={setKind}
+            />
             <Field label="Amount (USDC)" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
             <Button type="submit" className="w-full" busy={busy} disabled={!amount.trim()}>
               {kind === "in" ? "Move to my Earning pocket" : "Move to my spendable balance"}
@@ -203,7 +207,7 @@ function Earn() {
                     <span className="flex items-center gap-2 font-semibold tabular-nums">
                       ${nearestCents(m.amount)}
                       {m.txUrl && (
-                        <a href={m.txUrl} target="_blank" rel="noreferrer" aria-label="See it on the Arc explorer" className="text-muted-foreground hover:text-foreground">
+                        <a href={m.txUrl} target="_blank" rel="noreferrer" aria-label="See it on the Arc explorer" className="-my-3 -mr-3 inline-flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
                           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                         </a>
                       )}

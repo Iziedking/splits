@@ -4,6 +4,7 @@ import { ExternalLink, ReceiptText, Share2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { CountUp } from "@/components/app/count-up";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { ManualLink, receiptText, rememberReturn, shareLink, ShareReceipts } from "@/components/app/receipt-share";
 import type { TransferView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
@@ -93,7 +94,7 @@ export function Landed({
             {compact ? (
               <>
                 <span className="flex min-w-0 items-center gap-2.5">
-                  <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                  <PurposeDot index={i} />
                   <span className="truncate font-medium">{leg.name}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1">

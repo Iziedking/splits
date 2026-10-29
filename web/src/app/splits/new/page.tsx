@@ -2,17 +2,18 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { Ribbon } from "@/components/app/ribbon";
+import { Segmented } from "@/components/app/segmented";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView } from "@/lib/api";
 import { percentToBps } from "@/lib/format";
-import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function NewSplitPage() {
@@ -109,9 +110,7 @@ function NewSplit() {
 
   return (
     <div className="enter pt-4">
-      <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
-        Back
-      </Link>
+      <BackLink href="/home" />
       <h1 className="mt-1 text-title leading-tight font-extrabold">Build the split</h1>
       <p className="mt-2 text-lg text-muted-foreground">
         Who gets paid, and what for. Recipients don't need an app: their email becomes their wallet.
@@ -125,7 +124,7 @@ function NewSplit() {
           <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm" aria-hidden="true">
             {legs.map((l, i) => (
               <li key={l.key} className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                <PurposeDot index={i} />
                 {l.purpose || l.name || `Recipient ${i + 1}`}
                 <span className="font-semibold tabular-nums">
                   {l.value ? (l.kind === "percent" ? `${l.value}%` : `$${l.value}`) : ""}
@@ -148,7 +147,7 @@ function NewSplit() {
             >
               <div className="mb-4 flex items-center justify-between">
                 <legend className="float-left flex min-w-0 items-center gap-2.5 text-ui font-bold">
-                  <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                  <PurposeDot index={i} />
                   <span className="truncate">{leg.name || `Recipient ${i + 1}`}</span>
                   {leg.value && (
                     <span className="ml-1 text-lg font-extrabold tabular-nums">
@@ -176,23 +175,17 @@ function NewSplit() {
                     Amount
                   </span>
                   <div className="flex gap-2">
-                    <div role="radiogroup" aria-labelledby={`amount-${leg.key}`} className="flex shrink-0 rounded-full bg-white/60 p-1 ring-1 ring-white">
-                      {(["percent", "fixed"] as const).map((kind) => (
-                        <button
-                          key={kind}
-                          type="button"
-                          role="radio"
-                          aria-checked={leg.kind === kind}
-                          onClick={() => update(leg.key, { kind, value: "" })}
-                          className={cn(
-                            "min-h-10 min-w-10 rounded-full px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                            leg.kind === kind ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {kind === "percent" ? "%" : "$"}
-                        </button>
-                      ))}
-                    </div>
+                    <Segmented
+                      kind="radio"
+                      labelledBy={`amount-${leg.key}`}
+                      className="shrink-0"
+                      options={[
+                        { value: "percent", label: "%" },
+                        { value: "fixed", label: "$" },
+                      ]}
+                      value={leg.kind}
+                      onChange={(kind) => update(leg.key, { kind, value: "" })}
+                    />
                     <input
                       aria-label={leg.kind === "percent" ? "Percentage" : "Fixed amount in USDC"}
                       className={inputClass}
@@ -246,7 +239,7 @@ function NewSplit() {
               {pending.split.legs.map((l, i) => (
                 <li key={i} className="flex justify-between gap-4">
                   <span className="flex items-center gap-2">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                    <PurposeDot index={i} />
                     {l.name} <span className="text-muted-foreground">for {l.purpose}</span>
                   </span>
                   <span className="font-medium tabular-nums">{l.percent !== null ? `${l.percent}%` : `$${l.fixed}`}</span>

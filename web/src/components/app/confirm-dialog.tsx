@@ -1,9 +1,10 @@
 "use client";
 
 import { startAuthentication } from "@simplewebauthn/browser";
-import { Fingerprint, X } from "lucide-react";
+import { Fingerprint } from "lucide-react";
 import * as React from "react";
 import { api, ApiError, errorMessage } from "@/lib/api";
+import { Sheet } from "@/components/app/sheet";
 import { Button } from "@/components/ui/button";
 import { inputClass, Notice } from "@/components/ui/field";
 
@@ -23,26 +24,19 @@ export interface ConfirmDialogProps {
 
 /**
  * The approval step for anything that moves money or goes onchain. PIN always works; Face ID or
- * fingerprint appears when the person has added a passkey. Built on <dialog> for focus handling.
+ * fingerprint appears when the person has added a passkey. Focus starts on the PIN.
  */
 export function ConfirmDialog({ actionId, title, hasPasskey, children, onConfirm, onClose }: ConfirmDialogProps) {
-  const ref = React.useRef<HTMLDialogElement>(null);
   const pinRef = React.useRef<HTMLInputElement>(null);
   const [pin, setPin] = React.useState("");
   const [busy, setBusy] = React.useState<"pin" | "passkey" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const approvingId = `${React.useId()}-approving`;
 
   React.useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (actionId && !dialog.open) {
-      setPin("");
-      setError(null);
-      dialog.showModal();
-      // showModal focuses the first focusable element (the close button); the PIN is what's needed.
-      pinRef.current?.focus();
-    }
-    if (!actionId && dialog.open) dialog.close();
+    if (!actionId) return;
+    setPin("");
+    setError(null);
   }, [actionId]);
 
   async function submit(proof: Proof, kind: "pin" | "passkey") {
@@ -85,70 +79,51 @@ export function ConfirmDialog({ actionId, title, hasPasskey, children, onConfirm
   }
 
   return (
-    <dialog
-      ref={ref}
-      onClose={onClose}
-      aria-labelledby="confirm-title"
-      className="m-auto w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-card p-0 text-card-foreground shadow-dialog backdrop:bg-foreground/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
-    >
-      <div className="p-6">
-        <div className="flex items-start justify-between gap-4">
-          <h2 id="confirm-title" className="text-2xl font-bold">
-            {title}
-          </h2>
-          <button
-            type="button"
-            onClick={() => ref.current?.close()}
-            aria-label="Cancel"
-            className="-m-2 rounded-full p-2 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="mt-4">{children}</div>
-
-        <form
-          className="mt-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (pin.length === 6) void submit({ pin }, "pin");
-          }}
-        >
-          <label htmlFor="confirm-pin" className="mb-1.5 block text-sm font-medium">
-            Enter your 6-digit PIN
-          </label>
-          <input
-            ref={pinRef}
-            id="confirm-pin"
-            className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            maxLength={6}
-            value={pin}
-            onChange={(e) => onPinChange(e.target.value)}
-            disabled={busy !== null}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? "confirm-error" : undefined}
-          />
-          {error && (
-            <div id="confirm-error" className="mt-3">
-              <Notice tone="error">{error}</Notice>
-            </div>
-          )}
-          <Button type="submit" className="mt-4 w-full" busy={busy === "pin"} disabled={pin.length !== 6}>
-            Confirm
-          </Button>
-        </form>
-
-        {hasPasskey && (
-          <Button variant="secondary" className="mt-3 w-full" onClick={() => void usePasskey()} busy={busy === "passkey"}>
-            <Fingerprint className="h-4 w-4" aria-hidden="true" />
-            Use Face ID or fingerprint
-          </Button>
-        )}
+    <Sheet open={actionId !== null} onClose={onClose} title={title} variant="centre" initialFocus={pinRef} describedBy={approvingId}>
+      <div id={approvingId} className="mt-4">
+        {children}
       </div>
-    </dialog>
+
+      <form
+        className="mt-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pin.length === 6) void submit({ pin }, "pin");
+        }}
+      >
+        <label htmlFor="confirm-pin" className="mb-1.5 block text-sm font-medium">
+          Enter your 6-digit PIN
+        </label>
+        <input
+          ref={pinRef}
+          id="confirm-pin"
+          className={`${inputClass} text-center text-2xl tracking-[0.5em]`}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={6}
+          value={pin}
+          onChange={(e) => onPinChange(e.target.value)}
+          disabled={busy !== null}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "confirm-error" : undefined}
+        />
+        {error && (
+          <div id="confirm-error" className="mt-3">
+            <Notice tone="error">{error}</Notice>
+          </div>
+        )}
+        <Button type="submit" className="mt-4 w-full" busy={busy === "pin"} disabled={pin.length !== 6}>
+          Confirm
+        </Button>
+      </form>
+
+      {hasPasskey && (
+        <Button variant="secondary" className="mt-3 w-full" onClick={() => void usePasskey()} busy={busy === "passkey"}>
+          <Fingerprint className="h-4 w-4" aria-hidden="true" />
+          Use Face ID or fingerprint
+        </Button>
+      )}
+    </Sheet>
   );
 }

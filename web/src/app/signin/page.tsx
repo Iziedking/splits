@@ -1,9 +1,9 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { Backdrop } from "@/components/app/backdrop";
 import { WelcomePanel } from "@/components/app/welcome-panel";
 import { Logo } from "@/components/app/logo";
@@ -121,7 +121,7 @@ export default function SignIn() {
 
         {step === "email" && (
           <form onSubmit={sendCode} className="enter mt-10 flex flex-1 flex-col">
-            <BackButton onClick={() => setStep("welcome")} />
+            <BackLink onClick={() => setStep("welcome")} />
             <h1 className="mt-4 text-title leading-tight font-extrabold">{returning ? "Welcome back" : "Create an account"}</h1>
             <p className="mt-2 text-muted-foreground">
               {returning ? "Sign in with the email you used before." : "Your email is your account and your wallet. No password to remember."}
@@ -152,7 +152,7 @@ export default function SignIn() {
 
         {step === "code" && (
           <form onSubmit={verify} className="enter mt-10 flex flex-1 flex-col">
-            <BackButton
+            <BackLink
               onClick={() => {
                 setStep("email");
                 setCode("");
@@ -192,18 +192,5 @@ export default function SignIn() {
         )}
       </main>
     </div>
-  );
-}
-
-function BackButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="-ml-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-    >
-      <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-      Back
-    </button>
   );
 }

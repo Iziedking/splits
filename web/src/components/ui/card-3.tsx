@@ -46,8 +46,8 @@ function AvatarCircle({ avatar, first }: { avatar: Avatar; first: boolean }) {
   }
   return (
     <span
-      aria-hidden="true"
-      title={avatar.alt}
+      role="img"
+      aria-label={avatar.alt}
       className={cn(shared, "flex items-center justify-center bg-foreground/10 text-xs font-semibold text-foreground")}
       style={style}
     >

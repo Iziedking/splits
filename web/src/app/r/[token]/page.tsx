@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EnvBadge } from "@/components/app/env-badge";
 import { Logo } from "@/components/app/logo";
 import { notFound } from "next/navigation";
 import { cache } from "react";
@@ -50,12 +51,7 @@ export default async function ReceiptPage({ params }: Props) {
           <Logo />
         </Link>
         {(receipt.simulated || receipt.network === "arc-testnet") && (
-          <span
-            className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
-            title={receipt.simulated ? "Money on this server is simulated" : "Arc Testnet USDC has no value"}
-          >
-            {receipt.simulated ? "Preview" : "Testnet"}
-          </span>
+          <EnvBadge mode={receipt.simulated ? "preview" : "testnet"} />
         )}
       </header>
       <main className="mx-auto max-w-md px-5 pb-16">

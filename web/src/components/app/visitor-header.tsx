@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { EnvBadge } from "@/components/app/env-badge";
 import { Logo } from "@/components/app/logo";
 import * as React from "react";
 import { api, type VisitorConfig } from "@/lib/api";
@@ -16,7 +17,7 @@ export function VisitorHeader({ config, wide = false }: { config?: VisitorConfig
     api<VisitorConfig>("/api/visitor/config").then(setOwn).catch(() => undefined);
   }, [config]);
   const c = config ?? own;
-  const badge = c && (!c.live ? "Preview" : c.network === "arc-testnet" ? "Testnet" : null);
+  const badge = c && (!c.live ? "preview" : c.network === "arc-testnet" ? "testnet" : null);
 
   return (
     <header className={`mx-auto flex max-w-md items-center justify-between gap-3 px-5 pt-5 pb-2${wide ? " lg:max-w-5xl lg:px-10" : ""}`}>
@@ -27,12 +28,7 @@ export function VisitorHeader({ config, wide = false }: { config?: VisitorConfig
         <Logo />
       </Link>
       {badge && (
-        <span
-          className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
-          title={badge === "Preview" ? "Money on this server is simulated" : "Arc Testnet USDC has no value"}
-        >
-          {badge}
-        </span>
+        <EnvBadge mode={badge} />
       )}
     </header>
   );

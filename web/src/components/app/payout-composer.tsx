@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Segmented } from "@/components/app/segmented";
 import { Button } from "@/components/ui/button";
 import { Field, inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ComposerFill, type PayoutCheck } from "@/lib/api";
@@ -142,28 +143,16 @@ export function PayoutComposer({
         </>
       ) : (
         <>
-          <div role="radiogroup" aria-label="How to share it" className="grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
-            {(
-              [
-                ["equal", "Split a pot equally"],
-                ["each", "Set each amount"],
-              ] as const
-            ).map(([value, text]) => (
-              <button
-                key={value}
-                type="button"
-                role="radio"
-                aria-checked={split === value}
-                onClick={() => edit(setSplit)(value)}
-                className={cn(
-                  "min-h-11 rounded-full px-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                  split === value ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {text}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            kind="radio"
+            label="How to share it"
+            options={[
+              { value: "equal", label: "Split a pot equally" },
+              { value: "each", label: "Set each amount" },
+            ]}
+            value={split}
+            onChange={(next) => edit(setSplit)(next)}
+          />
           <div>
             <label htmlFor="payout-list" className="mb-1.5 block text-sm font-medium">
               People to pay

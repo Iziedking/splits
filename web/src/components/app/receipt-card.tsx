@@ -1,10 +1,11 @@
 "use client";
 
-import { ArrowLeft, Check, ExternalLink, Printer, Share2 } from "lucide-react";
+import { Check, ExternalLink, Printer, Share2 } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { ManualLink, readReturn, receiptText, shareLink } from "@/components/app/receipt-share";
-import { Button } from "@/components/ui/button";
+import { Button, buttonClass } from "@/components/ui/button";
 import type { ReceiptView } from "@/lib/api";
 import { purposeFill } from "@/lib/palette";
 
@@ -52,13 +53,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
   return (
     <div className="space-y-6 pt-4">
       {back && (
-        <Link
-          href={back}
-          className="-mt-2 -ml-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-full px-2 text-sm font-semibold text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none print:hidden"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Back to payment
-        </Link>
+        <BackLink href={back} label="Back to payment" className="-mt-2 print:hidden" />
       )}
       <div className="text-center">
         <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-badge motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both] print:animate-none">
@@ -134,7 +129,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
             href={receipt.explorerUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground shadow-pill hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+            className={buttonClass({ className: "w-full" })}
           >
             View on Arc explorer
             <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -162,7 +157,7 @@ export function ReceiptCard({ receipt }: { receipt: ReceiptView }) {
         {receipt.explorerUrl
           ? "Splits checked this payment against the Arc transaction before showing it as settled."
           : "This receipt comes from a preview server, so no money moved."}{" "}
-        <Link href="/" className="font-semibold text-primary-text underline-offset-4 hover:underline print:hidden">
+        <Link href="/" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline-offset-4 hover:underline print:hidden">
           Send money with Splits
         </Link>
       </p>

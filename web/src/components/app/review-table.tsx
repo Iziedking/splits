@@ -1,8 +1,8 @@
 "use client";
 
 import { motion, useReducedMotion } from "motion/react";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import type { CheckLine, PayoutCheck } from "@/lib/api";
-import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 const short = (r: string) => (r.startsWith("0x") ? `${r.slice(0, 6)}…${r.slice(-4)}` : r);
@@ -66,7 +66,7 @@ export function ReviewTable({ check }: { check: PayoutCheck }) {
               <td className="text-sm text-muted-foreground tabular-nums">{line.line}</td>
               <td className="min-w-0">
                 <span className="flex items-center gap-2">
-                  <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                  <PurposeDot index={i} />
                   <span className="truncate font-medium" title={line.recipient ?? line.raw}>
                     {line.recipient ? short(line.recipient) : line.raw}
                   </span>

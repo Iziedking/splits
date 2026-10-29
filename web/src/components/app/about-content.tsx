@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { PurposeDot } from "@/components/app/purpose-dot";
+import { ButtonLink } from "@/components/ui/button";
 import { Ribbon } from "@/components/app/ribbon";
-import { purposeFill } from "@/lib/palette";
 
 const EXAMPLE = [
   { label: "Rent", weight: 40, who: "the landlord" },
@@ -58,7 +59,7 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
           <figcaption className="mt-4 space-y-2 text-sm">
             {EXAMPLE.map((part, i) => (
               <span key={part.label} className="flex items-center gap-2">
-                <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                <PurposeDot index={i} />
                 <span className="font-semibold tabular-nums">{part.weight}%</span>
                 <span className="text-muted-foreground">
                   {part.label.toLowerCase()}, to {part.who}
@@ -155,12 +156,9 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
 export function AboutSignUp() {
   return (
     <div className="mx-auto w-full max-w-sm space-y-3">
-      <Link
-        href="/signin"
-        className="flex min-h-[52px] items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground shadow-pill hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-      >
+      <ButtonLink href="/signin" className="w-full">
         Get started
-      </Link>
+      </ButtonLink>
       <Link
         href="/send"
         className="flex min-h-11 items-center justify-center rounded-full text-sm font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"

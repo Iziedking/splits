@@ -12,6 +12,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import { previewSession } from "./preview-session.mjs";
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((pairs, a, i, all) => (a.startsWith("--") ? [...pairs, [a.slice(2), all[i + 1]]] : pairs), []),
@@ -19,56 +20,6 @@ const args = Object.fromEntries(
 const BASE = args.base ?? "http://127.0.0.1:3918";
 const OUT = path.resolve(args.out ?? "../evidence");
 const WIDTHS = (args.widths ?? "375,1280").split(",").map(Number);
-const PIN = "482913";
-
-let cookie = "";
-async function call(method, route, body) {
-  const res = await fetch(`${BASE}${route}`, {
-    method,
-    headers: { "content-type": "application/json", origin: BASE, ...(cookie ? { cookie } : {}) },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const setCookie = res.headers.get("set-cookie");
-  if (setCookie) cookie = setCookie.split(";")[0];
-  return { status: res.status, data: await res.json().catch(() => null) };
-}
-
-/** Signs in, sets the PIN, adds preview money and makes one saved split. Returns what the shots need. */
-async function prepare() {
-  const start = await call("POST", "/api/auth/start", { email: "ada@example.com" });
-  if (start.status !== 200) throw new Error(`auth start ${start.status}: ${JSON.stringify(start.data)}`);
-  const verify = await call("POST", "/api/auth/verify", { email: "ada@example.com", code: start.data.previewCode });
-  if (verify.status !== 200) throw new Error(`auth verify ${verify.status}`);
-  const pin = await call("POST", "/api/security/pin", { pin: PIN });
-  if (pin.status !== 200) throw new Error(`pin ${pin.status}: ${JSON.stringify(pin.data)}`);
-
-  // Preview-only: money arrives as if sent from another chain, so Home and Pay show a balance.
-  const deposit = await call("POST", "/api/demo/deposit", { chain: "base", amount: "60" });
-  if (deposit.status >= 300) console.log(`note: demo deposit refused (${deposit.status}); balance stays at 0.00`);
-  for (let i = 0; i < 40; i++) {
-    const me = await call("GET", "/api/me");
-    if (me.data?.wallets?.find((w) => w.kind === "main")?.balance !== "0.00") break;
-    await new Promise((r) => setTimeout(r, 500));
-  }
-
-  const draft = await call("POST", "/api/splits", {
-    name: "Family in Lagos",
-    legs: [
-      { name: "Landlord", to: { type: "email", email: "landlord@example.com" }, amount: { type: "percent", percent: 40 }, purpose: "rent" },
-      { name: "School", to: { type: "email", email: "school@example.com" }, amount: { type: "percent", percent: 35 }, purpose: "school fees" },
-      { name: "Sister", to: { type: "email", email: "sister@example.com" }, amount: { type: "percent", percent: 25 }, purpose: "upkeep" },
-    ],
-  });
-  if (draft.status !== 201) throw new Error(`split ${draft.status}: ${JSON.stringify(draft.data)}`);
-  const confirmed = await call("POST", "/api/splits/confirm", { actionId: draft.data.action.id, pin: PIN });
-  let split = confirmed.data.split;
-  for (let i = 0; i < 30 && split.status === "pending"; i++) {
-    await new Promise((r) => setTimeout(r, 300));
-    split = (await call("GET", `/api/splits/${split.id}`)).data.split;
-  }
-  const [name, value] = cookie.split("=");
-  return { splitId: split.id, cookie: { name, value } };
-}
 
 /** /api/me as a live mainnet account sees it: the test card is off. */
 async function withoutCard(page) {
@@ -103,11 +54,19 @@ const SHOTS = [
   { name: "profile", path: "/profile" },
   { name: "settings", path: "/settings" },
   { name: "history", path: "/history" },
+  // The shared Sheet, open (WP3). The viewport shot shows it the way it sits on screen.
+  { name: "sheet-add-money", path: "/profile", act: (p) => openSheet(p, "Add money"), fullPage: false },
+  { name: "sheet-notifications", path: "/home", act: (p) => openSheet(p, /^Notifications/), fullPage: false },
 ];
+
+async function openSheet(page, name) {
+  await page.getByRole("button", { name }).click();
+  await page.locator("dialog[open]").waitFor();
+}
 
 async function main() {
   await mkdir(OUT, { recursive: true });
-  const ctx = await prepare();
+  const ctx = await previewSession(BASE);
   const browser = await chromium.launch();
   const manifest = { base: BASE, at: new Date().toISOString(), widths: WIDTHS, shots: [] };
   try {

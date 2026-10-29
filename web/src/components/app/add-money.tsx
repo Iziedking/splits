@@ -1,10 +1,12 @@
 "use client";
 
-import { Check, CreditCard, X } from "lucide-react";
-import Link from "next/link";
+import { Check, CreditCard } from "lucide-react";
 import QRCode from "qrcode";
 import * as React from "react";
 import { CopyAddress } from "@/components/app/copy-address";
+import { Segmented, tabPanelProps } from "@/components/app/segmented";
+import { Sheet } from "@/components/app/sheet";
+import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, type DepositView } from "@/lib/api";
 import { INK, WHITE } from "@/lib/palette";
@@ -62,19 +64,12 @@ export function AddMoney({
   open: boolean;
   onClose: () => void;
 }) {
-  const ref = React.useRef<HTMLDialogElement>(null);
   const [tab, setTab] = React.useState<Tab>("evm");
+  const tabs = React.useId();
   const [view, setView] = React.useState<DepositView | null>(null);
   const [settingUp, setSettingUp] = React.useState(false);
   const [about, setAbout] = React.useState<string | null>(null);
   const [simulating, setSimulating] = React.useState(false);
-
-  React.useEffect(() => {
-    const dialog = ref.current;
-    if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    if (!open && dialog.open) dialog.close();
-  }, [open]);
 
   // While open: set the address up on every chain once, then follow the latest deposit.
   React.useEffect(() => {
@@ -127,145 +122,109 @@ export function AddMoney({
   }
 
   return (
-    <dialog
-      ref={ref}
+    <Sheet
+      open={open}
       onClose={onClose}
-      aria-labelledby="add-money-title"
-      className="mx-auto mt-auto mb-0 w-full max-w-md rounded-t-2xl bg-card p-0 text-card-foreground shadow-dialog backdrop:bg-foreground/40 backdrop:backdrop-blur-[4px] open:motion-safe:animate-[rise_300ms_cubic-bezier(0.22,1,0.36,1)] sm:my-auto sm:w-[calc(100%-2rem)] sm:rounded-2xl sm:open:motion-safe:animate-[pop_320ms_cubic-bezier(0.34,1.4,0.64,1)]"
+      title={title}
+      description={<>One address for {[arcName, ...chains.map((c) => c.name)].join(", ").replace(/, ([^,]*)$/, " and $1")}.</>}
     >
-      <div className="max-h-[90dvh] overflow-y-auto p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 id="add-money-title" className="text-2xl font-bold">
-              {title}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              One address for {[arcName, ...chains.map((c) => c.name)].join(", ").replace(/, ([^,]*)$/, " and $1")}.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => ref.current?.close()}
-            aria-label="Close"
-            className="-m-2 rounded-full p-2 text-muted-foreground hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </div>
+      <Segmented
+        kind="tabs"
+        label="Where you send from"
+        idBase={tabs}
+        className="mt-5"
+        options={[
+          { value: "evm", label: "EVM chains" },
+          { value: "solana", label: "Solana" },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
 
-        <div role="tablist" aria-label="Where you send from" className="mt-5 grid grid-cols-2 rounded-full bg-muted/60 p-1">
-          {(
-            [
-              ["evm", "EVM chains"],
-              ["solana", "Solana"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              id={`tab-${key}`}
-              aria-selected={tab === key}
-              aria-controls={`panel-${key}`}
-              onClick={() => setTab(key)}
-              className={cn(
-                "min-h-11 rounded-full px-3 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                tab === key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {tab === "evm" ? (
-          <section id="panel-evm" role="tabpanel" aria-labelledby="tab-evm" className="mt-5">
-            <div className="flex items-center gap-4">
-              <AddressQr address={address} size={128} />
-              <div className="min-w-0 space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground">Your address</p>
-                <code className="block text-sm break-all text-foreground">{address}</code>
-                <CopyAddress address={address} tone="dark" />
-              </div>
+      {tab === "evm" ? (
+        <section {...tabPanelProps(tabs, "evm")} className="mt-5">
+          <div className="flex items-center gap-4">
+            <AddressQr address={address} size={128} />
+            <div className="min-w-0 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground">Your address</p>
+              <code className="block text-sm break-all text-foreground">{address}</code>
+              <CopyAddress address={address} tone="dark" />
             </div>
+          </div>
 
-            <p className="mt-5 text-sm font-semibold">Send from</p>
-            <ul className="mt-2 flex flex-wrap gap-2" aria-label="Chains this address accepts">
-              {[{ key: "arc", name: arcName }, ...chains].map((c) => (
-                <li key={c.key}>
-                  <button
-                    type="button"
-                    aria-pressed={about === c.key}
-                    onClick={() => setAbout(about === c.key ? null : c.key)}
-                    className={cn(
-                      "inline-flex min-h-11 items-center gap-2 rounded-full px-3.5 text-sm font-medium ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                      about === c.key ? "bg-primary/10 text-primary-text ring-primary/50" : "bg-white/70 ring-border hover:ring-primary/40",
-                    )}
-                  >
-                    <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", c.key === "arc" ? "bg-primary" : "bg-foreground/50")} />
-                    {c.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {about && <p className="mt-2 text-sm text-muted-foreground">{notes[about]}</p>}
+          <p className="mt-5 text-sm font-semibold">Send from</p>
+          <ul className="mt-2 flex flex-wrap gap-2" aria-label="Chains this address accepts">
+            {[{ key: "arc", name: arcName }, ...chains].map((c) => (
+              <li key={c.key}>
+                <button
+                  type="button"
+                  aria-pressed={about === c.key}
+                  onClick={() => setAbout(about === c.key ? null : c.key)}
+                  className={cn(
+                    "inline-flex min-h-11 items-center gap-2 rounded-full px-3.5 text-sm font-medium ring-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                    about === c.key ? "bg-primary/10 text-primary-text ring-primary/50" : "bg-white/70 ring-border hover:ring-primary/40",
+                  )}
+                >
+                  <span aria-hidden="true" className={cn("h-2 w-2 rounded-full", c.key === "arc" ? "bg-primary" : "bg-foreground/50")} />
+                  {c.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {about && <p className="mt-2 text-sm text-muted-foreground">{notes[about]}</p>}
 
-            <Notice className="mt-4">
-              Send USDC only, and only from the networks above. Other tokens, or USDC from any other network, may not
-              reach your balance.
-            </Notice>
+          <Notice className="mt-4">
+            Send USDC only, and only from the networks above. Other tokens, or USDC from any other network, may not
+            reach your balance.
+          </Notice>
 
-            <DepositStatus view={view} settingUp={settingUp} />
+          <DepositStatus view={view} settingUp={settingUp} />
 
-            {view?.preview && chains.length > 0 && (
-              <button
-                type="button"
-                onClick={() => void simulate()}
-                disabled={simulating}
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4 disabled:opacity-50"
-              >
-                Simulate $5.00 from {chains[0]!.name} (preview)
-              </button>
-            )}
-            {network === "arc-testnet" && (
-              <a
-                href="https://faucet.circle.com"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4"
-              >
-                Get testnet USDC
-              </a>
-            )}
-          </section>
-        ) : (
-          <section id="panel-solana" role="tabpanel" aria-labelledby="tab-solana" className="mt-6">
-            <p className="font-semibold">Solana is not supported yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              For now, send USDC from an EVM chain like Base or Arbitrum. It arrives in your balance by itself.
-            </p>
-          </section>
-        )}
-
-        {view?.demoCard && (
-          <section aria-labelledby="card-heading" className="mt-6 border-t border-border pt-5">
-            <h3 id="card-heading" className="font-semibold">
-              Demo card
-            </h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              A simulated card that releases a small amount of real USDC so you can try Splits. Limited per day.
-            </p>
-            <Link
-              href="/pay?fund=card"
-              className="mt-3 inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-white/70 px-6 text-ui font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          {view?.preview && chains.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void simulate()}
+              disabled={simulating}
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4 disabled:opacity-50"
             >
-              <CreditCard className="h-4 w-4" aria-hidden="true" />
-              Pay with the demo card
-            </Link>
-          </section>
-        )}
-      </div>
-    </dialog>
+              Simulate $5.00 from {chains[0]!.name} (preview)
+            </button>
+          )}
+          {network === "arc-testnet" && (
+            <a
+              href="https://faucet.circle.com"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline underline-offset-4"
+            >
+              Get testnet USDC
+            </a>
+          )}
+        </section>
+      ) : (
+        <section {...tabPanelProps(tabs, "solana")} className="mt-6">
+          <p className="font-semibold">Solana is not supported yet</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            For now, send USDC from an EVM chain like Base or Arbitrum. It arrives in your balance by itself.
+          </p>
+        </section>
+      )}
+
+      {view?.demoCard && (
+        <section aria-labelledby="card-heading" className="mt-6 border-t border-border pt-5">
+          <h3 id="card-heading" className="font-semibold">
+            Demo card
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A simulated card that releases a small amount of real USDC so you can try Splits. Limited per day.
+          </p>
+          <ButtonLink href="/pay?fund=card" variant="secondary" className="mt-3 w-full">
+            <CreditCard className="h-4 w-4" aria-hidden="true" />
+            Pay with the demo card
+          </ButtonLink>
+        </section>
+      )}
+    </Sheet>
   );
 }
 

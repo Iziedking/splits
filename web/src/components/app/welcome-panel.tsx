@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { purposeFill } from "@/lib/palette";
 
 const LEGS = [
@@ -39,7 +40,7 @@ export function WelcomePanel() {
           <ul className="mt-5 space-y-3">
             {LEGS.map((leg, i) => (
               <li key={leg.name} className="flex items-center gap-3">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                <PurposeDot index={i} />
                 <span className="min-w-0 flex-1">
                   <span className="block font-semibold">{leg.name}</span>
                   <span className="block text-sm text-muted-foreground">{leg.purpose}</span>

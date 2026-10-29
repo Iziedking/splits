@@ -1,19 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { AppFrame, useMe } from "@/components/app/app-frame";
 import { Loader } from "@/components/app/loader";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { CountUp } from "@/components/app/count-up";
 import { FeeLines } from "@/components/app/fee-lines";
 import { FundingToggle, type FundWith } from "@/components/app/funding-choice";
+import { PurposeDot } from "@/components/app/purpose-dot";
 import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { inputClass, Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActionView, type SplitView, type TransferView } from "@/lib/api";
-import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 export default function SendPage() {
@@ -118,9 +118,7 @@ function Send() {
 
   return (
     <div className="enter pt-4">
-      <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:text-foreground">
-        Back
-      </Link>
+      <BackLink href="/home" />
       <h1 className="mt-1 text-title leading-tight font-extrabold">How much are you sending?</h1>
       <p className="mt-2 inline-flex rounded-full bg-white/70 px-3 py-1 text-sm font-semibold ring-1 ring-white">Through {split.name}</p>
 
@@ -193,7 +191,7 @@ function Send() {
                 {preview.legs.map((leg, i) => (
                   <li key={i} className="flex items-center justify-between gap-4">
                     <span className="flex items-center gap-2.5">
-                      <span aria-hidden="true" className="h-3 w-3 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                      <PurposeDot index={i} size="md" />
                       <span className="font-medium">{leg.name}</span>
                       <span className="text-sm text-muted-foreground">{leg.purpose}</span>
                     </span>
@@ -235,7 +233,7 @@ function Send() {
               {pending.transfer.legs.map((leg, i) => (
                 <li key={i} className="flex justify-between gap-4">
                   <span className="flex items-center gap-2">
-                    <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: purposeFill(i) }} />
+                    <PurposeDot index={i} />
                     {leg.name}
                   </span>
                   <span className="font-semibold tabular-nums">${leg.amount}</span>

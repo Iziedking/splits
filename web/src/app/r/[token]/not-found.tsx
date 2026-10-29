@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui/button";
 import { Backdrop } from "@/components/app/backdrop";
 
 /** A link that was mistyped, cut short, or never existed. Says so, and offers the way in. */
@@ -11,12 +11,9 @@ export default function ReceiptNotFound() {
         <p className="mt-2 text-muted-foreground">
           It may have been cut short when it was copied. Ask the sender to share it again from their payment in Splits.
         </p>
-        <Link
-          href="/"
-          className="mt-8 inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-        >
+        <ButtonLink href="/" className="mt-8 w-full">
           Go to Splits
-        </Link>
+        </ButtonLink>
       </main>
     </div>
   );

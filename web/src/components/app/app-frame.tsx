@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
 import { api, ApiError, errorMessage, type Me } from "@/lib/api";
 import { Backdrop } from "@/components/app/backdrop";
+import { EnvBadge } from "@/components/app/env-badge";
 import { Loader } from "@/components/app/loader";
 import { Logo } from "@/components/app/logo";
 import { NotificationBell } from "@/components/app/notification-bell";
@@ -115,12 +116,7 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
         </Link>
         <div className="flex items-center gap-2">
           {me && (me.mode === "preview" || me.network === "arc-testnet") && (
-            <span
-              className="rounded-full bg-purpose-4 px-3 py-1 text-xs font-bold text-foreground"
-              title={me.mode === "preview" ? "Money on this server is simulated" : "This server uses Arc Testnet USDC, which has no value"}
-            >
-              {me.mode === "preview" ? "Preview" : "Testnet"}
-            </span>
+            <EnvBadge mode={me.mode === "preview" ? "preview" : "testnet"} />
           )}
           {me && <NotificationBell />}
         </div>

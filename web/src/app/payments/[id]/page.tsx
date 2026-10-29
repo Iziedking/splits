@@ -1,17 +1,16 @@
 "use client";
 
 import { CircleAlert } from "lucide-react";
-import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useFrameTone, useMe } from "@/components/app/app-frame";
 import { Loader } from "@/components/app/loader";
 import { Landed } from "@/components/app/landed";
-import { Button } from "@/components/ui/button";
+import { StepList, type StepState } from "@/components/app/step-list";
+import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, errorMessage, type TransferView } from "@/lib/api";
 import { isFinal } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 export default function PaymentPage() {
   return (
@@ -23,7 +22,6 @@ export default function PaymentPage() {
 
 const ORDER = ["confirmed", "funding", "approving", "sending", "verifying", "settled"] as const;
 type Step = { key: string; label: string; reachedAt: (typeof ORDER)[number] };
-type StepState = "done" | "active" | "waiting" | "failed";
 
 /** The design's step list (S7), mapped onto the payment's real states (UI_BRIEF.md v4). */
 function stepsFor(t: TransferView): Step[] {
@@ -36,6 +34,8 @@ function stepsFor(t: TransferView): Step[] {
   );
   return steps;
 }
+
+const listed = (t: TransferView, steps: Step[]) => steps.map((step, i) => ({ key: step.key, label: step.label, state: stepState(t, step, steps[i + 1]) }));
 
 function stepState(t: TransferView, step: Step, next: Step | undefined): StepState {
   if (t.status === "settled") return "done";
@@ -59,7 +59,6 @@ function who(t: TransferView): string {
 function Payment() {
   const { id } = useParams<{ id: string }>();
   const { me, refresh } = useMe();
-  const router = useRouter();
   const [t, setT] = React.useState<TransferView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -118,12 +117,12 @@ function Payment() {
         returnTo={`/payments/${t.id}`}
         actions={
           <>
-            <Button className="w-full" onClick={() => router.push("/home")}>
+            <ButtonLink href="/home" className="w-full">
               Done
-            </Button>
-            <Button variant="secondary" className="w-full" onClick={() => router.push(again)}>
+            </ButtonLink>
+            <ButtonLink href={again} variant="secondary" className="w-full">
               Send again
-            </Button>
+            </ButtonLink>
           </>
         }
       />
@@ -145,29 +144,7 @@ function Sending({ t, error }: { t: TransferView; error: string | null }) {
       <p className="mt-1 text-white/70">
         ${t.amount} to {who(t)}, settling on Arc.
       </p>
-      <ol aria-label="Progress" className="surface-night mt-6 space-y-4 p-5">
-        {steps.map((step, i) => {
-          const state = stepState(t, step, steps[i + 1]);
-          return (
-            <li key={step.key} className="flex items-center gap-3">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "h-4 w-4 shrink-0 rounded-full transition-colors duration-300",
-                  state === "done" && "bg-primary",
-                  state === "active" && "border-2 border-white bg-transparent motion-safe:animate-pulse",
-                  state === "waiting" && "bg-white/25",
-                  state === "failed" && "bg-destructive",
-                )}
-              />
-              <span className={cn("font-medium", state === "waiting" && "text-white/55")}>
-                {step.label}
-                <span className="sr-only">: {state}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <StepList tone="night" className="surface-night mt-6 p-5" steps={listed(t, steps)} />
       <p className="mt-4 text-sm text-white/60">Arc confirms in under a second once the payment is sent.</p>
       {error && (
         <p role="status" className="mt-4 text-sm text-white/80">
@@ -180,7 +157,6 @@ function Sending({ t, error }: { t: TransferView; error: string | null }) {
 
 /** A payment that didn't go: what happened, and where the money is. */
 function NotSent({ t }: { t: TransferView }) {
-  const router = useRouter();
   const steps = stepsFor(t);
   return (
     <div className="enter space-y-6 pt-6">
@@ -196,40 +172,16 @@ function NotSent({ t }: { t: TransferView }) {
           {t.error}
         </Notice>
       )}
-      <ol aria-label="Progress" className="surface space-y-3 p-5">
-        {steps.map((step, i) => {
-          const state = stepState(t, step, steps[i + 1]);
-          return (
-            <li key={step.key} className="flex items-center gap-3 text-sm">
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "h-3.5 w-3.5 shrink-0 rounded-full",
-                  state === "done" && "bg-primary",
-                  state === "failed" && "bg-destructive",
-                  (state === "waiting" || state === "active") && "bg-muted-foreground/25",
-                )}
-              />
-              <span className={cn(state === "waiting" && "text-muted-foreground")}>
-                {step.label}
-                <span className="sr-only">: {state}</span>
-              </span>
-            </li>
-          );
-        })}
-      </ol>
+      <StepList className="surface p-5" steps={listed(t, steps).map((s) => (s.state === "active" ? { ...s, state: "waiting" as const } : s))} />
       <div className="space-y-3">
         {t.kind === "pay" && (
-          <Link
-            href={`/pay${t.recipients > 1 ? "?mode=many" : ""}`}
-            className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-primary-fill px-6 text-ui font-semibold text-primary-foreground hover:bg-primary-fill-hover focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
-          >
+          <ButtonLink href={`/pay${t.recipients > 1 ? "?mode=many" : ""}`} className="w-full">
             Back to Pay
-          </Link>
+          </ButtonLink>
         )}
-        <Button variant="secondary" className="w-full" onClick={() => router.push("/home")}>
+        <ButtonLink href="/home" variant="secondary" className="w-full">
           Home
-        </Button>
+        </ButtonLink>
       </div>
     </div>
   );

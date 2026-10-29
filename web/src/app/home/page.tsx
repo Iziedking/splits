@@ -2,7 +2,6 @@
 
 import { ArrowDownLeft, ChevronRight, Plus, Send } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import * as React from "react";
 import { ActivityList } from "@/components/app/activity-list";
 import { AddMoney } from "@/components/app/add-money";
@@ -10,8 +9,9 @@ import { AppFrame, useMe } from "@/components/app/app-frame";
 import { CopyAddress } from "@/components/app/copy-address";
 import { CountUp } from "@/components/app/count-up";
 import { Ribbon } from "@/components/app/ribbon";
+import { Skeleton } from "@/components/app/skeleton";
 import { StartSomething } from "@/components/app/start-something";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, errorMessage, type ActivityView, type EarnStatus, type SplitView } from "@/lib/api";
 import { cents, greetingName, isFinal } from "@/lib/format";
@@ -26,7 +26,6 @@ export default function HomePage() {
 
 /** Home (UI_BRIEF.md v4, frames S2 Home and Dashboard). */
 function Home() {
-  const router = useRouter();
   const { me, refresh } = useMe();
   const [splits, setSplits] = React.useState<SplitView[] | null>(null);
   const [activity, setActivity] = React.useState<ActivityView | null>(null);
@@ -99,12 +98,12 @@ function Home() {
                   <Link
                     key={p.id}
                     href="/earn"
-                    className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border hover:ring-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/80 px-4 text-sm ring-1 ring-border hover:ring-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Earning <span className="font-semibold tabular-nums">≈ ${cents(earning ?? p.balance ?? "0.00")}</span>
                   </Link>
                 ) : (
-                  <span key={p.id} className="rounded-full bg-white/80 px-3 py-1 text-sm ring-1 ring-border">
+                  <span key={p.id} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/80 px-4 text-sm ring-1 ring-border">
                     {p.label} <span className="font-semibold tabular-nums">${p.balance}</span>
                   </span>
                 ),
@@ -135,9 +134,9 @@ function Home() {
               {rule && <Ribbon className="mt-4" height={8} parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />}
             </div>
             {!rule && (
-              <Button className="w-full" onClick={() => router.push("/rules/new")}>
+              <ButtonLink href="/rules/new" className="w-full">
                 Create a rule
-              </Button>
+              </ButtonLink>
             )}
           </section>
           <section aria-labelledby="splits-heading" className="order-4 lg:order-none">
@@ -156,15 +155,15 @@ function Home() {
               )}
             </div>
             {splits === null && !error ? (
-              <div aria-busy="true" aria-label="Loading splits" className="surface h-24 motion-safe:animate-pulse" />
+              <Skeleton label="Loading splits" className="h-24" />
             ) : sendSplits.length === 0 ? (
               <div className="surface p-5">
                 <Ribbon height={8} parts={[{ label: "Rent", weight: 40 }, { label: "School fees", weight: 35 }, { label: "Upkeep", weight: 25 }]} />
                 <p className="mt-4 text-lg font-bold">Tell your money where to go.</p>
                 <p className="mt-1 text-muted-foreground">Name who gets paid and what each part is for. Set it up once and use it every month.</p>
-                <Button className="mt-5 w-full" onClick={() => router.push("/splits/new")}>
+                <ButtonLink href="/splits/new" className="mt-5 w-full">
                   Create your first split
-                </Button>
+                </ButtonLink>
               </div>
             ) : (
               <ul className="space-y-3">
@@ -199,14 +198,14 @@ function Home() {
         <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-7">
           {/* The frame makes Receive the filled button on desktop; the phone keeps v4's Send. */}
           <div className="order-2 grid grid-cols-2 gap-3 lg:order-none">
-            <Button className="lg:hidden" onClick={() => router.push("/pay")}>
+            <ButtonLink href="/pay" className="lg:hidden">
               <Send className="h-4 w-4" aria-hidden="true" />
               Send money
-            </Button>
-            <Button variant="secondary" className="hidden lg:inline-flex" onClick={() => router.push("/pay")}>
+            </ButtonLink>
+            <ButtonLink href="/pay" variant="secondary" className="hidden lg:inline-flex">
               <Send className="h-4 w-4" aria-hidden="true" />
               Send money
-            </Button>
+            </ButtonLink>
             <Button variant="secondary" className="lg:hidden" onClick={() => setReceiving(true)}>
               <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
               Receive

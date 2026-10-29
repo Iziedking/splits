@@ -8,9 +8,10 @@ import { Backdrop } from "@/components/app/backdrop";
 import { CrossProgress } from "@/components/app/cross-progress";
 import { CrossWalletSteps } from "@/components/app/cross-wallet-steps";
 import { Landed } from "@/components/app/landed";
+import { StepList } from "@/components/app/step-list";
 import { VisitorHeader } from "@/components/app/visitor-header";
 import { Loader } from "@/components/app/loader";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
 import { burnSent, CROSS_WALLET_TEXT } from "@/lib/wallet/crossFlow";
@@ -74,7 +75,7 @@ export default function VisitorPayment() {
                   ? "It may have been cut short when it was copied. Check the link, or start a new payment."
                   : error}
               </p>
-              <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
+              <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
                 Pay from your wallet
               </Link>
             </div>
@@ -88,12 +89,9 @@ export default function VisitorPayment() {
               preview={false}
               returnTo={`/p/${token}`}
               actions={
-                <Link
-                  href="/send"
-                  className="inline-flex min-h-[52px] w-full items-center justify-center rounded-full bg-white/70 px-6 text-ui font-semibold text-primary-text ring-1 ring-primary/70 hover:bg-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                >
+                <ButtonLink href="/send" variant="secondary" className="w-full">
                   Pay someone else
-                </Link>
+                </ButtonLink>
               }
               aside={<EmailReceipt token={token} />}
             />
@@ -125,17 +123,11 @@ export default function VisitorPayment() {
           <div className="enter pt-6">
             <h1 className="text-title leading-tight font-extrabold">Sending…</h1>
             <p className="mt-1 text-white/70">${p.amount}, settling on Arc.</p>
-            <ol aria-label="Progress" className="surface-night mt-6 space-y-4 p-5">
-              {STEPS.map((step) => (
-                <li key={step.label} className="flex items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className={cn("h-4 w-4 rounded-full", step.done(p.status) ? "bg-primary" : "border-2 border-white motion-safe:animate-pulse")}
-                  />
-                  <span className="font-medium">{step.label}</span>
-                </li>
-              ))}
-            </ol>
+            <StepList
+              tone="night"
+              className="surface-night mt-6 p-5"
+              steps={STEPS.map((step) => ({ key: step.label, label: step.label, state: step.done(p.status) ? ("done" as const) : ("active" as const) }))}
+            />
           </div>
         ) : p.status === "awaiting_wallet" ? (
           p.expiresAt && new Date(p.expiresAt) < new Date() ? (
@@ -148,7 +140,7 @@ export default function VisitorPayment() {
                 Finish both steps on the page where you started. This page updates by itself as soon as the payment reaches Arc,
                 and this link keeps working if you close it.
               </p>
-              <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
+              <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
                 Closed that page? Start again
               </Link>
             </div>
@@ -164,7 +156,7 @@ export default function VisitorPayment() {
                 {p.error}
               </Notice>
             )}
-            <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
+            <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
               Back to Pay
             </Link>
           </div>
@@ -193,7 +185,7 @@ function Expired({ error }: { error?: string | null }) {
         No payment has reached Arc for this link yet. If you did send it, this page will show it as soon as it lands; otherwise,
         check the list again to pay.
       </p>
-      <Link href="/send" className="font-semibold text-primary-text underline underline-offset-4">
+      <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
         Check the list again
       </Link>
     </div>
