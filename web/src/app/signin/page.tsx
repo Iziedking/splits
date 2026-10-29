@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { BackLink } from "@/components/app/back-link";
+import { CodeHelp, RESEND_WAIT_S } from "@/components/app/code-help";
 import { Backdrop } from "@/components/app/backdrop";
 import { WelcomePanel } from "@/components/app/welcome-panel";
 import { Logo } from "@/components/app/logo";
@@ -30,6 +31,17 @@ export default function SignIn() {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [next, setNext] = React.useState<{ notice: string; to: string } | null>(null);
+  // "Send a new code": the time it opens again, a clock to count down to it, and whether one went out.
+  const [resendAt, setResendAt] = React.useState(0);
+  const [now, setNow] = React.useState(() => Date.now());
+  const [resending, setResending] = React.useState(false);
+  const [sentAgain, setSentAgain] = React.useState(false);
+  React.useEffect(() => {
+    if (step !== "code") return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [step]);
+  const secondsLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
   React.useEffect(() => {
     api<Me>("/api/me")
@@ -50,12 +62,38 @@ export default function SignIn() {
     try {
       const res = await api<{ previewCode?: string }>("/api/auth/start", { body: { email } });
       setPreviewCode(res.previewCode ?? null);
+      setSentAgain(false);
+      setResendAt(Date.now() + RESEND_WAIT_S * 1000);
+      setNow(Date.now());
       setStep("code");
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resend() {
+    setResending(true);
+    setError(null);
+    try {
+      const res = await api<{ previewCode?: string }>("/api/auth/start", { body: { email } });
+      setPreviewCode(res.previewCode ?? null);
+      setCode("");
+      setSentAgain(true);
+      setResendAt(Date.now() + RESEND_WAIT_S * 1000);
+      setNow(Date.now());
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setResending(false);
+    }
+  }
+
+  function changeEmail() {
+    setStep("email");
+    setCode("");
+    setError(null);
   }
 
   async function verify(e: React.FormEvent) {
@@ -190,6 +228,7 @@ export default function SignIn() {
               />
             </div>
             {error && <Notice tone="error" className="mt-4">{error}</Notice>}
+            <CodeHelp email={email} secondsLeft={secondsLeft} sending={resending} sentAgain={sentAgain} onResend={() => void resend()} onChangeEmail={changeEmail} />
             <div className="mt-auto pt-8">
               <Button type="submit" className="w-full" busy={busy} disabled={code.length !== 6}>
                 Continue

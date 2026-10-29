@@ -94,6 +94,20 @@ const SHOTS = [
   { name: "help-with-ref", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, vocab: true },
   { name: "terms", path: "/legal/terms", signedIn: false, vocab: true },
   { name: "privacy", path: "/legal/privacy", vocab: true },
+  // The code screen, with a new code and a way back to fix the email.
+  {
+    name: "signin-code",
+    path: "/signin",
+    signedIn: false,
+    fullPage: false,
+    vocab: true,
+    act: async (p) => {
+      await p.getByRole("button", { name: "Get started" }).click();
+      await p.getByLabel("Email").fill(`code.${Date.now()}@example.com`);
+      await p.getByRole("button", { name: "Continue" }).click();
+      await p.getByText("Wrong email? Change it").waitFor();
+    },
+  },
   // Split tags: picking one, Profile's tag with its QR and change sheets, and a tag's public page.
   { name: "setup-tag", path: "/setup", session: "tagless", fullPage: false, vocab: true, act: (p) => p.getByText("is yours to take").waitFor() },
   { name: "profile-tag", path: "/profile", vocab: true },

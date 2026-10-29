@@ -33,6 +33,6 @@ export const HELP_ANSWERS = [
   },
   {
     q: "Didn't get your sign-in code?",
-    a: "Go back on the sign-in screen and enter your email again for a new code. Codes expire after 10 minutes, so use the newest one, and check your spam folder.",
+    a: "On the code screen, choose Send a new code, and use the newest one: codes expire after 10 minutes. Check your spam folder, and that the email shown is right; if it isn't, choose Wrong email? Change it.",
   },
 ];
