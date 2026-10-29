@@ -10,8 +10,9 @@ import { Logo } from "@/components/app/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage, type Me, type UserView } from "@/lib/api";
+import { afterCode } from "@/lib/signin";
 
-type Step = "welcome" | "email" | "code";
+type Step = "welcome" | "email" | "code" | "notice";
 
 /**
  * Welcome, then sign in with an email code (UI_BRIEF.md v4, frames "Welcome Page" and "Email/Sign
@@ -28,10 +29,11 @@ export default function SignIn() {
   const [previewCode, setPreviewCode] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [next, setNext] = React.useState<{ notice: string; to: string } | null>(null);
 
   React.useEffect(() => {
     api<Me>("/api/me")
-      .then((me) => router.replace(me.user.hasPin ? "/home" : "/setup"))
+      .then((me) => router.replace(me.user.hasPin && !me.user.needsTag ? "/home" : "/setup"))
       .catch(() => undefined);
   }, [router]);
 
@@ -61,8 +63,13 @@ export default function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      const res = await api<{ user: UserView }>("/api/auth/verify", { body: { email, code } });
-      router.replace(res.user.hasPin ? "/home" : "/setup");
+      const res = await api<{ user: UserView; isNew: boolean }>("/api/auth/verify", { body: { email, code } });
+      const after = afterCode(returning ? "signin" : "start", { isNew: res.isNew, hasPin: res.user.hasPin, needsTag: res.user.needsTag });
+      if (after.notice) {
+        setNext({ notice: after.notice, to: after.to });
+        setStep("notice");
+        setBusy(false);
+      } else router.replace(after.to);
     } catch (err) {
       setError(errorMessage(err));
       setBusy(false);
@@ -189,6 +196,19 @@ export default function SignIn() {
               </Button>
             </div>
           </form>
+        )}
+
+        {step === "notice" && next && (
+          <section className="enter mt-10 flex flex-1 flex-col" aria-labelledby="notice-heading">
+            <h1 id="notice-heading" className="mt-4 text-title leading-tight font-extrabold">
+              {next.notice}
+            </h1>
+            <div className="mt-auto pt-8">
+              <Button className="w-full" autoFocus onClick={() => router.replace(next.to)}>
+                Continue
+              </Button>
+            </div>
+          </section>
         )}
       </main>
     </div>

@@ -57,9 +57,21 @@ describe("parsePayoutLines", () => {
     expect(recipientKey(e1!.target!)).toBe(recipientKey(e2!.target!));
   });
 
-  it("says usernames are not supported instead of calling them bad emails", () => {
-    const [line] = parsePayoutLines("@tunde, 5");
-    expect(line!.problem).toBe("Usernames are not supported yet. Use an email or wallet address.");
+  it("reads Split tags, however they were typed or pasted", () => {
+    const lines = parsePayoutLines("@Tunde, 5\n＠ada_k,2\n@AdaKitchen ,1");
+    expect(lines.map((l) => l.target)).toEqual([
+      { type: "tag", tag: "tunde" },
+      { type: "tag", tag: "ada_k" },
+      { type: "tag", tag: "adakitchen" },
+    ]);
+    expect(lines[0]!.amount).toBe(5_000_000n);
+    expect(lines.every((l) => l.problem === null)).toBe(true);
+    expect(recipientKey(lines[0]!.target!)).toBe("tag:tunde");
+  });
+
+  it("says when a tag can't be one", () => {
+    const [line] = parsePayoutLines("@a.b, 5");
+    expect(line!.problem).toBe("That isn't a valid tag");
   });
 });
 

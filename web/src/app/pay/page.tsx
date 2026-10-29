@@ -10,6 +10,7 @@ import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { FeeLines } from "@/components/app/fee-lines";
 import { FundingChoice, type FundWith } from "@/components/app/funding-choice";
 import { PayoutComposer } from "@/components/app/payout-composer";
+import { readPrefill, type Prefill } from "@/lib/prefill";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ReviewTable } from "@/components/app/review-table";
 import { Ribbon } from "@/components/app/ribbon";
@@ -65,6 +66,7 @@ function Pay() {
   /** A draft is being read; the switch waits so the result can't land on a composer in use. */
   const [drafting, setDrafting] = React.useState(false);
   const [fill, setFill] = React.useState<(ComposerFill & { id: number }) | null>(null);
+  const [prefill, setPrefill] = React.useState<Prefill | null>(null);
 
   // Starting points arrive as ?mode=many&template=giveaway or ?fund=card. Read after mount so the
   // page needs no suspense boundary.
@@ -74,6 +76,13 @@ function Pay() {
     if (m === "one" || m === "many" || m === "saved") setMode(m);
     if (params.get("template") === "giveaway") setLabel("giveaway prize");
     if (params.get("fund") === "card") setCardChosen(true);
+    // From a Split tag's page: one person, already filled in.
+    const from = readPrefill(window.location.search);
+    if (from) {
+      setMode("one");
+      setPrefill(from);
+      if (from.label) setLabel(from.label);
+    }
   }, []);
 
   const loadSplits = React.useCallback(() => {
@@ -226,7 +235,15 @@ function Pay() {
             {mode === "saved" ? (
               <SavedSplits splits={splits} error={splitsError} onRetry={loadSplits} />
             ) : (
-              <PayoutComposer key={mode} mode={mode} initialLabel={label} onChecked={onChecked} fill={mode === "many" ? fill : null} />
+              <PayoutComposer
+                key={`${mode}:${prefill?.to ?? ""}`}
+                mode={mode}
+                initialLabel={label}
+                onChecked={onChecked}
+                fill={mode === "many" ? fill : null}
+                initialWho={mode === "one" ? (prefill?.to ?? "") : ""}
+                initialAmount={mode === "one" ? (prefill?.amount ?? "") : ""}
+              />
             )}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { notifications } from "../db/schema";
+import { eq } from "drizzle-orm";
+import { notifications, users } from "../db/schema";
 import { testCtx } from "../testing";
 import { notifyPaymentOutcome } from "./paymentNotifications";
 import type { Transfer } from "./transfers";
@@ -42,6 +43,21 @@ describe("payment notifications", () => {
       { who: bola.id, key: `received:${transfer({}).id}:${bola.id}`, title: "You received $20.00", body: 'From ada@example.com, for "rent".', email: "none" },
       { who: ada.id, key: `transfer:${transfer({}).id}:settled`, title: "Landed: $30.45 reached 2 people", body: "Each person has a receipt.", email: "pending" },
     ]);
+  });
+
+  it("names a payer who has a Split tag by the tag, never the email", async () => {
+    const { ctx, ada, bola, transfer } = await setup();
+    await ctx.db.update(users).set({ tag: "adakitchen" }).where(eq(users.id, ada.id));
+    await notifyPaymentOutcome(ctx, transfer({}));
+    const received = (await rows(ctx)).find((r) => r.who === bola.id)!;
+    expect(received.body).toBe('From @adakitchen, for "rent".');
+  });
+
+  it("emails someone paid by their tag, who gets no other email", async () => {
+    const { ctx, bola, transfer } = await setup();
+    const byTag = transfer({ expected: [{ ...transfer({}).expected[0]!, name: "@bola", email: null }] });
+    await notifyPaymentOutcome(ctx, byTag);
+    expect((await rows(ctx)).find((r) => r.who === bola.id)!.email).toBe("pending");
   });
 
   it("names the one person a single payment reached", async () => {

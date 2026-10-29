@@ -68,8 +68,8 @@ export async function notifyPaymentOutcome(ctx: Ctx, t: Transfer): Promise<void>
   }
   if (t.status !== "settled") return;
 
-  const [payer] = t.payerUserId ? await ctx.db.select({ email: users.email }).from(users).where(eq(users.id, t.payerUserId)).limit(1) : [];
-  const from = payer?.email ?? short(t.payerAddress);
+  const [payer] = t.payerUserId ? await ctx.db.select({ email: users.email, tag: users.tag }).from(users).where(eq(users.id, t.payerUserId)).limit(1) : [];
+  const from = payer?.tag ? `@${payer.tag}` : (payer?.email ?? short(t.payerAddress));
   for (const leg of legs) {
     const [owner] = await ctx.db
       .select({ userId: wallets.userId })
@@ -84,8 +84,8 @@ export async function notifyPaymentOutcome(ctx: Ctx, t: Transfer): Promise<void>
       body: `From ${from}, for "${leg.purpose}".`,
       href: "/home",
       amount: formatUsdc(BigInt(leg.amount)),
-      // Email recipients already get the "you received money" email.
-      email: false,
+      // Email recipients already get the "you received money" email; someone paid by tag gets this one.
+      email: !leg.email,
     });
   }
 }

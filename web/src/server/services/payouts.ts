@@ -10,6 +10,8 @@ import { formatUsdc, parseUsdc, purposeToBytes32 } from "../domain/money";
 import { equalPot, parsePayoutLines, recipientKey, type PayoutTarget } from "../domain/payouts";
 import { badRequest, conflict, notFound } from "../errors";
 import { ensureRecipientWallet, mainWallet, type User } from "./users";
+import { resolveTag } from "./tags";
+import { showTag } from "../domain/tags";
 
 export const DRAFT_TTL_MS = 30 * 60_000;
 
@@ -131,6 +133,7 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
     seen.add(key);
     const self =
       (l.target.type === "email" && !isVisitor(owner) && l.target.email === owner.email) ||
+      (l.target.type === "tag" && !isVisitor(owner) && l.target.tag === owner.tag) ||
       (l.target.type === "address" && l.target.address.toLowerCase() === mine);
     if (l.status === "ready" && self) flag(l, "self", MESSAGES.self);
   }
@@ -153,6 +156,15 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
       throw err;
     }
   }
+
+  // A tag pays whoever holds it now; an unknown or retired tag pays nobody, and says no more than that.
+  await inBatches(lines, 5, async (l) => {
+    if (l.status !== "ready" || l.target?.type !== "tag") return;
+    const found = await resolveTag(ctx, l.target.tag);
+    if (!found) return flag(l, "invalid", `No Splits account uses ${showTag(l.target.tag)}`);
+    l.address = found.wallet.address as Address;
+    l.walletId = found.wallet.id;
+  });
 
   // A wallet for every email (idempotent; new ones are capped per sender and in total).
   const sender = isVisitor(owner) ? `v:${owner.visitorKeyHash}` : `u:${owner.id}`;
@@ -193,7 +205,7 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
   const out: CheckLine[] = lines.map((l) => ({
     line: l.line,
     raw: l.raw,
-    recipient: l.target ? (l.target.type === "email" ? l.target.email : l.target.address) : null,
+    recipient: l.target ? (l.target.type === "email" ? l.target.email : l.target.type === "tag" ? showTag(l.target.tag) : l.target.address) : null,
     amount: l.cents === null ? null : formatUsdc(l.cents),
     label: l.label,
     status: l.status,
@@ -214,7 +226,8 @@ export async function checkPayout(ctx: Ctx, owner: DraftOwner, input: PayoutChec
   if (!ready || total === null) return { ...base, ready: false, draft: null };
 
   const legs: DraftLeg[] = lines.map((l) => ({
-    name: l.target!.type === "email" ? l.target!.email : `${l.address!.slice(0, 6)}…${l.address!.slice(-4)}`,
+    name:
+      l.target!.type === "email" ? l.target!.email : l.target!.type === "tag" ? showTag(l.target!.tag) : `${l.address!.slice(0, 6)}…${l.address!.slice(-4)}`,
     email: l.target!.type === "email" ? l.target!.email : null,
     walletId: l.walletId,
     address: l.address!,

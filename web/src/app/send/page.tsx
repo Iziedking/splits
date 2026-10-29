@@ -8,6 +8,7 @@ import { CrossWalletSteps } from "@/components/app/cross-wallet-steps";
 import { Backdrop } from "@/components/app/backdrop";
 import { FeeLines } from "@/components/app/fee-lines";
 import { PayoutComposer } from "@/components/app/payout-composer";
+import { readPrefill, type Prefill } from "@/lib/prefill";
 import { ReviewTable } from "@/components/app/review-table";
 import { Segmented, tabPanelProps } from "@/components/app/segmented";
 import { VisitorHeader } from "@/components/app/visitor-header";
@@ -56,10 +57,17 @@ export default function VisitorPay() {
   const [wallet, setWallet] = React.useState<`0x${string}` | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<{ text: string; limit: boolean } | null>(null);
+  const [prefill, setPrefill] = React.useState<Prefill | null>(null);
   const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
 
   React.useEffect(() => {
-    api<Me>("/api/me").then(() => router.replace("/pay")).catch(() => undefined);
+    // Signed in after all: the pay screen, keeping anything a tag's page filled in.
+    api<Me>("/api/me").then(() => router.replace(`/pay${window.location.search}`)).catch(() => undefined);
+    const from = readPrefill(window.location.search);
+    if (from) {
+      setMode("one");
+      setPrefill(from);
+    }
     api<VisitorConfig>("/api/visitor/config").then(setConfig).catch((err) => setError({ text: errorMessage(err), limit: false }));
   }, [router]);
 
@@ -185,7 +193,16 @@ export default function VisitorPay() {
           />
 
           <div className="surface p-5" {...tabPanelProps(tabs, mode)}>
-            <PayoutComposer key={mode} mode={mode} initialLabel="payment" onChecked={onChecked} checkPath="/api/visitor/check" vocabulary="wallet" />
+            <PayoutComposer
+              key={`${mode}:${prefill?.to ?? ""}`}
+              mode={mode}
+              initialLabel={prefill?.label ?? "payment"}
+              onChecked={onChecked}
+              checkPath="/api/visitor/check"
+              vocabulary="wallet"
+              initialWho={mode === "one" ? (prefill?.to ?? "") : ""}
+              initialAmount={mode === "one" ? (prefill?.amount ?? "") : ""}
+            />
           </div>
         </div>
 

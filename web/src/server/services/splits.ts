@@ -1,3 +1,5 @@
+import { normaliseTag, showTag } from "../domain/tags";
+import { resolveTag } from "./tags";
 import { and, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { encodeFunctionData, getAddress, isAddress, type Address, type Hex } from "viem";
 import { z } from "zod";
@@ -20,6 +22,7 @@ export const legInput = z.object({
     z.object({ type: z.literal("email"), email: z.string() }),
     z.object({ type: z.literal("wallet"), walletId: z.uuid() }),
     z.object({ type: z.literal("address"), address: z.string() }),
+    z.object({ type: z.literal("tag"), tag: z.string().max(40) }),
   ]),
   amount: z.discriminatedUnion("type", [
     z.object({ type: z.literal("fixed"), usdc: z.string() }),
@@ -123,6 +126,12 @@ async function resolveRecipient(
     case "address": {
       if (!isAddress(to.address)) throw badRequest("INVALID_ADDRESS", "That isn't a valid account address");
       return { email: null, walletId: null, address: getAddress(to.address) };
+    }
+    // The leg keeps the account's wallet, not the text: if its holder changes tag, the split still pays them.
+    case "tag": {
+      const found = await resolveTag(ctx, to.tag);
+      if (!found) throw badRequest("UNKNOWN_TAG", `No Splits account uses ${showTag(normaliseTag(to.tag))}`);
+      return { email: null, walletId: found.wallet.id, address: getAddress(found.wallet.address) };
     }
   }
 }

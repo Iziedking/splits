@@ -1,3 +1,4 @@
+import { normaliseTag, tagProblem } from "./tags";
 import { getAddress, isAddress, type Address } from "viem";
 import { CENT, SplitRuleError } from "./allocation";
 import { isValidEmail } from "./email";
@@ -12,7 +13,7 @@ import { MoneyError, parseUsdc, purposeToBytes32 } from "./money";
  */
 export const MAX_RECIPIENTS_CEILING = 300;
 
-export type PayoutTarget = { type: "email"; email: string } | { type: "address"; address: Address };
+export type PayoutTarget = { type: "email"; email: string } | { type: "address"; address: Address } | { type: "tag"; tag: string };
 
 export type ParsedLine = {
   /** 1-based line number in what the person pasted, so messages point at the right line. */
@@ -33,6 +34,7 @@ function checksumOk(address: string): boolean {
 }
 
 export function recipientKey(t: PayoutTarget): string {
+  if (t.type === "tag") return `tag:${t.tag}`;
   return t.type === "email" ? `email:${t.email}` : `address:${t.address.toLowerCase()}`;
 }
 
@@ -52,8 +54,11 @@ export function parsePayoutLines(text: string): ParsedLine[] {
     if (HEX_ADDRESS.test(who)) {
       if (checksumOk(who)) parsed.target = { type: "address", address: getAddress(who) };
       else parsed.problem = "This address has a typo. Copy it again from the source.";
-    } else if (/^@[^@\s]+$/.test(who)) {
-      parsed.problem = "Usernames are not supported yet. Use an email or wallet address.";
+    } else if (/^[@＠][^@＠\s]+$/.test(who)) {
+      // A Split tag. Whether anyone holds it is the check's job, not the parser's.
+      const tag = normaliseTag(who);
+      if (tagProblem(tag) === "format") parsed.problem = "That isn't a valid tag";
+      else parsed.target = { type: "tag", tag };
     } else if (who.includes("@")) {
       if (isValidEmail(who.toLowerCase())) parsed.target = { type: "email", email: who.toLowerCase() };
       else parsed.problem = "That email address isn't valid";

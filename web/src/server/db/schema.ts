@@ -27,8 +27,27 @@ export const users = pgTable("users", {
   pinLockedUntil: timestamp("pin_locked_until", { withTimezone: true }),
   /** Email alerts for money events (deposits ready or waiting, payments landed or failed). */
   emailAlerts: boolean("email_alerts").notNull().default(true),
+  /** The Split tag people pay instead of the email (no @). Null only until the person picks one. */
+  tag: text("tag").unique(),
+  /** Tag changes used; an account gets 3 in its lifetime. */
+  tagChanges: integer("tag_changes").notNull().default(0),
   createdAt: createdAt(),
 });
+
+/**
+ * Every tag ever held. The primary key settles two people taking one tag at once, and a retired
+ * tag stays here forever, so nobody else is ever paid through it.
+ */
+export const splitTags = pgTable(
+  "split_tags",
+  {
+    tag: text("tag").primaryKey(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).notNull(),
+    retiredAt: timestamp("retired_at", { withTimezone: true }),
+  },
+  (t) => [index("split_tags_user").on(t.userId)],
+);
 
 export const wallets = pgTable(
   "wallets",
@@ -128,7 +147,7 @@ export const splits = pgTable(
 export const actions = pgTable("actions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").notNull().references(() => users.id),
-  type: text("type", { enum: ["create_split", "transfer", "earn_move"] }).notNull(),
+  type: text("type", { enum: ["create_split", "transfer", "earn_move", "change_tag"] }).notNull(),
   subjectId: uuid("subject_id").notNull(),
   summary: jsonb("summary").$type<Record<string, unknown>>().notNull(),
   challenge: text("challenge").notNull(),

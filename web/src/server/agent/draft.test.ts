@@ -29,6 +29,11 @@ describe("cutBytes", () => {
 });
 
 describe("toComposer", () => {
+  it("notes that an @name will be paid as a Split tag, not a social handle", () => {
+    const fill = toComposer(draft({ lines: [{ who: "@ada", amount: "5", purpose: null }] }), 50);
+    expect(fill.notes).toContain("Line 1: @ada will be paid as the Splits account @ada, not a social media handle");
+  });
+
   it("writes set amounts as who, amount, purpose lines that the list check reads back exactly", () => {
     const fill = toComposer(
       draft({

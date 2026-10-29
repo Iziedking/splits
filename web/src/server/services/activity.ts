@@ -45,7 +45,7 @@ export async function activityFor(ctx: Ctx, user: User) {
   const hashes = inbound.map((i) => i.txHash);
   const ours = hashes.length
     ? await ctx.db
-        .select({ t: transfers, payer: users.email })
+        .select({ t: transfers, payer: users.email, payerTag: users.tag })
         .from(transfers)
         .innerJoin(users, eq(users.id, transfers.payerUserId))
         .where(and(isNotNull(transfers.txHash), inArray(transfers.txHash, hashes)))
@@ -68,7 +68,7 @@ export async function activityFor(ctx: Ctx, user: User) {
       txHash: i.txHash,
       amount: formatUsdc(i.amount),
       from: i.from,
-      fromLabel: match?.payer ?? (topUp ? "Test card top-up" : depositLabel),
+      fromLabel: (match?.payerTag ? `@${match.payerTag}` : match?.payer) ?? (topUp ? "Test card top-up" : depositLabel),
       source: match ? "splits" : topUp ? "topup" : deposit ? "deposit" : "external",
       purpose: leg?.purpose ?? null,
       at: i.at.toISOString(),

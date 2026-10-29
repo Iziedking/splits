@@ -31,7 +31,7 @@ export async function receiptLinks(ctx: Ctx, t: Transfer): Promise<string[] | nu
 export async function receiptByToken(ctx: Ctx, token: string) {
   if (!TOKEN.test(token)) throw notFound("Receipt not found");
   const [row] = await ctx.db
-    .select({ link: receiptLinksTable, t: transfers, payerEmail: users.email })
+    .select({ link: receiptLinksTable, t: transfers, payerEmail: users.email, payerTag: users.tag })
     .from(receiptLinksTable)
     .innerJoin(transfers, eq(transfers.id, receiptLinksTable.transferId))
     .leftJoin(users, eq(users.id, transfers.payerUserId))
@@ -41,6 +41,7 @@ export async function receiptByToken(ctx: Ctx, token: string) {
   if (!row || !leg || row.t.status !== "settled") throw notFound("Receipt not found");
   return receiptView(ctx, row.t, row.link.legIndex, {
     email: row.payerEmail ?? row.t.visitorEmail ?? null,
+    tag: row.payerTag ?? null,
     address: row.t.payerAddress,
   });
 }

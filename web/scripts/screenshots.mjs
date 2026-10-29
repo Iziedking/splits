@@ -32,7 +32,7 @@ async function withoutCard(page) {
 
 /** Fills the one-person composer and checks it, so the review column and the funding choice show. */
 async function composeOne(page) {
-  await page.getByLabel("Email", { exact: true }).fill("landlord@example.com");
+  await page.getByLabel("Email or @tag", { exact: true }).fill("landlord@example.com");
   await page.getByLabel(/^Amount/).fill("25");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
@@ -94,6 +94,14 @@ const SHOTS = [
   { name: "help-with-ref", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, vocab: true },
   { name: "terms", path: "/legal/terms", signedIn: false, vocab: true },
   { name: "privacy", path: "/legal/privacy", vocab: true },
+  // Split tags: picking one, Profile's tag with its QR and change sheets, and a tag's public page.
+  { name: "setup-tag", path: "/setup", session: "tagless", fullPage: false, vocab: true, act: (p) => p.getByText("is yours to take").waitFor() },
+  { name: "profile-tag", path: "/profile", vocab: true },
+  { name: "sheet-tag-qr", path: "/profile", act: (p) => openSheet(p, "Show QR"), fullPage: false, vocab: true },
+  { name: "sheet-tag-change", path: "/profile", act: (p) => openSheet(p, /^Change tag/), fullPage: false, vocab: true },
+  { name: "tag-page", path: (c) => `/@${c.tag}`, signedIn: false, vocab: true },
+  { name: "tag-page-unknown", path: "/@nobody_here", signedIn: false, vocab: true },
+  { name: "pay-from-tag", path: (c) => `/pay?to=%40${c.tag}&amount=5&for=cake`, vocab: true },
   // Support agent: an answer, an action line, and the hand-over, all checked for crypto words.
   { name: "chat-answer", path: "/help", act: (p) => chatSay(p, "What happened to my last payment?"), fullPage: false, vocab: true },
   { name: "chat-action", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, act: (p) => chatSay(p, "Send my receipt again"), fullPage: false, vocab: true },
@@ -221,7 +229,8 @@ async function main() {
   const session = await previewSession(BASE, `ada.${Date.now()}@example.com`);
   const paymentId = await settledPayment(session.call);
   const receipt = (await session.call("GET", `/api/transfers/${paymentId}`)).data.transfer.legs[0].receipt;
-  const ctx = { ...session, paymentId, receipt };
+  const tagless = await previewSession(BASE, `new.${Date.now()}@example.com`, { tag: null });
+  const ctx = { ...session, paymentId, receipt, tagless };
   const browser = await chromium.launch();
   const manifest = { base: BASE, at: new Date().toISOString(), widths: WIDTHS, shots: [] };
   try {
@@ -235,7 +244,8 @@ async function main() {
         });
         try {
           if (shot.signedIn !== false) {
-            await context.addCookies([{ ...ctx.cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
+            const cookie = shot.session === "tagless" ? ctx.tagless.cookie : ctx.cookie;
+            await context.addCookies([{ ...cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
           }
           const page = await context.newPage();
           if (shot.before) await shot.before(page);

@@ -21,7 +21,11 @@ export function previewClient(base) {
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function previewSession(base, email = "ada@example.com") {
+/** A Split tag from the email (every test email is unique, so the tag is too). */
+export const tagFor = (email) => email.split("@")[0].toLowerCase().replace(/[^a-z0-9]+/g, "_").slice(0, 20).padEnd(3, "_");
+
+/** `tag: null` leaves the account without one, to show the tag step. */
+export async function previewSession(base, email = "ada@example.com", { tag = tagFor(email) } = {}) {
   const { call, cookie } = previewClient(base);
   const start = await call("POST", "/api/auth/start", { email });
   if (start.status !== 200) throw new Error(`auth start ${start.status}: ${JSON.stringify(start.data)}`);
@@ -29,6 +33,10 @@ export async function previewSession(base, email = "ada@example.com") {
   if (verify.status !== 200) throw new Error(`auth verify ${verify.status}`);
   const pin = await call("POST", "/api/security/pin", { pin: PIN });
   if (pin.status !== 200) throw new Error(`pin ${pin.status}: ${JSON.stringify(pin.data)}`);
+  if (tag) {
+    const claimed = await call("POST", "/api/tags", { tag });
+    if (claimed.status !== 200) throw new Error(`tag ${claimed.status}: ${JSON.stringify(claimed.data)}`);
+  }
 
   // Preview-only: money arrives as if sent from another chain, so Home and Pay show a balance.
   const deposit = await call("POST", "/api/demo/deposit", { chain: "base", amount: "60" });
@@ -55,7 +63,7 @@ export async function previewSession(base, email = "ada@example.com") {
     split = (await call("GET", `/api/splits/${split.id}`)).data.split;
   }
   const [name, value] = cookie().split("=");
-  return { call, splitId: split.id, cookie: { name, value } };
+  return { call, splitId: split.id, cookie: { name, value }, tag };
 }
 
 /** Pays three people from the balance and waits for it to settle; returns the payment id. */

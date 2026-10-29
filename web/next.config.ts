@@ -13,6 +13,11 @@ const config: NextConfig = {
     "@circle-fin/adapter-circle-wallets",
   ],
   poweredByHeader: false,
+  // A Split tag's page lives at /@ada. Folders starting with @ are route slots in the app router,
+  // so the page itself is /t/[tag].
+  async rewrites() {
+    return [{ source: "/@:tag", destination: "/t/:tag" }];
+  },
   // A money app is never framed by another site, never sniffed, and keeps receipt and payment
   // tokens in its URLs out of other sites' Referer. A full CSP waits on an audit of the wallet SDKs.
   async headers() {

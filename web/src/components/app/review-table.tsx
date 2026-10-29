@@ -49,7 +49,8 @@ export function ReviewTable({ check }: { check: PayoutCheck }) {
             <span className="flex min-w-0 items-center gap-2">
               <PurposeDot index={i} />
               <span className="truncate font-medium" title={line.recipient ?? line.raw}>
-                {line.recipient ? short(line.recipient) : line.raw}
+                {/* A tag pays a Splits account: said outright, so a pasted social handle isn't mistaken for one. */}
+                {line.recipient?.startsWith("@") ? `Splits account ${line.recipient}` : line.recipient ? short(line.recipient) : line.raw}
               </span>
             </span>
             <span className={cn("text-right font-semibold tabular-nums", line.status !== "ready" && "text-muted-foreground line-through")}>

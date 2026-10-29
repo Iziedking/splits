@@ -11,6 +11,7 @@ import type { Transfer } from "./services/transfers";
 import type { User, Wallet } from "./services/users";
 import { greetingName } from "../lib/format";
 import { formatUsdc } from "./domain/money";
+import { TAG_CHANGES } from "./domain/tags";
 
 /** JSON shapes for the API. Amounts go out as USDC decimal strings, never as raw bigints. */
 
@@ -19,7 +20,16 @@ const txUrl = (ctx: Ctx, hash: string | null | undefined) =>
 const addressUrl = (ctx: Ctx, address: string) => (ctx.mode === "live" ? `${ctx.explorerUrl}/address/${address}` : null);
 
 export function userView(user: User, hasPasskey: boolean) {
-  return { id: user.id, email: user.email, hasPin: Boolean(user.pinHash), hasPasskey, emailAlerts: user.emailAlerts };
+  return {
+    id: user.id,
+    email: user.email,
+    hasPin: Boolean(user.pinHash),
+    hasPasskey,
+    emailAlerts: user.emailAlerts,
+    tag: user.tag,
+    needsTag: !user.tag,
+    tagChangesLeft: Math.max(0, TAG_CHANGES - user.tagChanges),
+  };
 }
 
 /**
@@ -148,7 +158,7 @@ export function transferView(ctx: Ctx, t: Transfer, steps: ProviderTxRow[] = [],
  * One recipient's receipt, for a link anyone holding it can open. It names the sender by first
  * name only and leaves out the total and every other recipient.
  */
-export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { email: string | null; address: string }) {
+export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { email: string | null; tag?: string | null; address: string }) {
   const leg = t.expected[legIndex]!;
   return {
     index: legIndex,
@@ -158,7 +168,8 @@ export function receiptView(ctx: Ctx, t: Transfer, legIndex: number, payer: { em
     purpose: leg.purpose,
     amount: formatUsdc(BigInt(leg.amount)),
     to: leg.address,
-    from: payer.email ? greetingName(payer.email) : `${payer.address.slice(0, 6)}…${payer.address.slice(-4)}`,
+    // A payer with a Split tag is named by it; their email never reaches the person they paid.
+    from: payer.tag ? `@${payer.tag}` : payer.email ? greetingName(payer.email) : `${payer.address.slice(0, 6)}…${payer.address.slice(-4)}`,
     fromAddress: payer.address,
     paidAt: (t.settledAt ?? t.updatedAt).toISOString(),
     txHash: t.txHash,

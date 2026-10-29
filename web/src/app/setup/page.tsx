@@ -5,10 +5,12 @@ import { Fingerprint, ShieldCheck } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { AppFrame, useMe } from "@/components/app/app-frame";
+import { TagPicker } from "@/components/app/tag-picker";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { api, errorMessage } from "@/lib/api";
 import { registerPasskey } from "@/lib/passkey";
+import { suggestTag } from "@/server/domain/tags";
 
 export default function SetupPage() {
   return (
@@ -18,7 +20,11 @@ export default function SetupPage() {
   );
 }
 
-/** Every payment is approved with this PIN, or with Face ID or fingerprint once added. */
+/**
+ * Finishing an account: the Split tag first (people pay it instead of the email), then the PIN that
+ * approves every payment, then Face ID or fingerprint. An account that already has its PIN and only
+ * lacks a tag picks one and goes home.
+ */
 function Setup() {
   const router = useRouter();
   const { me, refresh } = useMe();
@@ -65,6 +71,20 @@ function Setup() {
   }
 
   const digits = (v: string) => v.replace(/\D/g, "").slice(0, 6);
+
+  if (me.user.needsTag) {
+    return (
+      <div className="enter surface mx-auto mt-6 max-w-md p-7">
+        <TagPicker
+          suggestion={suggestTag(me.user.email)}
+          onClaimed={async () => {
+            await refresh();
+            if (me.user.hasPin) router.replace("/home");
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="enter surface mx-auto mt-6 max-w-md p-7">

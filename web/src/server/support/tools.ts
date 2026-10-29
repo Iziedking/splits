@@ -6,6 +6,7 @@ import { windowEnds } from "../agent/timing";
 import type { Ctx } from "../context";
 import { SOURCE_CHAINS, type ChainKey } from "../crosschain/chains";
 import { depositMoves, deposits } from "../db/schema";
+import { isUniqueViolation } from "../errors";
 import { formatUsdc } from "../domain/money";
 import { hitRateLimit, refundRateHit } from "../services/rateLimits";
 import { advanceWithRules } from "../services/rules";
@@ -146,8 +147,7 @@ async function recheckPayment(ctx: Ctx, user: User, wanted: string): Promise<Too
  */
 /** Another move on the address became active first (deposit_moves_one_active): nothing changed. */
 function lostRace(err: unknown): never[] {
-  const code = (err as { code?: string; cause?: { code?: string } }).cause?.code ?? (err as { code?: string }).code;
-  if (code === "23505") return [];
+  if (isUniqueViolation(err)) return [];
   throw err;
 }
 

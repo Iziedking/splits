@@ -1,6 +1,8 @@
 import { consumeLoginCode, issueLoginCode, normaliseEmail } from "../auth/otp";
 import { createSession } from "../auth/sessions";
+import { eq } from "drizzle-orm";
 import type { Ctx } from "../context";
+import { users } from "../db/schema";
 import { badRequest, tooMany } from "../errors";
 import { hitRateLimit } from "./rateLimits";
 import { ensureMainWallet, ensureUser } from "./users";
@@ -26,14 +28,20 @@ export async function startSignIn(ctx: Ctx, rawEmail: string, ip: string | null 
   return ctx.showCodes ? { previewCode: code } : {};
 }
 
-/** A correct code signs the person in and makes sure their wallet exists. Email is the wallet. */
+/**
+ * A correct code signs the person in and makes sure their wallet exists. `isNew` is true until an
+ * account has finished signing up: no account yet, one that was only paid by email ("invited"), or
+ * one that never set its PIN. It's decided here, after the code, so the email screen never reveals it.
+ */
 export async function finishSignIn(ctx: Ctx, rawEmail: string, code: string) {
   const email = normaliseEmail(rawEmail);
   if (!(await consumeLoginCode(ctx.db, email, code.trim(), ctx.now()))) {
     throw badRequest("CODE_INVALID", "That code is wrong or has expired");
   }
+  const [before] = await ctx.db.select().from(users).where(eq(users.email, email)).limit(1);
+  const isNew = !before || before.status === "invited" || !before.pinHash;
   const user = await ensureUser(ctx, email, "active");
   const wallet = await ensureMainWallet(ctx, user);
   const session = await createSession(ctx.db, user.id, ctx.now());
-  return { user, wallet, session };
+  return { user, wallet, session, isNew };
 }

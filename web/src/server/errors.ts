@@ -17,3 +17,9 @@ export const conflict = (code: string, message: string) => new AppError(409, cod
 export const tooMany = (code: string, message: string) => new AppError(429, code, message);
 export const unprocessable = (code: string, message: string) => new AppError(422, code, message);
 export const unavailable = (code: string, message: string) => new AppError(503, code, message);
+
+/** A Postgres unique-constraint violation (23505), as drizzle passes it on from either driver. */
+export function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } } | null;
+  return e?.code === "23505" || e?.cause?.code === "23505";
+}

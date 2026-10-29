@@ -90,7 +90,7 @@ async function pay(page) {
 
   // The approval dialog: focus starts on the PIN, stays inside, Escape closes it.
   await page.getByRole("tab", { name: "One person" }).click();
-  await page.getByLabel("Email", { exact: true }).fill("landlord@example.com");
+  await page.getByLabel("Email or @tag", { exact: true }).fill("landlord@example.com");
   await page.getByLabel(/^Amount/).fill("2");
   await page.getByLabel("What it's for").fill("rent");
   await page.getByRole("button", { name: /check/i }).first().click();
@@ -129,6 +129,21 @@ async function dialogFrom(page, scenario, opener, title, extra) {
   if (!closed) failures++;
   results.push({ scenario, action: "Escape closes it", ok: closed });
   await step(page, scenario, "focus returns to the opener", { tag: "button", inDialog: false });
+}
+
+async function changeTag(page) {
+  const s = "change-tag";
+  await page.goto(`${BASE}/profile`, { waitUntil: "networkidle" });
+  await dialogFrom(page, s, page.getByRole("button", { name: /^Change tag/ }), "Change your tag", async () => {
+    const t = await tabTo(page, (f) => f.tag === "input", 10);
+    await step(page, s, `Tab x${t} reaches the new tag`, { tag: "input", inDialog: true });
+  });
+}
+
+async function tagQr(page) {
+  const s = "tag-qr";
+  await page.goto(`${BASE}/profile`, { waitUntil: "networkidle" });
+  await dialogFrom(page, s, page.getByRole("button", { name: "Show QR" }), /^@/);
 }
 
 async function supportChat(page) {
@@ -204,7 +219,7 @@ async function main() {
   const paymentId = await settledPayment(session.call);
   const browser = await chromium.launch();
   try {
-    for (const run of [pay, addMoney, receive, notifications, supportChat, (p) => shareReceipt(p, paymentId)]) {
+    for (const run of [pay, addMoney, receive, notifications, supportChat, changeTag, tagQr, (p) => shareReceipt(p, paymentId)]) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
       await context.addCookies([{ ...session.cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
       const page = await context.newPage();

@@ -12,6 +12,7 @@ import { MoneyNotice } from "@/components/app/money-notice";
 import { PaymentDetails } from "@/components/app/payment-details";
 import { Ribbon } from "@/components/app/ribbon";
 import { Skeleton } from "@/components/app/skeleton";
+import { ChangeTagSheet, TagBlock, TagQrSheet } from "@/components/app/tag-sheets";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { api, type SplitView } from "@/lib/api";
@@ -29,7 +30,11 @@ export default function ProfilePage() {
  * account address is for people paying from a crypto wallet, so it sits in a fold.
  */
 function Profile() {
-  const { me } = useMe();
+  const { me, refresh } = useMe();
+  const [tagSheet, setTagSheet] = React.useState<"qr" | "change" | null>(null);
+  // The tag's page link uses the address this page was opened at; it's only known in the browser.
+  const [origin, setOrigin] = React.useState("");
+  React.useEffect(() => setOrigin(window.location.origin), []);
   const { signOut, signingOut, overlay } = useSignOut();
   const main = me.wallets.find((w) => w.kind === "main");
   const [adding, setAdding] = React.useState(false);
@@ -65,6 +70,9 @@ function Profile() {
               </div>
             )}
           </dl>
+          {me.user.tag && (
+            <TagBlock tag={me.user.tag} changesLeft={me.user.tagChangesLeft} onChange={() => setTagSheet("change")} onQr={() => setTagSheet("qr")} />
+          )}
           {main && (
             <>
               <Button variant="secondary" size="sm" className="mt-4" onClick={() => setAdding(true)}>
@@ -178,6 +186,17 @@ function Profile() {
       </Link>
 
       {main && <AddMoneySheet address={main.address} network={me.network} open={adding} onClose={() => setAdding(false)} />}
+      {me.user.tag && origin && <TagQrSheet open={tagSheet === "qr"} onClose={() => setTagSheet(null)} tag={me.user.tag} origin={origin} />}
+      {me.user.tag && (
+        <ChangeTagSheet
+          open={tagSheet === "change"}
+          onClose={() => setTagSheet(null)}
+          current={me.user.tag}
+          changesLeft={me.user.tagChangesLeft}
+          hasPasskey={me.user.hasPasskey}
+          onChanged={refresh}
+        />
+      )}
       {overlay}
     </div>
   );

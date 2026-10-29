@@ -87,6 +87,8 @@ export function toComposer(draft: AgentDraft, maxLines: number): ComposerFill {
       purpose = cutBytes(purpose).trim();
       notes.push(`Line ${n}: the label was shortened to fit 31 characters`);
     }
+    // Screenshots of social posts are full of @handles; a Splits tag with the same letters may be someone else.
+    if (/^[@＠]/.test(who)) notes.push(`Line ${n}: ${who} will be paid as the Splits account ${who}, not a social media handle`);
     out.push(purpose ? `${who}, ${amount}, ${purpose}` : amount ? `${who}, ${amount}` : who);
   });
   if (out.length === 0) throw new NothingFound("Nobody to pay");

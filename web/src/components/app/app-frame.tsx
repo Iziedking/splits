@@ -88,7 +88,8 @@ export function AppFrame({ children, requirePin = true, wide = false }: { childr
       const data = await api<Me>("/api/me");
       setMe(data);
       setError(null);
-      if (requirePin && !data.user.hasPin) router.replace("/setup");
+      // No signed-in screen without a PIN and a Split tag; /setup asks for whichever is missing.
+      if (requirePin && (!data.user.hasPin || data.user.needsTag)) router.replace("/setup");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) router.replace("/signin");
       else setError(errorMessage(err));

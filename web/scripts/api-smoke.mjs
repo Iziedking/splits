@@ -75,6 +75,26 @@ try {
   assert.equal((await call("POST", "/api/security/pin", { pin: "482913" })).status, 200);
   step("PIN set, trivial PINs refused");
 
+  assert.equal((await call("GET", "/api/me")).data.user.needsTag, true);
+  assert.equal((await call("GET", "/api/tags/check?tag=ada")).data.status, "free");
+  assert.equal((await call("POST", "/api/tags", { tag: "support" })).data.error.code, "TAG_RESERVED");
+  const claimed = await call("POST", "/api/tags", { tag: "@Ada" });
+  assert.equal(claimed.status, 200, JSON.stringify(claimed.data));
+  assert.equal(claimed.data.user.tag, "ada");
+  assert.equal((await call("GET", "/api/tags/check?tag=ADA")).data.status, "taken");
+  assert.deepEqual((await call("GET", "/api/tags/search?q=ad")).data.tags, []);
+  assert.equal((await call("GET", "/api/tags/search?q=a")).status, 400);
+  assert.equal((await call("GET", "/api/tags/search?q=ad", undefined, { withCookie: false })).status, 401);
+  const tagPage = await fetch(`${ORIGIN}/@Ada`);
+  assert.equal(tagPage.status, 200);
+  const tagHtml = await tagPage.text();
+  assert.ok(tagHtml.includes("@ada") && tagHtml.includes("noindex"), "the tag page shows the tag and stays out of search engines");
+  assert.ok(!tagHtml.includes("ada@example.com"), "the tag page never shows the email");
+  assert.ok((await (await fetch(`${ORIGIN}/@nobody_here`)).text()).includes("No Splits account uses"));
+  const ownTag = await call("POST", "/api/payouts/check", { mode: "each", text: "@ada, 1", label: "x" });
+  assert.equal(ownTag.data.lines[0].message, "That's you");
+  step("a Split tag is claimed once, checked, searched, and has its own page");
+
   assert.equal((await call("GET", "/api/me")).data.agent, true);
   const agentText = new FormData();
   agentText.set("text", "bola@example.com, 5, prize\n0x00000000000000000000000000000000000000f1, 3");

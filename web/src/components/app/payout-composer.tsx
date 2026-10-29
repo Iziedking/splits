@@ -1,5 +1,6 @@
 "use client";
 
+import { TagSuggest } from "@/components/app/tag-suggest";
 import * as React from "react";
 import { Segmented } from "@/components/app/segmented";
 import { Button } from "@/components/ui/button";
@@ -15,17 +16,17 @@ const bytes = (s: string) => new TextEncoder().encode(s.trim()).length;
  */
 const WORDS = {
   account: {
-    who: "Email",
-    whoHint: "No account needed. Money sent to an email waits in their Splits balance until they sign in. You can also paste an account address.",
-    address: "account address",
+    who: "Email or @tag",
+    whoHint: "No account needed. Money sent to an email waits in their Splits balance until they sign in. You can also use a Split tag or paste an account address.",
+    address: "@tag or account address",
     unit: "$",
     sample: "chidi@example.com",
     memo: "Saved with the payment, like a memo.",
   },
   wallet: {
-    who: "Email or Arc address",
+    who: "Email, @tag or Arc address",
     whoHint: "No account needed. Money sent to an email waits in their Splits balance until they sign in.",
-    address: "Arc address",
+    address: "@tag or Arc address",
     unit: "USDC",
     sample: "0x8f3c…a12b",
     memo: "Saved with the payment on Arc, like a memo.",
@@ -39,6 +40,8 @@ export function PayoutComposer({
   checkPath = "/api/payouts/check",
   vocabulary = "account",
   fill = null,
+  initialWho = "",
+  initialAmount = "",
 }: {
   mode: "one" | "many";
   initialLabel: string;
@@ -49,10 +52,18 @@ export function PayoutComposer({
   vocabulary?: "account" | "wallet";
   /** A list drafted by agentic mode; applied once per id, with Undo. */
   fill?: (ComposerFill & { id: number }) | null;
+  /** One person, filled in from a Split tag's page. */
+  initialWho?: string;
+  initialAmount?: string;
 }) {
   const words = WORDS[vocabulary];
-  const [who, setWho] = React.useState("");
-  const [amount, setAmount] = React.useState("");
+  const [who, setWho] = React.useState(initialWho);
+  // Where the caret is in the field being typed in, so a tag can be suggested for that line.
+  const [caret, setCaret] = React.useState(0);
+  const track = (e: React.SyntheticEvent<HTMLInputElement | HTMLTextAreaElement>) => setCaret(e.currentTarget.selectionStart ?? 0);
+  // Searching tags needs a session: only account holders get suggestions, never visitors.
+  const suggest = vocabulary === "account";
+  const [amount, setAmount] = React.useState(initialAmount);
   const [text, setText] = React.useState("");
   const [split, setSplit] = React.useState<"equal" | "each">("equal");
   const [pot, setPot] = React.useState("");
@@ -152,11 +163,16 @@ export function PayoutComposer({
           <Field
             label={words.who}
             value={who}
-            onChange={(e) => edit(setWho)(e.target.value)}
+            onChange={(e) => {
+              edit(setWho)(e.target.value);
+              track(e);
+            }}
+            onSelect={track}
             autoComplete="off"
             spellCheck={false}
             hint={words.whoHint}
           />
+          {suggest && <TagSuggest value={who} caret={caret} onPick={edit(setWho)} />}
           <Field
             label={`Amount (${words.unit})`}
             inputMode="decimal"
@@ -186,7 +202,11 @@ export function PayoutComposer({
               rows={8}
               spellCheck={false}
               value={text}
-              onChange={(e) => edit(setText)(e.target.value)}
+              onChange={(e) => {
+                edit(setText)(e.target.value);
+                track(e);
+              }}
+              onSelect={track}
               aria-describedby="payout-list-hint"
               placeholder={
                 split === "equal"
@@ -195,6 +215,7 @@ export function PayoutComposer({
               }
               className={cn(inputClass, "min-h-44 py-3 font-mono leading-6 lg:text-sm")}
             />
+            {suggest && <TagSuggest value={text} caret={caret} onPick={edit(setText)} />}
             <p id="payout-list-hint" className="mt-1 text-sm text-muted-foreground">
               One person per line: an email or {words.address}
               {split === "each" ? ", then the amount, then an optional label" : ", with an optional label after two commas"}.
