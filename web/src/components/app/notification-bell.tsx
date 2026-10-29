@@ -4,6 +4,9 @@ import { Bell } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Sheet } from "@/components/app/sheet";
+import { Skeleton } from "@/components/app/skeleton";
+import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/field";
 import { api, type NotificationsView } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +33,8 @@ export function NotificationBell() {
   const [toast, setToast] = React.useState<Item | null>(null);
   const seen = React.useRef<Set<string> | null>(null);
   const [clearing, setClearing] = React.useState(false);
+  /** The last load failed; with nothing loaded yet the sheet says so instead of "all caught up". */
+  const [failed, setFailed] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -42,8 +47,10 @@ export function NotificationBell() {
       }
       seen.current = new Set(next.items.map((i) => i.id));
       setView(next);
+      setFailed(false);
     } catch {
-      // Signed out or offline: the bell just stays as it was.
+      // Signed out or offline: the bell stays as it was, and the sheet says the list didn't load.
+      setFailed(true);
     }
   }, []);
 
@@ -119,7 +126,20 @@ export function NotificationBell() {
           )
         }
       >
-        {groups.length === 0 ? (
+        {view === null ? (
+          failed ? (
+            <div className="mt-6 space-y-3">
+              <Notice tone="error">Notifications didn&apos;t load.</Notice>
+              <Button variant="secondary" className="w-full" onClick={() => void load()}>
+                Try again
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-6">
+              <Skeleton label="Loading notifications" rows={3} className="h-16" />
+            </div>
+          )
+        ) : groups.length === 0 ? (
           <p className="mt-6 text-muted-foreground">You&apos;re all caught up. Money you send, receive and deposit shows up here as it happens.</p>
         ) : (
           groups.map(([label, items]) => (

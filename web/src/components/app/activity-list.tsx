@@ -25,24 +25,28 @@ const short = (address: string) => `${address.slice(0, 6)}…${address.slice(-4)
  * Money in and out, newest first, one card per transfer (UI_BRIEF.md v4). Received items come from
  * the wallet provider; if that list is unavailable, sent items still show and the gap is said.
  * With `recent`, only the newest few (Home); without it, everything in pages (History).
+ * Loading, failed, empty and partly loaded are separate states; never two at once.
  */
 export function ActivityList({
   activity,
+  error,
   splitNames,
   onRetry,
   recent,
 }: {
   activity: ActivityView | null;
+  /** The list itself didn't load (shown only while there is nothing to show). */
+  error?: string | null;
   splitNames: Record<string, string>;
   onRetry: () => void;
   recent?: number;
 }) {
   // Kept across the home page's background refreshes; pageOf clamps it if the list shrinks.
   const [page, setPage] = React.useState(0);
+  if (!activity && error) return <Retry message={error} onRetry={onRetry} />;
   if (!activity) {
-    return (
-      <Skeleton label="Loading activity" rows={2} className="h-[72px]" />
-    );
+    // The height of a real row (p-4, a bold line and a small one), so nothing jumps when it loads.
+    return <Skeleton label="Loading activity" rows={2} className="h-[78px]" />;
   }
 
   const rows: Row[] = [
@@ -53,16 +57,10 @@ export function ActivityList({
 
   return (
     <div className="space-y-3">
-      {activity.receivedError && (
-        <div className="space-y-2">
-          <Notice tone="error">{activity.receivedError}</Notice>
-          <Button variant="secondary" className="w-full" onClick={onRetry}>
-            Try again
-          </Button>
-        </div>
-      )}
+      {activity.receivedError && <Retry message={activity.receivedError} onRetry={onRetry} />}
       {rows.length === 0 ? (
-        <p className="text-muted-foreground">Money you send and receive shows here, each with its receipt.</p>
+        // With money received unknown, "nothing yet" would be a guess.
+        !activity.receivedError && <p className="text-muted-foreground">Money you send and receive shows here, each with its receipt.</p>
       ) : (
         <ul className="space-y-3">
           {shown.items.map((row) => {
@@ -148,6 +146,17 @@ export function ActivityList({
           </Button>
         </nav>
       )}
+    </div>
+  );
+}
+
+function Retry({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="space-y-2">
+      <Notice tone="error">{message}</Notice>
+      <Button variant="secondary" className="w-full" onClick={onRetry}>
+        Try again
+      </Button>
     </div>
   );
 }

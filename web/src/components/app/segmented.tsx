@@ -93,7 +93,7 @@ export function Segmented<T extends string>({ kind, label, labelledBy, options, 
             onClick={() => onChange(option.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
-              "relative z-10 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
+              "relative z-10 inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full px-2 text-sm sm:px-3 font-semibold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none",
               on ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
               on && !animated && "bg-primary-fill",
             )}

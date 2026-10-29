@@ -84,9 +84,9 @@ async function pay(page) {
   await step(page, s, "Tab leaves the tablist (one tab stop)", { role: /^(?!tab$)/ });
 
   const radio = await tabTo(page, (f) => f.role === "radio");
-  await step(page, s, `Tab x${radio} reaches How to share it`, { role: "radio", name: "Split a pot equally", selected: "true" });
+  await step(page, s, `Tab x${radio} reaches How to share it`, { role: "radio", name: "Split equally", selected: "true" });
   await page.keyboard.press("ArrowRight");
-  await step(page, s, "ArrowRight", { role: "radio", name: "Set each amount", selected: "true" });
+  await step(page, s, "ArrowRight", { role: "radio", name: "Set amounts", selected: "true" });
 
   // The approval dialog: focus starts on the PIN, stays inside, Escape closes it.
   await page.getByRole("tab", { name: "One person" }).click();

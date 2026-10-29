@@ -19,16 +19,17 @@ export default function HistoryPage() {
  */
 function History() {
   const [activity, setActivity] = React.useState<ActivityView | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
   const [splitNames, setSplitNames] = React.useState<Record<string, string>>({});
 
   const load = React.useCallback(async () => {
+    setError(null);
     try {
       const [a, s] = await Promise.all([api<ActivityView>("/api/activity"), api<{ splits: SplitView[] }>("/api/splits")]);
       setActivity(a);
       setSplitNames(Object.fromEntries(s.splits.map((sp) => [sp.id, sp.name])));
     } catch {
-      // A failed load shows the empty-state loader's retry through ActivityList's own error path.
-      setActivity({ sent: [], received: [], receivedError: "Couldn't load your history. Try again." });
+      setError("Your history didn't load. Check your connection and try again.");
     }
   }, []);
 
@@ -42,7 +43,7 @@ function History() {
         <h1 className="text-title leading-tight font-extrabold">History</h1>
         <p className="mt-1 text-muted-foreground">Everything you sent and received, each with its receipt.</p>
       </div>
-      <ActivityList activity={activity} splitNames={splitNames} onRetry={() => void load()} />
+      <ActivityList activity={activity} error={error} splitNames={splitNames} onRetry={() => void load()} />
     </div>
   );
 }

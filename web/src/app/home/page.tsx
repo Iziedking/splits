@@ -32,12 +32,14 @@ function Home() {
   const [error, setError] = React.useState<string | null>(null);
   const [receiving, setReceiving] = React.useState(false);
   // The Earning pocket's chain balance leaves out what is in the vault; its total comes from /api/earn.
-  const [earning, setEarning] = React.useState<string | null>(null);
+  // Until that answers the chip says so, rather than showing the smaller chain figure and jumping.
+  // undefined: asking; null: no vault position, the chain balance is the total; false: no answer.
+  const [earning, setEarning] = React.useState<string | null | false | undefined>(undefined);
   React.useEffect(() => {
     if (!me.earn) return;
     api<{ status: EarnStatus }>("/api/earn")
       .then((r) => setEarning(r.status.available && r.status.pocket ? r.status.pocket.total : null))
-      .catch(() => undefined);
+      .catch(() => setEarning(false));
   }, [me.earn, me.wallets]);
   const transfers = activity?.sent ?? [];
 
@@ -100,7 +102,10 @@ function Home() {
                     href="/earn"
                     className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/80 px-4 text-sm ring-1 ring-border hover:ring-primary/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
-                    Earning <span className="font-semibold tabular-nums">≈ ${cents(earning ?? p.balance ?? "0.00")}</span>
+                    Earning{" "}
+                    <span className="font-semibold tabular-nums">
+                      {earning === undefined ? "≈ …" : earning === false ? "unavailable" : `≈ $${cents(earning ?? p.balance ?? "0.00")}`}
+                    </span>
                   </Link>
                 ) : (
                   <span key={p.id} className="inline-flex min-h-11 items-center gap-1 rounded-full bg-white/80 px-4 text-sm ring-1 ring-border">
@@ -129,11 +134,15 @@ function Home() {
                   ? rule.status === "pending"
                     ? "Setting up on Arc."
                     : "Runs by itself on every payment that reaches your wallet."
-                  : "Put part of every payment you receive into savings, by itself."}
+                  : splits === null
+                    ? error
+                      ? "This didn't load."
+                      : "Checking for your automatic split."
+                    : "Put part of every payment you receive into savings, by itself."}
               </p>
               {rule && <Ribbon className="mt-4" height={8} parts={rule.legs.map((l) => ({ label: l.name, weight: l.percent ?? 0 }))} />}
             </div>
-            {!rule && (
+            {!rule && splits !== null && (
               <ButtonLink href="/rules/new" className="w-full">
                 Create a rule
               </ButtonLink>
@@ -154,8 +163,12 @@ function Home() {
                 </Link>
               )}
             </div>
-            {splits === null && !error ? (
-              <Skeleton label="Loading splits" className="h-24" />
+            {splits === null ? (
+              error ? (
+                <p className="text-sm text-muted-foreground">Your splits didn&apos;t load.</p>
+              ) : (
+                <Skeleton label="Loading splits" className="h-24" />
+              )
             ) : sendSplits.length === 0 ? (
               <div className="surface p-5">
                 <Ribbon height={8} parts={[{ label: "Rent", weight: 40 }, { label: "School fees", weight: 35 }, { label: "Upkeep", weight: 25 }]} />
@@ -198,7 +211,7 @@ function Home() {
         <div className="contents lg:sticky lg:top-6 lg:flex lg:flex-col lg:gap-7">
           {/* The frame makes Receive the filled button on desktop; the phone keeps v4's Send. */}
           <div className="order-2 grid grid-cols-2 gap-3 lg:order-none">
-            <ButtonLink href="/pay" className="lg:hidden">
+            <ButtonLink href="/pay" className="gap-1.5 px-3 whitespace-nowrap lg:hidden">
               <Send className="h-4 w-4" aria-hidden="true" />
               Send money
             </ButtonLink>
@@ -206,7 +219,7 @@ function Home() {
               <Send className="h-4 w-4" aria-hidden="true" />
               Send money
             </ButtonLink>
-            <Button variant="secondary" className="lg:hidden" onClick={() => setReceiving(true)}>
+            <Button variant="secondary" className="gap-1.5 px-3 whitespace-nowrap lg:hidden" onClick={() => setReceiving(true)}>
               <ArrowDownLeft className="h-4 w-4" aria-hidden="true" />
               Receive
             </Button>
@@ -228,7 +241,7 @@ function Home() {
                 <ChevronRight className="h-4 w-4" aria-hidden="true" />
               </Link>
             </div>
-            <ActivityList activity={activity} splitNames={splitNames} onRetry={() => void load()} recent={4} />
+            <ActivityList activity={activity} error={activity || !error ? null : "Recent transfers didn't load."} splitNames={splitNames} onRetry={() => void load()} recent={4} />
           </section>
         </div>
       </div>

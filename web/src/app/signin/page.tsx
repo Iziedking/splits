@@ -164,7 +164,7 @@ export default function SignIn() {
               We sent a code to <span className="font-semibold text-foreground">{email}</span>.
             </p>
             {previewCode && (
-              <Notice className="mt-4">
+              <Notice live className="mt-4">
                 This server doesn&apos;t send email. Your code is <strong className="text-foreground">{previewCode}</strong>.
               </Notice>
             )}

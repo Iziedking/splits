@@ -83,7 +83,7 @@ export function WalletSteps({ config, prepared, onSent }: { config: VisitorConfi
       <ol className="space-y-3">
         <li>
           <Button className="w-full" variant={phase === "approve" || phase === "approving" ? "primary" : "secondary"} disabled={phase !== "approve"} busy={phase === "approving"} onClick={() => void approve()}>
-            1 of 2: Allow Splits to send exactly ${prepared.payment.total}
+            1 of 2: Allow exactly ${prepared.payment.total}
           </Button>
         </li>
         <li>

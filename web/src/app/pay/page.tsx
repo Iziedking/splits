@@ -59,6 +59,7 @@ function Pay() {
   const [limited, setLimited] = React.useState(false);
   const [pending, setPending] = React.useState<{ action: ActionView; transfer: TransferView } | null>(null);
   const [splits, setSplits] = React.useState<SplitView[] | null>(null);
+  const [splitsError, setSplitsError] = React.useState<string | null>(null);
   /** Agentic mode: the switch, and the list it drafted (applied once per id). */
   const [agentOn, setAgentOn] = React.useState(false);
   /** A draft is being read; the switch waits so the result can't land on a composer in use. */
@@ -75,12 +76,15 @@ function Pay() {
     if (params.get("fund") === "card") setCardChosen(true);
   }, []);
 
-  React.useEffect(() => {
-    if (mode !== "saved" || splits) return;
+  const loadSplits = React.useCallback(() => {
+    setSplitsError(null);
     api<{ splits: SplitView[] }>("/api/splits")
       .then((r) => setSplits(r.splits))
-      .catch((err) => setError(errorMessage(err)));
-  }, [mode, splits]);
+      .catch((err) => setSplitsError(errorMessage(err)));
+  }, []);
+  React.useEffect(() => {
+    if (mode === "saved" && !splits) loadSplits();
+  }, [mode, splits, loadSplits]);
 
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
   const charge = check?.charge ?? check?.total ?? null;
@@ -196,10 +200,10 @@ function Pay() {
                 setError(null);
               }}
             />
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
+            <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
               <Landmark className="h-4 w-4" aria-hidden="true" />
               Bank or mobile money
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Not available yet</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold whitespace-nowrap">Not available yet</span>
             </p>
           </>
         )}
@@ -220,7 +224,7 @@ function Pay() {
           {/* Stays mounted while agentic mode is on, so what was typed (and Undo's snapshot) survives. */}
           <div hidden={agentOn}>
             {mode === "saved" ? (
-              <SavedSplits splits={splits} />
+              <SavedSplits splits={splits} error={splitsError} onRetry={loadSplits} />
             ) : (
               <PayoutComposer key={mode} mode={mode} initialLabel={label} onChecked={onChecked} fill={mode === "many" ? fill : null} />
             )}
@@ -228,7 +232,7 @@ function Pay() {
         </div>
       </div>
 
-      <div className="space-y-4 lg:sticky lg:top-6" aria-live="polite">
+      <div className="space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:overscroll-contain lg:p-1 lg:-m-1">
         {!agentOn && mode !== "saved" && !check && (
           <div className="rounded-lg border border-dashed border-border p-6 text-muted-foreground">
             <Ribbon height={10} parts={[1, 1, 1, 1, 1].map((w, i) => ({ label: `Person ${i + 1}`, weight: w }))} />
@@ -298,7 +302,17 @@ function Pay() {
   );
 }
 
-function SavedSplits({ splits }: { splits: SplitView[] | null }) {
+function SavedSplits({ splits, error, onRetry }: { splits: SplitView[] | null; error: string | null; onRetry: () => void }) {
+  if (!splits && error) {
+    return (
+      <div className="space-y-3">
+        <Notice tone="error">{error}</Notice>
+        <Button variant="secondary" className="w-full" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
   if (!splits) return <Skeleton label="Loading splits" className="h-32" />;
   const ready = splits.filter((s) => !s.automatic && s.status === "active");
   if (ready.length === 0) {

@@ -109,7 +109,16 @@ function Send() {
     router.replace(`/payments/${res.transfer.id}`);
   }
 
-  if (loadError) return <Notice tone="error" className="mx-auto mt-8 max-w-md">{loadError}</Notice>;
+  if (loadError) {
+    return (
+      <div className="enter pt-4">
+        <BackLink href="/home" />
+        <Notice tone="error" className="mt-4">
+          {loadError}
+        </Notice>
+      </div>
+    );
+  }
   if (!split) return <Loader label="Loading your split" />;
 
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
@@ -171,7 +180,10 @@ function Send() {
           </p>
         )}
 
-        <div className="mt-6 rounded-md bg-white/60 p-5 ring-1 ring-white" aria-live="polite">
+        <p role="status" className="sr-only">
+          {preview ? `They receive $${preview.amount}.` : (previewError ?? "")}
+        </p>
+        <div className="mt-6 rounded-md bg-white/60 p-5 ring-1 ring-white">
           {preview ? (
             <>
               <div className="flex items-baseline justify-between gap-4">
@@ -202,7 +214,9 @@ function Send() {
               <FeeLines className="mt-4 border-t border-border pt-3" fee={preview.fee} percent={preview.feePercent} total={preview.total} />
             </>
           ) : previewError ? (
-            <p className="text-sm text-destructive">{previewError}</p>
+            <Notice tone="error" live={false}>
+              {previewError}
+            </Notice>
           ) : (
             <>
               <Ribbon height={8} parts={split.legs.map((l) => ({ label: l.name, weight: l.percent ?? Number(l.fixed ?? 0) }))} />

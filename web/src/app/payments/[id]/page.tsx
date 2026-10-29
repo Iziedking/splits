@@ -9,7 +9,7 @@ import { Landed } from "@/components/app/landed";
 import { StepList, type StepState } from "@/components/app/step-list";
 import { ButtonLink } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
-import { api, errorMessage, type TransferView } from "@/lib/api";
+import { api, ApiError, errorMessage, type TransferView } from "@/lib/api";
 import { isFinal } from "@/lib/format";
 
 export default function PaymentPage() {
@@ -61,6 +61,8 @@ function Payment() {
   const { me, refresh } = useMe();
   const [t, setT] = React.useState<TransferView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  /** The payment isn't this person's, or doesn't exist: nothing to wait for. */
+  const [missing, setMissing] = React.useState(false);
 
   React.useEffect(() => {
     let stopped = false;
@@ -76,7 +78,12 @@ function Payment() {
           return;
         }
       } catch (err) {
-        if (!stopped) setError(errorMessage(err));
+        if (stopped) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setMissing(true);
+          return;
+        }
+        setError(errorMessage(err));
       }
       timer = setTimeout(poll, 1200);
     }
@@ -90,16 +97,54 @@ function Payment() {
   const moving = t !== null && !isFinal(t.status) && t.status !== "awaiting_confirmation";
   useFrameTone(moving ? "night" : "day");
 
+  if (missing) {
+    return (
+      <div className="enter space-y-3 pt-6 lg:max-w-xl">
+        <h1 className="text-title leading-tight font-extrabold">We can&apos;t find this payment</h1>
+        <p className="text-muted-foreground">The link may be cut short, or the payment belongs to another account. Your payments are all in History.</p>
+        <div className="grid gap-3 pt-3 sm:grid-cols-2">
+          <ButtonLink href="/home">Home</ButtonLink>
+          <ButtonLink href="/history" variant="secondary">
+            History
+          </ButtonLink>
+        </div>
+      </div>
+    );
+  }
   if (!t) {
-    return error ? (
-      <Notice tone="error" className="mt-8">
-        {error}
-      </Notice>
-    ) : (
-      <Loader label="Loading payment" />
+    return (
+      <>
+        <Loader label="Loading payment" />
+        {error && (
+          <Notice tone="error" className="mt-4">
+            {error} Retrying.
+          </Notice>
+        )}
+      </>
     );
   }
 
+  return (
+    <>
+      <p role="status" className="sr-only">
+        {spokenStatus(t)}
+      </p>
+      <PaymentState t={t} error={error} preview={me.mode === "preview"} moving={moving} />
+    </>
+  );
+}
+
+/** The page's one live sentence: where the payment is now. */
+function spokenStatus(t: TransferView): string {
+  if (t.status === "settled") return `Paid. $${t.amount} reached ${who(t)}.`;
+  if (t.status === "failed") return "Not sent.";
+  if (t.status === "awaiting_confirmation") return "Not started.";
+  const steps = stepsFor(t);
+  const now = steps.find((s, i) => stepState(t, s, steps[i + 1]) === "active");
+  return now ? `${now.label}: in progress.` : "Sending.";
+}
+
+function PaymentState({ t, error, preview, moving }: { t: TransferView; error: string | null; preview: boolean; moving: boolean }) {
   // The settled view uses the width (UI_BRIEF.md v5); in-flight and failed stay a readable column.
   if (moving) {
     return (
@@ -113,7 +158,7 @@ function Payment() {
     return (
       <Landed
         t={t}
-        preview={me.mode === "preview"}
+        preview={preview}
         returnTo={`/payments/${t.id}`}
         actions={
           <>
@@ -139,7 +184,7 @@ function Payment() {
 function Sending({ t, error }: { t: TransferView; error: string | null }) {
   const steps = stepsFor(t);
   return (
-    <div className="enter pt-6" aria-live="polite">
+    <div className="enter pt-6">
       <h1 className="text-title leading-tight font-extrabold">Sending…</h1>
       <p className="mt-1 text-white/70">
         ${t.amount} to {who(t)}, settling on Arc.

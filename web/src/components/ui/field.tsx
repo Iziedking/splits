@@ -45,10 +45,25 @@ export const Field = React.forwardRef<HTMLInputElement, FieldProps>(
 );
 Field.displayName = "Field";
 
-export function Notice({ tone = "info", children, className }: { tone?: "info" | "error" | "success"; children: React.ReactNode; className?: string }) {
+/**
+ * A short message in a tinted box. Errors are alerts and successes are statuses, so screen readers
+ * hear them when they appear; plain information is read in place. `live` overrides either way.
+ */
+export function Notice({
+  tone = "info",
+  live,
+  children,
+  className,
+}: {
+  tone?: "info" | "error" | "success";
+  /** Announce it: by default errors (as alerts) and successes do and information does not. */
+  live?: boolean;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <div
-      role={tone === "error" ? "alert" : "status"}
+      role={!(live ?? tone !== "info") ? undefined : tone === "error" ? "alert" : "status"}
       className={cn(
         "rounded-sm px-4 py-3 text-sm",
         tone === "error" && "bg-destructive/10 text-destructive",

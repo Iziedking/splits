@@ -120,9 +120,11 @@ export function CrossWalletSteps({
               : `Pay from ${chainName}`}
       </Button>
       <p className="text-sm text-muted-foreground">
-        {needsApprove
-          ? `Your wallet asks twice: once to allow exactly $${cost?.total ?? ""}, then to pay. Some wallets do both in one step.`
-          : "Your wallet asks once. Nothing is signed on Arc."}
+        {needsApprove === null
+          ? "Checking your wallet…"
+          : needsApprove
+            ? `Your wallet asks twice: once to allow exactly $${cost?.total ?? ""}, then to pay. Some wallets do both in one step.`
+            : "Your wallet asks once. Nothing is signed on Arc."}
       </p>
       {error && <Notice tone="error">{error}</Notice>}
     </div>

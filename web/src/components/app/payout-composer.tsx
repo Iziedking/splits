@@ -78,6 +78,7 @@ export function PayoutComposer({
   }
 
   const labelTooLong = bytes(label) > 31;
+  const waitingId = React.useId();
   const canCheck =
     !labelTooLong &&
     label.trim() !== "" &&
@@ -147,8 +148,8 @@ export function PayoutComposer({
             kind="radio"
             label="How to share it"
             options={[
-              { value: "equal", label: "Split a pot equally" },
-              { value: "each", label: "Set each amount" },
+              { value: "equal", label: "Split equally" },
+              { value: "each", label: "Set amounts" },
             ]}
             value={split}
             onChange={(next) => edit(setSplit)(next)}
@@ -196,9 +197,18 @@ export function PayoutComposer({
         hint="Saved with the payment on Arc, like a memo."
       />
       {error && <Notice tone="error">{error}</Notice>}
-      <Button type="submit" variant="secondary" className="w-full" busy={busy} disabled={!canCheck}>
+      <Button type="submit" variant="secondary" className="w-full" busy={busy} disabled={!canCheck} aria-describedby={canCheck ? undefined : waitingId}>
         {mode === "one" ? "Check" : "Check list"}
       </Button>
+      {!canCheck && !labelTooLong && (
+        <p id={waitingId} className="text-center text-sm text-muted-foreground">
+          {mode === "one"
+            ? "Add who to pay, an amount and what it's for, then check."
+            : split === "equal"
+              ? "Add your list, the amount to split and a label, then check."
+              : "Add your list and a label, then check."}
+        </p>
+      )}
     </form>
   );
 }

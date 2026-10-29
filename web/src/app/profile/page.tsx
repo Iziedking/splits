@@ -10,6 +10,7 @@ import { CopyAddress } from "@/components/app/copy-address";
 import { Ribbon } from "@/components/app/ribbon";
 import { Skeleton } from "@/components/app/skeleton";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { Notice } from "@/components/ui/field";
 import { api, type SplitView } from "@/lib/api";
 
 export default function ProfilePage() {
@@ -25,13 +26,16 @@ function Profile() {
   const { signOut, signingOut, overlay } = useSignOut();
   const main = me.wallets.find((w) => w.kind === "main");
   const [adding, setAdding] = React.useState(false);
-  const [rule, setRule] = React.useState<SplitView | null | undefined>(undefined);
+  /** undefined: loading; null: none set up; "error": unknown, so never offered as missing. */
+  const [rule, setRule] = React.useState<SplitView | null | undefined | "error">(undefined);
 
-  React.useEffect(() => {
+  const loadRule = React.useCallback(() => {
+    setRule(undefined);
     api<{ splits: SplitView[] }>("/api/splits")
       .then((r) => setRule(r.splits.find((s) => s.automatic && s.status !== "failed") ?? null))
-      .catch(() => setRule(null));
+      .catch(() => setRule("error"));
   }, []);
+  React.useEffect(loadRule, [loadRule]);
 
   return (
     <div className="enter space-y-6 pt-4">
@@ -80,6 +84,13 @@ function Profile() {
           </h2>
           {rule === undefined ? (
             <Skeleton label="Loading your automatic split" className="mt-3 h-10" />
+          ) : rule === "error" ? (
+            <div className="mt-3 space-y-3">
+              <Notice tone="error">Your automatic split didn&apos;t load.</Notice>
+              <Button variant="secondary" size="sm" onClick={loadRule}>
+                Try again
+              </Button>
+            </div>
           ) : rule ? (
             <>
               <p className="mt-1 text-muted-foreground">{rule.name}. Runs by itself on every payment that reaches your wallet.</p>
@@ -118,7 +129,7 @@ function Profile() {
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Email</dt>
-              <dd className="truncate font-medium">{me.user.email}</dd>
+              <dd className="min-w-0 truncate font-medium">{me.user.email}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted-foreground">Network</dt>

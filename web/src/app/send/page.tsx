@@ -189,7 +189,7 @@ export default function VisitorPay() {
           </div>
         </div>
 
-        <div className="mt-6 space-y-6 lg:sticky lg:top-6 lg:mt-0">
+        <div className="mt-6 space-y-6 lg:mt-0 lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto lg:overscroll-contain lg:p-1 lg:-m-1">
           {!check && !prepared && (
             <p className="surface hidden p-5 text-sm text-muted-foreground lg:block">
               Check the list and the review appears here: who gets what, the fee, and the total your wallet pays.

@@ -13,7 +13,7 @@ import { VisitorHeader } from "@/components/app/visitor-header";
 import { Loader } from "@/components/app/loader";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
-import { api, errorMessage, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
+import { api, ApiError, errorMessage, type VisitorConfig, type VisitorPaymentView } from "@/lib/api";
 import { burnSent, CROSS_WALLET_TEXT } from "@/lib/wallet/crossFlow";
 import { nextPoll } from "@/lib/wallet/flow";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,8 @@ export default function VisitorPayment() {
   const { token } = useParams<{ token: string }>();
   const [p, setP] = React.useState<VisitorPaymentView | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  /** No payment behind this link: stop asking. */
+  const [missing, setMissing] = React.useState(false);
   const [config, setConfig] = React.useState<VisitorConfig | null>(null);
 
   React.useEffect(() => {
@@ -49,7 +51,12 @@ export default function VisitorPayment() {
         timer = setTimeout(poll, wait);
         return;
       } catch (err) {
-        if (!stopped) setError(errorMessage(err));
+        if (stopped) return;
+        if (err instanceof ApiError && err.status === 404) {
+          setMissing(true);
+          return;
+        }
+        setError(errorMessage(err));
       }
       timer = setTimeout(poll, 1200);
     }
@@ -65,22 +72,30 @@ export default function VisitorPayment() {
     <div className={cn("min-h-screen", night && "text-white")}>
       <Backdrop tone={night ? "night" : "day"} />
       <VisitorHeader wide />
-      <main className="mx-auto max-w-md px-5 pt-4 pb-16 lg:max-w-5xl lg:px-10" aria-live="polite">
+      <main className="mx-auto max-w-md px-5 pt-4 pb-16 lg:max-w-5xl lg:px-10">
+        {p && (
+          <p role="status" className="sr-only">
+            {spokenStatus(p)}
+          </p>
+        )}
         {!p ? (
-          error ? (
+          missing ? (
             <div className="enter space-y-3 pt-6">
               <h1 className="text-title leading-tight font-extrabold">This payment link doesn&apos;t open.</h1>
-              <p className="text-muted-foreground">
-                {error === "Payment not found"
-                  ? "It may have been cut short when it was copied. Check the link, or start a new payment."
-                  : error}
-              </p>
+              <p className="text-muted-foreground">It may have been cut short when it was copied. Check the link, or start a new payment.</p>
               <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
                 Pay from your wallet
               </Link>
             </div>
           ) : (
-            <Loader label="Loading payment" />
+            <>
+              <Loader label="Loading payment" />
+              {error && (
+                <Notice tone="error" className="mt-4">
+                  {error} Retrying.
+                </Notice>
+              )}
+            </>
           )
         ) : p.status === "settled" ? (
           <>
@@ -150,12 +165,10 @@ export default function VisitorPayment() {
         ) : (
           <div className="enter space-y-4 pt-6">
             <h1 className="text-title leading-tight font-extrabold">Not sent</h1>
-            {p.error && (
-              <Notice tone="error" className="flex items-start gap-2">
-                <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                {p.error}
-              </Notice>
-            )}
+            <Notice tone="error" className="flex items-start gap-2">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              {p.error ?? "The payment didn't go through. Nothing moved."}
+            </Notice>
             <Link href="/send" className="inline-flex min-h-11 items-center font-semibold text-primary-text underline underline-offset-4">
               Back to Pay
             </Link>
@@ -164,6 +177,15 @@ export default function VisitorPayment() {
       </main>
     </div>
   );
+}
+
+/** The page's one live sentence: where the payment is now. */
+function spokenStatus(p: VisitorPaymentView): string {
+  if (p.status === "settled") return `Paid. $${p.amount} sent.`;
+  if (p.cross) return p.cross.message;
+  if (p.status === "verifying") return "Sending. Settling on Arc.";
+  if (p.status === "awaiting_wallet") return "Waiting for your wallet.";
+  return "Not sent.";
 }
 
 /** Why the last send from this link didn't go through, while the person can still try again. */

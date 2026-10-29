@@ -68,7 +68,9 @@ function NewSplit() {
   const totalBps = percentLegs.reduce((sum, l) => sum + (percentToBps(l.value) ?? 0), 0);
   // Under 100% is fine: whatever isn't allocated simply isn't sent. Over 100% never is.
   const sharesOk = percentLegs.length === 0 || (totalBps > 0 && totalBps <= 10_000);
-  const complete = name.trim() !== "" && legs.every((l) => l.name.trim() && l.email.trim() && l.purpose.trim() && l.value.trim());
+  /** Empty required fields, so the disabled Review button can say what it waits for. */
+  const missing = (name.trim() ? 0 : 1) + legs.reduce((n, l) => n + [l.name, l.email, l.purpose, l.value].filter((v) => !v.trim()).length, 0);
+  const complete = missing === 0;
 
   function update(key: number, patch: Partial<LegDraft>) {
     setLegs((current) => current.map((l) => (l.key === key ? { ...l, ...patch } : l)));
@@ -145,8 +147,12 @@ function NewSplit() {
               transition={{ type: "spring", stiffness: 320, damping: 30 }}
               className="surface p-5"
             >
+              <legend className="sr-only">
+                Recipient {i + 1}
+                {leg.name.trim() && `, ${leg.name.trim()}`}
+              </legend>
               <div className="mb-4 flex items-center justify-between">
-                <legend className="float-left flex min-w-0 items-center gap-2.5 text-ui font-bold">
+                <div aria-hidden="true" className="flex min-w-0 items-center gap-2.5 text-ui font-bold">
                   <PurposeDot index={i} />
                   <span className="truncate">{leg.name || `Recipient ${i + 1}`}</span>
                   {leg.value && (
@@ -154,7 +160,7 @@ function NewSplit() {
                       {leg.kind === "percent" ? `${leg.value}%` : `$${leg.value}`}
                     </span>
                   )}
-                </legend>
+                </div>
                 {legs.length > 1 && (
                   <button
                     type="button"
@@ -219,9 +225,14 @@ function NewSplit() {
         )}
 
         {error && <Notice tone="error">{error}</Notice>}
-        <Button type="submit" className="w-full" busy={busy} disabled={!complete}>
+        <Button type="submit" className="w-full" busy={busy} disabled={!complete} aria-describedby={complete ? undefined : "split-missing"}>
           Review
         </Button>
+        {!complete && (
+          <p id="split-missing" className="text-center text-sm text-muted-foreground">
+            Fill in {missing === 1 ? "1 more field" : `${missing} more fields`} to review.
+          </p>
+        )}
       </form>
 
       <ConfirmDialog

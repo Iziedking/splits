@@ -8,7 +8,7 @@
 // playwright-core 1.63.0 finds its browsers in PLAYWRIGHT_BROWSERS_PATH. Docs read 2026-10-29:
 // https://playwright.dev/docs/docker and https://playwright.dev/docs/api/class-route#route-fulfill
 //
-//   node scripts/screenshots.mjs --base http://127.0.0.1:3918 --out ../evidence --widths 375,1280
+//   node scripts/screenshots.mjs --base http://127.0.0.1:3918 --out ../evidence --widths 320,375,1280
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright-core";
@@ -57,6 +57,19 @@ const SHOTS = [
   // The shared Sheet, open (WP3). The viewport shot shows it the way it sits on screen.
   { name: "sheet-add-money", path: "/profile", act: (p) => openSheet(p, "Add money"), fullPage: false },
   { name: "sheet-notifications", path: "/home", act: (p) => openSheet(p, /^Notifications/), fullPage: false },
+  // WP4: the many-people composer (its two-option control), and the states that used to collide.
+  { name: "pay-many", path: "/pay?mode=many" },
+  { name: "history-load-error", path: "/history", before: (p) => p.route("**/api/activity", (r) => r.abort("failed")) },
+  { name: "home-load-error", path: "/home", before: (p) => p.route("**/api/splits", (r) => r.abort("failed")) },
+  { name: "profile-rule-error", path: "/profile", before: (p) => p.route("**/api/splits", (r) => r.abort("failed")) },
+  {
+    name: "notifications-load-error",
+    path: "/home",
+    before: (p) => p.route("**/api/notifications", (r) => r.abort("failed")),
+    act: (p) => openSheet(p, /^Notifications/),
+    fullPage: false,
+  },
+  { name: "payment-not-found", path: "/payments/00000000-0000-0000-0000-000000000000" },
 ];
 
 async function openSheet(page, name) {

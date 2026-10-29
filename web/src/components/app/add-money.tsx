@@ -68,6 +68,8 @@ export function AddMoney({
   const tabs = React.useId();
   const [view, setView] = React.useState<DepositView | null>(null);
   const [settingUp, setSettingUp] = React.useState(false);
+  /** Setting the address up on the other chains failed; Arc works regardless, and the next poll retries. */
+  const [setupFailed, setSetupFailed] = React.useState(false);
   const [about, setAbout] = React.useState<string | null>(null);
   const [simulating, setSimulating] = React.useState(false);
 
@@ -83,8 +85,15 @@ export function AddMoney({
         setView(next);
         if (!next.ready && next.chains.length > 0) {
           setSettingUp(true);
-          const ready = await api<DepositView>("/api/deposits", { method: "POST" });
-          if (live) setView(ready);
+          try {
+            const ready = await api<DepositView>("/api/deposits", { method: "POST" });
+            if (live) {
+              setView(ready);
+              setSetupFailed(false);
+            }
+          } catch {
+            if (live) setSetupFailed(true);
+          }
         }
       } catch {
         // Keep the last view; the next poll tries again.
@@ -143,7 +152,7 @@ export function AddMoney({
 
       {tab === "evm" ? (
         <section {...tabPanelProps(tabs, "evm")} className="mt-5">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <AddressQr address={address} size={128} />
             <div className="min-w-0 space-y-2">
               <p className="text-xs font-semibold text-muted-foreground">Your address</p>
@@ -178,7 +187,7 @@ export function AddMoney({
             reach your balance.
           </Notice>
 
-          <DepositStatus view={view} settingUp={settingUp} />
+          <DepositStatus view={view} settingUp={settingUp} setupFailed={setupFailed} />
 
           {view?.preview && chains.length > 0 && (
             <button
@@ -229,12 +238,16 @@ export function AddMoney({
 }
 
 /** The latest deposit, in plain words; announced to screen readers as it changes. */
-function DepositStatus({ view, settingUp }: { view: DepositView | null; settingUp: boolean }) {
+function DepositStatus({ view, settingUp, setupFailed }: { view: DepositView | null; settingUp: boolean; setupFailed: boolean }) {
   const d = view?.latest;
   const recent = d ? Date.now() - new Date(d.at).getTime() < SHOW_READY_MS : false;
   let text = "Waiting for your deposit…";
   let tone: "wait" | "move" | "done" = "wait";
   if (settingUp) text = "Setting up your address…";
+  else if (setupFailed && !d) {
+    text = "Your address isn't ready on the other networks yet. Money sent on Arc still arrives. Trying again.";
+    tone = "move";
+  }
   else if (d && d.stuck) {
     text = `Your $${d.amount} is safe on ${d.chainName}. Moving it to Arc is taking longer than usual; Splits keeps trying.`;
     tone = "move";
@@ -249,7 +262,7 @@ function DepositStatus({ view, settingUp }: { view: DepositView | null; settingU
     tone = "done";
   }
   return (
-    <p role="status" aria-live="polite" className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
+    <p role="status" className="mt-4 flex items-start gap-2 border-t border-border pt-4 text-sm text-muted-foreground">
       {tone === "done" ? (
         <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
       ) : (
