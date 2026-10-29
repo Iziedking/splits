@@ -11,7 +11,7 @@ export function VisitorLimit({ message, signedIn }: { message: string; signedIn:
           <Link href="/signin" className="font-semibold underline underline-offset-4">
             Create an account to raise your limit
           </Link>
-          . Verified accounts will be able to send more once identity checks arrive.
+          . Accounts have a higher limit. Identity verification, which raises it further, is not available yet.
         </span>
       )}
     </Notice>

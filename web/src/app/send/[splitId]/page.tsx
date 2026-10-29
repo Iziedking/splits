@@ -1,6 +1,5 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import * as React from "react";
@@ -9,6 +8,7 @@ import { Loader } from "@/components/app/loader";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { CountUp } from "@/components/app/count-up";
 import { FeeLines } from "@/components/app/fee-lines";
+import { FundingToggle, type FundWith } from "@/components/app/funding-choice";
 import { Ribbon } from "@/components/app/ribbon";
 import { Button } from "@/components/ui/button";
 import { inputClass, Notice } from "@/components/ui/field";
@@ -50,10 +50,9 @@ function Send() {
   const { splitId } = useParams<{ splitId: string }>();
   const router = useRouter();
   const { me } = useMe();
-  const reduce = useReducedMotion();
   const [split, setSplit] = React.useState<SplitView | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [fundWith, setFundWith] = React.useState<"card" | "balance">("card");
+  const [fundWith, setFundWith] = React.useState<FundWith>("balance");
   const [currency, setCurrency] = React.useState<Currency>("GBP");
   const [value, setValue] = React.useState("");
   const [preview, setPreview] = React.useState<Preview | null>(null);
@@ -126,36 +125,18 @@ function Send() {
       <p className="mt-2 inline-flex rounded-full bg-white/70 px-3 py-1 text-sm font-semibold ring-1 ring-white">Through {split.name}</p>
 
       <div className="surface mt-6 p-5">
-        <div role="radiogroup" aria-label="Pay with" className="relative grid grid-cols-2 rounded-full bg-white/60 p-1 ring-1 ring-white">
-          {(["card", "balance"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              role="radio"
-              aria-checked={fundWith === option}
-              onClick={() => {
-                setFundWith(option);
-                setValue("");
-              }}
-              className={cn(
-                "relative z-10 min-h-11 rounded-full text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                fundWith === option ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {fundWith === option && (
-                <motion.span
-                  layoutId="fund-with"
-                  className="absolute inset-0 -z-10 rounded-full bg-primary"
-                  transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 420, damping: 34 }}
-                />
-              )}
-              {option === "card" ? "Card" : `Wallet, $${balance}`}
-            </button>
-          ))}
-        </div>
+        <FundingToggle
+          demoCard={me.demoCard}
+          value={fundWith}
+          onChange={(option) => {
+            setFundWith(option);
+            setValue("");
+          }}
+          balance={balance}
+        />
 
-        <label htmlFor="send-amount" className="mt-6 block text-sm font-semibold">
-          {fundWith === "card" ? "You send" : "Amount in USDC"}
+        <label htmlFor="send-amount" className={cn("block text-sm font-semibold", me.demoCard && "mt-6")}>
+          You send
         </label>
         <div className="mt-2 flex items-stretch gap-2">
           {fundWith === "card" && (
@@ -187,7 +168,8 @@ function Send() {
         </div>
         {fundWith === "card" && (
           <p className="mt-2 text-sm text-muted-foreground">
-            Simulated card: no card is charged. The USDC that arrives is {me.mode === "preview" ? "simulated in preview" : me.network === "arc-testnet" ? "Arc Testnet USDC" : "real"}.
+            Test card. No card is charged. The money that arrives is{" "}
+            {me.mode === "preview" ? "simulated in preview" : me.network === "arc-testnet" ? "test money on Arc Testnet" : "real"}.
           </p>
         )}
 
@@ -200,7 +182,7 @@ function Send() {
                   <CountUp value={preview.amount} />
                 </span>
               </div>
-              {preview.rate && <p className="text-right text-xs text-muted-foreground">1 {currency} = {preview.rate} USDC</p>}
+              {preview.rate && <p className="text-right text-xs text-muted-foreground">1 {currency} = ${preview.rate}</p>}
               {preview.whole && (
                 <p className="mt-1 text-right text-xs text-muted-foreground">
                   ${preview.amount} of ${preview.whole}. This split shares out less than 100%, so the rest isn&apos;t sent.
@@ -246,7 +228,7 @@ function Send() {
         {pending && (
           <div className="space-y-3 text-sm">
             <p className="figure text-4xl">${pending.transfer.amount}</p>
-            <p className="text-muted-foreground">USDC through {split.name}</p>
+            <p className="text-muted-foreground">Through {split.name}</p>
             <FeeLines fee={pending.transfer.fee} percent={pending.transfer.feePercent} total={pending.transfer.total} />
             <Ribbon parts={pending.transfer.legs.map((l) => ({ label: l.name, weight: Number(l.amount) }))} />
             <ul className="space-y-1.5">

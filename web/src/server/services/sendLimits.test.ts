@@ -49,7 +49,7 @@ describe("send limit", () => {
     const { ctx } = await testCtx();
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 500n * USDC))).toBe("OK");
     expect(await code(checkSendLimit(ctx.db, ctx, { address: WALLET }, "visitor", 500n * USDC + 1n))).toBe(
-      "SEND_LIMIT: Payments over 500.00 USDC, including the Splits fee, need identity verification, which is coming soon. Lower the total to continue.",
+      "SEND_LIMIT: Payments over $500.00, including the Splits fee, need identity verification, which Splits does not offer yet. Lower the total to continue.",
     );
     expect(await code(checkSendLimit(ctx.db, ctx, { userId: randomUUID() }, "account", 501n * USDC))).toMatch(/^SEND_LIMIT/);
   });

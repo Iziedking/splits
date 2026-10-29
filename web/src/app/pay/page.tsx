@@ -9,6 +9,7 @@ import { AppFrame, useMe } from "@/components/app/app-frame";
 import { AgentComposer } from "@/components/app/agent-composer";
 import { ConfirmDialog, type Proof } from "@/components/app/confirm-dialog";
 import { FeeLines } from "@/components/app/fee-lines";
+import { FundingChoice, type FundWith } from "@/components/app/funding-choice";
 import { PayoutComposer } from "@/components/app/payout-composer";
 import { ReviewTable } from "@/components/app/review-table";
 import { Ribbon } from "@/components/app/ribbon";
@@ -48,7 +49,8 @@ function Pay() {
   const [mode, setMode] = React.useState<Mode>("one");
   const [label, setLabel] = React.useState("payment");
   const [check, setCheck] = React.useState<PayoutCheck | null>(null);
-  const [fundWith, setFundWith] = React.useState<"card" | "balance">("card");
+  const [fundWith, setFundWith] = React.useState<FundWith>("balance");
+  /** Came here for the test card (?fund=card). Only matters where the card is on. */
   const [cardChosen, setCardChosen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -82,12 +84,15 @@ function Pay() {
   const balance = me.wallets.find((w) => w.kind === "main")?.balance ?? "0.00";
   const charge = check?.charge ?? check?.total ?? null;
   const canUseBalance = charge ? cents(balance) >= cents(charge) : false;
+  const demoCard = me.demoCard;
 
-  // Default to the balance when it covers the total, unless the person came here for the card.
+  // The balance pays. The test card takes over only where it is switched on, when the person came
+  // for it or the balance falls short.
   React.useEffect(() => {
     if (!check?.ready) return;
-    setFundWith(canUseBalance && !cardChosen ? "balance" : "card");
-  }, [check, canUseBalance, cardChosen]);
+    setFundWith(demoCard && (cardChosen || !canUseBalance) ? "card" : "balance");
+  }, [check, canUseBalance, cardChosen, demoCard]);
+  const canPay = fundWith === "card" || canUseBalance;
 
   function onChecked(next: PayoutCheck | null) {
     setCheck(next);
@@ -215,10 +220,10 @@ function Pay() {
                 </button>
               ))}
             </div>
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground" aria-disabled="true">
+            <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground">
               <Landmark className="h-4 w-4" aria-hidden="true" />
               Bank or mobile money
-              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Coming soon</span>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold">Not available yet</span>
             </p>
           </>
         )}
@@ -260,32 +265,18 @@ function Pay() {
             {check.ready ? (
               <div className="surface space-y-4 p-5">
                 {check.fee && check.charge && <FeeLines fee={check.fee} percent={check.feePercent} total={check.charge} />}
-                <div role="radiogroup" aria-label="Pay from" className="grid grid-cols-2 gap-2">
-                  {(["balance", "card"] as const).map((option) => {
-                    const disabled = option === "balance" && !canUseBalance;
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        role="radio"
-                        aria-checked={fundWith === option}
-                        disabled={disabled}
-                        onClick={() => setFundWith(option)}
-                        className={cn(
-                          "min-h-16 rounded-2xl px-4 py-3 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50",
-                          fundWith === option ? "bg-white ring-2 ring-primary" : "bg-white/60 ring-1 ring-white hover:bg-white",
-                        )}
-                      >
-                        <span className="block font-semibold">{option === "balance" ? "Balance" : "Demo card"}</span>
-                        <span className={cn("block", "text-muted-foreground")}>
-                          {option === "balance" ? (disabled ? `$${balance}, add money first` : `$${balance}`) : "Simulated card, small daily limit"}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <FundingChoice demoCard={demoCard} value={fundWith} onChange={setFundWith} balance={balance} balanceCovers={canUseBalance} />
+                {!canPay && (
+                  <Notice>
+                    Your balance is ${balance} and this payment is ${charge}.{" "}
+                    <Link href="/home" className="font-semibold underline underline-offset-4">
+                      Add money
+                    </Link>{" "}
+                    first.
+                  </Notice>
+                )}
                 {error && (limited ? <VisitorLimit message={error} signedIn /> : <Notice tone="error">{error}</Notice>)}
-                <Button className="w-full" busy={busy} onClick={() => void pay()}>
+                <Button className="w-full" busy={busy} disabled={!canPay} onClick={() => void pay()}>
                   {payLabel}
                 </Button>
               </div>

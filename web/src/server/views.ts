@@ -22,6 +22,22 @@ export function userView(user: User, hasPasskey: boolean) {
   return { id: user.id, email: user.email, hasPin: Boolean(user.pinHash), hasPasskey, emailAlerts: user.emailAlerts };
 }
 
+/**
+ * GET /api/me: the signed-in person, their wallets and what this server lets them do. `demoCard`
+ * is the test card (FUNDING_ENABLED): off on live mainnet, so no pay screen offers a card there.
+ */
+export function meView(ctx: Ctx, user: User, hasPasskey: boolean, wallets: (Wallet & { balance?: bigint })[]) {
+  return {
+    mode: ctx.mode,
+    network: ctx.network,
+    agent: ctx.agent !== null,
+    earn: ctx.earn !== null,
+    demoCard: ctx.limits.fundingEnabled,
+    user: userView(user, hasPasskey),
+    wallets: wallets.map((w) => walletView(ctx, w)),
+  };
+}
+
 export function walletView(ctx: Ctx, w: Wallet & { balance?: bigint }) {
   return {
     id: w.id,

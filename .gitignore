@@ -15,3 +15,6 @@ docs/demo-film/
 Splits — Hackathon Pitch Document.pdf
 # Local todo list (kept out of git)
 todo/
+# Internal audit reports and implementation briefs stay local.
+docs/audits/2026-10-29-fintech-face-*
+docs/audits/evidence/

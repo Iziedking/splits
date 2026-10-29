@@ -11,14 +11,15 @@ import { cn } from "@/lib/utils";
  * divides into three panes, the amounts count up and each part lands with its receipt. Then quiet
  * sections on the app's own mist backdrop, every claim about the live product as it works today,
  * and the roadmap marked "Planned". Motion follows the scroll only; reduced motion shows the end
- * state and turns the drifting haze off.
+ * state and turns the drifting haze off. The page speaks money, not rails: the network, the
+ * contract and the explorer live on About under "How your money stays safe" (TECHNICAL).
  */
 
-const ROUTER = "0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2";
-const EXPLORER = `https://explorer.arc.io/address/${ROUTER}?tab=contract`;
+/** About's safety section, where the network and contract facts are explained. */
+const TECHNICAL = "/about#safe-heading";
 const LIMIT = 500;
 
-/** The scene's payment: within the live 500 USDC limit, split the way the app would. */
+/** The scene's payment: within the live $500 limit, split the way the app would. */
 const PANES = [
   { who: "Landlord", what: "Rent", share: 50, cents: 22500, color: "var(--purpose-1)" },
   { who: "School", what: "School fees", share: 30, cents: 13500, color: "var(--purpose-2)" },
@@ -85,7 +86,7 @@ function Nav({ signedIn }: { signedIn: boolean }) {
         <nav aria-label="Sections" className="hidden items-center gap-7 text-[15px] font-semibold text-muted-foreground md:flex">
           <a href="#how" className="hover:text-foreground">How it works</a>
           <a href="#try" className="hover:text-foreground">Try a split</a>
-          <a href="#arc" className="hover:text-foreground">Built on Arc</a>
+          <a href="#safe" className="hover:text-foreground">Why it&apos;s safe</a>
           <a href="#next" className="hover:text-foreground">Roadmap</a>
         </nav>
         <Link
@@ -142,7 +143,7 @@ function Scene({ signedIn }: { signedIn: boolean }) {
       whole.style.opacity = (1 - sm(0.1, 0.2, p)).toFixed(3);
       frame.style.opacity = (1 - sm(0.08, 0.2, p)).toFixed(3);
       hint.style.opacity = (1 - sm(0, 0.05, p)).toFixed(3);
-      const s = p < 0.12 ? "One payment, ready to send" : p < 0.86 ? "Dividing it on Arc, in one transaction" : "Landed. Three people paid, three receipts.";
+      const s = p < 0.12 ? "One payment, ready to send" : p < 0.86 ? "Dividing it, all at once" : "Landed. Three people paid, three receipts.";
       if (s !== last) { status.textContent = s; last = s; }
     }
     function progress() {
@@ -173,13 +174,13 @@ function Scene({ signedIn }: { signedIn: boolean }) {
         <div className="mx-auto w-[min(1120px,calc(100%-2rem))]">
           <div className="flex max-w-[1000px] flex-col gap-[clamp(10px,2vh,16px)]">
             <span className="inline-flex w-fit items-center gap-2 rounded-full bg-accent px-3 py-1 text-[13px] font-bold text-primary-deep">
-              <span className="h-2 w-2 rounded-full bg-primary" /> Live on Arc mainnet
+              <span className="h-2 w-2 rounded-full bg-primary" /> Live now
             </span>
             <h1 id="hero-title" className="text-[clamp(2.25rem,min(6.2vw,8.5vh),4rem)] leading-[1.06] font-extrabold tracking-[-0.02em] text-balance">
               Send once. It lands divided.
             </h1>
             <p className="max-w-[56ch] text-[clamp(1rem,2vw,1.1875rem)] text-muted-foreground">
-              One USDC payment on Arc, divided between everyone it is for: rent to the landlord, school fees to the school, upkeep to family. Each part lands with its purpose, in a single transaction, and the people you pay only need an email.
+              One payment, divided between everyone it is for: rent to the landlord, school fees to the school, upkeep to family. Each part lands labelled. The people you pay only need an email.
             </p>
             <div className="mt-2 flex flex-wrap gap-3">
               <CtaLink href={signedIn ? "/home" : "/signin"}>
@@ -194,7 +195,7 @@ function Scene({ signedIn }: { signedIn: boolean }) {
 
         <div className="mx-auto w-[min(1120px,calc(100%-2rem))]">
           <p className="sr-only">
-            One payment of $450.00 in USDC splits into $225.00 for the landlord&apos;s rent, $135.00 for school fees and $90.00 for upkeep, in one transaction on Arc.
+            One payment of $450.00 splits into $225.00 for the landlord&apos;s rent, $135.00 for school fees and $90.00 for upkeep, all at once.
           </p>
           <div aria-hidden="true" className="w-[min(900px,100%)]">
             <div className="relative mt-5">
@@ -229,7 +230,7 @@ function Scene({ signedIn }: { signedIn: boolean }) {
                 <div className="font-bold text-muted-foreground">Monthly support home</div>
                 <div className="text-[clamp(2rem,6vw,3.5rem)] leading-[1.05] font-extrabold tracking-[-0.03em] tabular-nums max-sm:text-[2rem]">
                   $450.00
-                  <span className="block text-[0.5em] font-bold tracking-[-0.01em] text-muted-foreground">USDC, sent once</span>
+                  <span className="block text-[0.5em] font-bold tracking-[-0.01em] text-muted-foreground">Sent once</span>
                 </div>
               </div>
             </div>
@@ -259,10 +260,10 @@ const H2 = ({ children }: { children: React.ReactNode }) => (
 const Lede = ({ children }: { children: React.ReactNode }) => <p className="mt-4 max-w-[58ch] text-[17px] text-muted-foreground">{children}</p>;
 
 const STEPS = [
-  { title: "Add USDC", body: "Hold it in your Splits balance, pay from your own wallet, or send it from Base, Arbitrum or Optimism. It moves to Arc by itself." },
-  { title: "Say who, and what for", body: "An email or Arc address, an amount or a share, and a purpose for each part. Or paste a messy list and let Splits fill it in." },
+  { title: "Add money", body: "Add money to your Splits balance, or pay from a wallet you already have." },
+  { title: "Say who, and what for", body: "An email, an amount or a share, and a purpose for each part. Or paste a messy list and let Splits fill it in." },
   { title: "Approve once", body: "With your PIN, Face ID or fingerprint, or in your own wallet. You see each part, the fee and the total first." },
-  { title: "It lands divided", body: "One transaction on Arc pays everyone, or nobody. Each person gets a receipt for their part." },
+  { title: "It lands divided", body: "Everyone is paid at once, or nobody is. Each person gets a receipt for their part." },
 ];
 
 /** "Try a split": three shares of one amount, worked out the way the app does it. */
@@ -282,7 +283,7 @@ function Calculator() {
     { name: "School", what: "School fees", pct: b, cents: pb, color: "var(--purpose-2)" },
     { name: "Mum", what: "Upkeep", pct: c, cents: pc, color: "var(--purpose-3)" },
   ];
-  const error = !Number.isFinite(value) || value < 1 ? "Enter at least $1." : value > LIMIT ? `Splits sends up to ${LIMIT} USDC per payment for now.` : "";
+  const error = !Number.isFinite(value) || value < 1 ? "Enter at least $1." : value > LIMIT ? `Splits sends up to $${LIMIT} per payment for now.` : "";
 
   return (
     <div className={cn(glass, "flex min-w-0 flex-col gap-5 rounded-3xl p-[clamp(18px,3vw,28px)]")}>
@@ -301,7 +302,6 @@ function Calculator() {
             onChange={(e) => setAmount(e.target.value)}
             className="min-w-0 flex-1 bg-transparent py-3.5 text-[28px] leading-none font-extrabold tabular-nums outline-none"
           />
-          <span className="text-sm font-bold text-muted-foreground">USDC</span>
         </div>
         <p role="status" className="mt-1.5 min-h-[1.2em] text-sm font-medium text-destructive">{error}</p>
       </div>
@@ -345,20 +345,21 @@ function Calculator() {
 const WAYS = [
   { title: "Pay without an account", body: "Open mysplits.xyz/send and pay from your own wallet. Keep a private link to follow the payment." },
   { title: "Describe it, Splits fills it in", body: "Paste a messy note or drop in up to three screenshots. Splits drafts the list; you check every line before anything moves." },
-  { title: "Their email is the wallet", body: "People you pay sign in with a code sent to their email. No app to install, no seed phrase, no password." },
-  { title: "A receipt for everyone", body: "Each person sees their part and what it was for, checked against the Arc transaction before it says Landed." },
+  { title: "Their email is enough", body: "People you pay sign in with a code sent to their email. Nothing to install." },
+  { title: "A receipt for everyone", body: "Each person sees their part and what it was for, checked before it says Landed." },
 ];
 
-const ARC = [
-  { title: "Fees in USDC", body: "Gas on Arc is paid in USDC, so costs are small and in dollars. Paying ten people costs about a cent." },
-  { title: "Final when it lands", body: "A payment is final once it is included. Senders see Landed seconds after they approve." },
-  { title: "A contract, not a promise", body: "Dividing one payment between many people, each part with its purpose, is contract logic on Arc." },
+/** Why it's safe. The technical facts behind these (network, contract, explorer) are on About. */
+const SAFE = [
+  { title: "Fees in dollars", body: "Paying ten people costs about a cent. You see the fee and the total before you approve." },
+  { title: "Final when it lands", body: "Once it lands, it is done. Senders see Landed seconds after they approve." },
+  { title: "Splits never holds your money", body: "It goes straight from you to each person, and nothing moves until you approve." },
 ];
 
 const NEXT = [
-  { title: "Pay by card or bank", body: "Card, Apple Pay, Google Pay or bank transfer through Circle's onramp, landing as USDC ready to split.", color: "var(--purpose-1)" },
+  { title: "Add money by card or bank", body: "Debit card, Apple Pay, Google Pay or bank transfer, through a regulated payment partner. It lands in your Splits balance, ready to split.", color: "var(--purpose-1)" },
   { title: "Cash out at home", body: "Turn a part into naira in a bank account or mobile money in Nigeria, through a licensed payout partner.", color: "var(--purpose-2)" },
-  { title: "An earning pocket", body: "Optional yield on money you leave in Splits, with Arc Earn Kit. Off by default.", color: "var(--purpose-3)" },
+  { title: "An earning pocket", body: "Optional earnings on money you leave in Splits. Off by default.", color: "var(--purpose-3)" },
   { title: "Splits for developers and agents", body: "A developer API and an MCP server, so fintech apps and AI agents can send divided payments too.", color: "var(--purpose-5)" },
 ];
 
@@ -380,7 +381,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
 
         <Section id="how">
           <H2>From your balance to everyone&apos;s, in one pass</H2>
-          <Lede>Splits checks the list before anything moves, then pays every part in the same transaction on Arc.</Lede>
+          <Lede>Splits checks the list before anything moves, then pays every part at once.</Lede>
           <ol className="mt-12 grid grid-cols-4 gap-4 max-[860px]:grid-cols-2 max-sm:grid-cols-1">
             {STEPS.map((s, i) => (
               <li key={s.title} className={cn(glass, "flex min-w-0 flex-col gap-2.5 rounded-3xl p-[22px]")}>
@@ -421,7 +422,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
             </div>
             <div className="order-2 max-[860px]:order-1">
               <H2>Money you receive can divide itself</H2>
-              <Lede>Set a rule once, like 30% of everything into savings. It runs by itself whenever money arrives, deposits from other chains included.</Lede>
+              <Lede>Set a rule once, like 30% of everything into savings. It runs by itself whenever money arrives.</Lede>
             </div>
           </div>
         </Section>
@@ -438,11 +439,11 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           </div>
         </Section>
 
-        <Section id="arc">
-          <H2>Built on Arc</H2>
-          <Lede>Arc is Circle&apos;s network with USDC as its gas. These are the parts that matter for divided payments.</Lede>
+        <Section id="safe">
+          <H2>Why it&apos;s safe</H2>
+          <Lede>Splits never holds your money, and every payment is checked before anyone is told it landed.</Lede>
           <div className="mt-12 grid grid-cols-3 gap-4 max-[860px]:grid-cols-1">
-            {ARC.map((x) => (
+            {SAFE.map((x) => (
               <div key={x.title} className={cn(glass, "min-w-0 rounded-3xl p-6")}>
                 <h3 className="text-[19px] font-extrabold tracking-[-0.01em]">{x.title}</h3>
                 <p className="mt-2 text-[15px] text-muted-foreground">{x.body}</p>
@@ -451,17 +452,17 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           </div>
           <div className={cn(glass, "mt-4 flex flex-wrap items-center justify-between gap-4 rounded-3xl p-6")}>
             <p className="max-w-[62ch] text-[15px] text-muted-foreground">
-              <b className="text-foreground">The contract never holds money.</b> USDC goes straight from the payer to each person. It has no owner and no admin key, and it is verified on Sourcify and the Arc explorer.
+              <b className="text-foreground">Checked before it says Landed.</b> Every payment needs your approval, and Splits checks the result before it tells anyone the money arrived. How that works, and the public code behind it, is on the About page.
             </p>
-            <a href={EXPLORER} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-[15px] font-bold text-primary-deep underline-offset-4 hover:underline">
-              See the contract <ArrowRight aria-hidden="true" className="h-4 w-4" />
-            </a>
+            <Link href={TECHNICAL} className="inline-flex items-center gap-1.5 text-[15px] font-bold text-primary-deep underline-offset-4 hover:underline">
+              Technical details <ArrowRight aria-hidden="true" className="h-4 w-4" />
+            </Link>
           </div>
         </Section>
 
         <Section id="next">
           <H2>What comes next</H2>
-          <Lede>Splits today is a working proof of concept on mainnet. These are planned, not live yet.</Lede>
+          <Lede>Splits is live, with low limits while it grows. These are next, not live yet.</Lede>
           <div className="mt-12 grid grid-cols-4 gap-4 max-[1000px]:grid-cols-2 max-sm:grid-cols-1">
             {NEXT.map((n, i) => (
               <div key={n.title} className="min-w-0 rounded-3xl border border-border bg-card p-6" style={{ "--c": n.color } as React.CSSProperties}>
@@ -480,7 +481,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           <div className={cn(glass, "grid grid-cols-2 items-center gap-[clamp(20px,4vw,48px)] rounded-[28px] p-[clamp(24px,5vw,56px)] max-[860px]:grid-cols-1")}>
             <div>
               <H2>Send your first split</H2>
-              <Lede>Live on Arc mainnet. Up to {LIMIT} USDC per payment while identity verification is built.</Lede>
+              <Lede>Live now. Up to ${LIMIT} per payment while identity verification is built.</Lede>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
               <CtaLink href={signedIn ? "/home" : "/signin"}>
@@ -502,7 +503,7 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
           </div>
           <nav aria-label="Footer" className="flex flex-wrap gap-5 font-semibold">
             <Link href="/about" className="hover:text-foreground">About</Link>
-            <a href={EXPLORER} target="_blank" rel="noreferrer" className="hover:text-foreground">Contract</a>
+            <Link href={TECHNICAL} className="hover:text-foreground">Technical details</Link>
           </nav>
         </div>
       </footer>

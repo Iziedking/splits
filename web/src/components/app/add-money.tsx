@@ -239,7 +239,7 @@ export function AddMoney({
           </section>
         ) : (
           <section id="panel-solana" role="tabpanel" aria-labelledby="tab-solana" className="mt-6">
-            <p className="font-semibold">Solana is coming soon</p>
+            <p className="font-semibold">Solana is not supported yet</p>
             <p className="mt-1 text-sm text-muted-foreground">
               For now, send USDC from an EVM chain like Base or Arbitrum. It arrives in your balance by itself.
             </p>

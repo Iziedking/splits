@@ -1,4 +1,4 @@
-import type { actionView, earnMoveView, receiptView, splitView, transferView, userView, visitorPaymentView, walletView } from "@/server/views";
+import type { actionView, earnMoveView, meView, receiptView, splitView, transferView, userView, visitorPaymentView, walletView } from "@/server/views";
 import type { EarnStatus } from "@/server/services/earn";
 
 /** Response shapes, taken from the server's own view functions so the two can't drift apart. */
@@ -45,7 +45,8 @@ import type { ReceivedItem } from "@/server/services/activity";
 export type { ReceivedItem };
 export type { CheckLine, PayoutCheck } from "@/server/services/payouts";
 export type ActivityView = { sent: TransferView[]; received: ReceivedItem[]; receivedError: string | null };
-export type Me = { mode: "preview" | "live"; network: "arc" | "arc-testnet"; agent: boolean; earn: boolean; user: UserView; wallets: WalletView[] };
+/** GET /api/me. `demoCard` is true only where the test card is switched on (never live mainnet). */
+export type Me = ReturnType<typeof meView>;
 export type { ComposerFill } from "@/server/agent/draft";
 import type { depositView } from "@/server/services/depositView";
 import type { listNotifications } from "@/server/services/notifications";

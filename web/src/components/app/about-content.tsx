@@ -85,8 +85,8 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
         <Topic id="how-heading" title="How Splits fixes it">
           <p>You set it up once: who gets paid, how much and what for. Then every payment you send lands already divided.</p>
           <p>
-            Splits pays everyone in a single transaction on Arc, a network that settles in seconds and charges its fees in
-            dollars. Either everyone is paid or nobody is, so a payment never lands half done.
+            Everyone is paid at once, in seconds, and the fee is in dollars. Either everyone is paid or nobody is, so a
+            payment never lands half done.
           </p>
           <p>
             Your family doesn&apos;t need an app or a crypto wallet. Their email address is their wallet, and the money is
@@ -111,14 +111,19 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
 
         <Topic id="safe-heading" title="How your money stays safe">
           <p>
-            Payments go through a small contract on Arc that never holds money and has no owner who could redirect it.{" "}
+            Splits runs on Arc, a payment network built by Circle, the company that issues USDC. Fees on Arc are paid in
+            dollars, so paying ten people costs about a cent.
+          </p>
+          <p>
+            Payments go through a small contract on Arc that never holds money. The money goes straight from the payer to
+            each person. The contract has no owner and no admin key, so nobody at Splits could redirect a payment.{" "}
             <a
               href="https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2?tab=contract"
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-primary underline underline-offset-4"
             >
-              Its code is public and verified.
+              Its code is public and verified on Sourcify and the Arc explorer.
             </a>
           </p>
           <p>
@@ -127,15 +132,16 @@ export function AboutContent({ top, cta }: { top?: React.ReactNode; cta?: React.
           </p>
           <p className="text-muted-foreground">
             Accounts made with an email use wallets that Splits manages for you through Circle. If you&apos;d rather keep
-            your own keys, pay from your own wallet. While we add identity checks, nobody can send more than 500 USDC a
-            day.
+            your own keys, pay from your own wallet.
           </p>
+          <p className="text-muted-foreground">While we add identity checks, nobody can send more than $500 a day.</p>
         </Topic>
 
-        <Topic id="next-heading" title="Coming next">
+        <Topic id="next-heading" title="What comes next">
           <p>
-            Paying by card, Apple Pay, Google Pay or bank transfer. Cashing out to a bank account or mobile money in
-            Nigeria. And an optional pocket that earns on money you leave in Splits, which you can switch off any time.
+            Adding money by debit card, Apple Pay, Google Pay or bank transfer, through a regulated payment partner.
+            Cashing out to a bank account or mobile money in Nigeria. An optional pocket that earns on money you leave in
+            Splits, off by default. None of these is live yet.
           </p>
         </Topic>
       </div>

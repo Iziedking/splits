@@ -53,7 +53,7 @@ export async function checkSendLimit(db: Ctx["db"] | Tx, ctx: Ctx, sender: Sende
   if (amount > perPayment) {
     throw forbidden(
       "SEND_LIMIT",
-      `Payments over ${formatUsdc(perPayment)} USDC, including the Splits fee, need identity verification, which is coming soon. Lower the total to continue.`,
+      `Payments over $${formatUsdc(perPayment)}, including the Splits fee, need identity verification, which Splits does not offer yet. Lower the total to continue.`,
     );
   }
   const now = ctx.now();

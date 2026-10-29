@@ -32,6 +32,9 @@ type Pending = { actionId: string; amount: string; kind: "in" | "out" };
 function Earn() {
   const { me, refresh } = useMe();
   const [data, setData] = React.useState<{ status: EarnStatus; moves: EarnMoveView[] } | null>(null);
+  /** Why the pocket could not be read. Cleared by the next successful read. */
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  /** Why a move or the switch-on failed. Separate, so a later poll does not hide it. */
   const [error, setError] = React.useState<string | null>(null);
   const [kind, setKind] = React.useState<"in" | "out">("in");
   const [amount, setAmount] = React.useState("");
@@ -41,8 +44,9 @@ function Earn() {
   const load = React.useCallback(async () => {
     try {
       setData(await api("/api/earn"));
+      setLoadError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      setLoadError(errorMessage(err));
     }
   }, []);
 
@@ -87,7 +91,26 @@ function Earn() {
     await Promise.all([load(), refresh()]);
   }
 
-  if (!data) return <div aria-busy="true" className="mt-6 h-40 rounded-[22px] bg-muted motion-safe:animate-pulse" />;
+  // Until the first read lands: a skeleton, or the reason it failed with a way to try again. The
+  // error must never hide behind the skeleton; the poll keeps trying either way.
+  if (!data) {
+    return (
+      <div className="enter space-y-6 pt-4">
+        <BackLink fallback="/home" />
+        <h1 className="text-[2rem] leading-tight font-extrabold">Earning pocket</h1>
+        {loadError ? (
+          <div className="space-y-4">
+            <Notice tone="error">{loadError}</Notice>
+            <Button variant="secondary" className="w-full" onClick={() => void load()}>
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <div aria-busy="true" aria-label="Loading your Earning pocket" className="h-40 rounded-[22px] bg-muted motion-safe:animate-pulse" />
+        )}
+      </div>
+    );
+  }
   const { status, moves } = data;
 
   return (

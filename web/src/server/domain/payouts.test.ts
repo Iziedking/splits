@@ -57,9 +57,9 @@ describe("parsePayoutLines", () => {
     expect(recipientKey(e1!.target!)).toBe(recipientKey(e2!.target!));
   });
 
-  it("says usernames are coming instead of calling them bad emails", () => {
+  it("says usernames are not supported instead of calling them bad emails", () => {
     const [line] = parsePayoutLines("@tunde, 5");
-    expect(line!.problem).toBe("Usernames are coming soon. Use an email or wallet address.");
+    expect(line!.problem).toBe("Usernames are not supported yet. Use an email or wallet address.");
   });
 });
 
