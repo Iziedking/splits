@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { Landing } from "@/components/landing/landing";
-import { helpHref, reference, supportMailto } from "@/lib/support";
+import { HELP_ANSWERS, helpHref, reference, supportMailto } from "@/lib/support";
 import { HelpLink } from "./help-link";
 import { LegalPage } from "./legal-page";
 
@@ -37,5 +37,11 @@ describe("legal pages", () => {
   it("are linked from the landing footer", () => {
     const out = renderToStaticMarkup(<Landing />);
     for (const href of ["/help", "/legal/terms", "/legal/privacy"]) expect(out).toContain(`href="${href}"`);
+  });
+});
+
+describe("quick answers", () => {
+  it("cover a sign-in code that didn't arrive", () => {
+    expect(HELP_ANSWERS.map((a) => a.q)).toContain("Didn't get your sign-in code?");
   });
 });

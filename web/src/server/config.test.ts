@@ -10,6 +10,17 @@ describe("config", () => {
     expect(() => parseConfig({ MAX_PAYOUT_RECIPIENTS: "0" })).toThrow("MAX_PAYOUT_RECIPIENTS");
   });
 
+  it("support settings default sensibly", () => {
+    const c = parseConfig({});
+    expect(c.SUPPORT_INBOX).toBe("support@mysplits.xyz");
+    expect(c.SUPPORT_CHATS_PER_DAY).toBe(5);
+    expect(c.SUPPORT_CALLS_GLOBAL_PER_HOUR).toBe(300);
+    expect(c.SUPPORT_CALLS_GLOBAL_PER_DAY).toBe(1500);
+    expect(c.SUPPORT_MODEL_ID).toBeUndefined();
+    expect(parseConfig({ AGENT_MODEL_ID: "agent-model" }).SUPPORT_MODEL_ID).toBe("agent-model");
+    expect(parseConfig({ AGENT_MODEL_ID: "agent-model", SUPPORT_MODEL_ID: "support-model" }).SUPPORT_MODEL_ID).toBe("support-model");
+  });
+
   it("defaults to preview with Arc mainnet values", () => {
     const c = parseConfig({});
     expect(c.SPLITS_MODE).toBe("preview");

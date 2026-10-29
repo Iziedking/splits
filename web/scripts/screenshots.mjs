@@ -94,6 +94,20 @@ const SHOTS = [
   { name: "help-with-ref", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, vocab: true },
   { name: "terms", path: "/legal/terms", signedIn: false, vocab: true },
   { name: "privacy", path: "/legal/privacy", vocab: true },
+  // Support agent: an answer, an action line, and the hand-over, all checked for crypto words.
+  { name: "chat-answer", path: "/help", act: (p) => chatSay(p, "What happened to my last payment?"), fullPage: false, vocab: true },
+  { name: "chat-action", path: (c) => `/help?ref=${c.paymentId.replace(/-/g, "").slice(0, 12).toUpperCase()}`, act: (p) => chatSay(p, "Send my receipt again"), fullPage: false, vocab: true },
+  {
+    name: "chat-handed-over",
+    path: "/help",
+    act: async (p) => {
+      await openSheet(p, "Chat with us");
+      await p.getByRole("button", { name: "Talk to a person" }).click();
+      await p.getByText("within 24 hours").waitFor();
+    },
+    fullPage: false,
+    vocab: true,
+  },
   // WP6: the rest of the signed-in screens, also checked for crypto words.
   { name: "split-new", path: "/splits/new", vocab: true },
   { name: "rule-new", path: "/rules/new", vocab: true },
@@ -192,6 +206,14 @@ async function vocabulary(page) {
 async function openSheet(page, name) {
   await page.getByRole("button", { name }).click();
   await page.locator("dialog[open]").waitFor();
+}
+
+/** Opens the support chat, sends one message and waits for the agent's answer. */
+async function chatSay(page, text) {
+  await openSheet(page, "Chat with us");
+  await page.getByLabel("Your message").fill(text);
+  await page.keyboard.press("Enter");
+  await page.locator('[role="log"] li').nth(1).waitFor();
 }
 
 async function main() {

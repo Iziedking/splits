@@ -91,6 +91,17 @@ try {
   assert.equal(agentRefused.data.error.code, "IMAGE_TOO_BIG");
   step("agentic mode drafts a list and refuses an oversize screenshot");
 
+  assert.equal((await call("POST", "/api/support/chat", { text: "hello" }, { withCookie: false })).status, 401);
+  const chat = await call("POST", "/api/support/chat", { text: "what happened to my payment?" });
+  assert.equal(chat.status, 200, JSON.stringify(chat.data));
+  assert.deepEqual(chat.data.messages.map((m) => m.role), ["person", "agent"]);
+  assert.equal((await call("POST", "/api/support/chat", { text: "hi", person: true })).status, 400);
+  const handed = await call("POST", "/api/support/chat", { chatId: chat.data.id, person: true });
+  assert.equal(handed.data.status, "handed_over");
+  assert.equal((await call("GET", `/api/support/chat/${chat.data.id}`)).data.status, "handed_over");
+  assert.equal((await call("GET", "/api/support/chat/not-a-chat")).status, 404);
+  step("support chat answers, hands over once, and needs a session");
+
 
   const draft = await call("POST", "/api/splits", {
     name: "Family in Lagos",

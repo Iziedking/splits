@@ -16,3 +16,23 @@ export function supportMailto(email: string, ref: string | null) {
   const body = ref ? `Payment reference: ${ref}\n\nWhat happened:\n` : "What happened:\n";
   return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
+
+/** The Help page's quick answers. */
+export const HELP_ANSWERS = [
+  {
+    q: "A payment says Not sent",
+    a: "Nobody was paid and nothing left your balance for it. You can check the list and pay again.",
+  },
+  {
+    q: "Someone says they didn't get their part",
+    a: "Open the payment and share their receipt. It shows their part, what it was for and when it was paid. Money sent to an email waits in their Splits balance until they sign in with that email.",
+  },
+  {
+    q: "A payment is taking longer than usual",
+    a: "Most payments land within a few seconds. The payment page updates by itself, and Splits keeps trying. Paying again before it finishes could pay everyone twice.",
+  },
+  {
+    q: "Didn't get your sign-in code?",
+    a: "Go back on the sign-in screen and enter your email again for a new code. Codes expire after 10 minutes, so use the newest one, and check your spam folder.",
+  },
+];

@@ -105,6 +105,14 @@ const schema = z
     // The daily ceiling on model calls across everyone, so a full hourly cap can't run all day.
     AGENT_DRAFTS_GLOBAL_PER_DAY: z.coerce.number().int().min(1).default(1500),
 
+    // The support agent on the Help page. Its model falls back to AGENT_MODEL_ID; hand-overs go to
+    // SUPPORT_INBOX. Chats are capped per person per day, and model calls across everyone per hour and day.
+    SUPPORT_MODEL_ID: z.string().min(1).optional(),
+    SUPPORT_INBOX: z.string().min(3).default("support@mysplits.xyz"),
+    SUPPORT_CHATS_PER_DAY: z.coerce.number().int().min(1).default(5),
+    SUPPORT_CALLS_GLOBAL_PER_HOUR: z.coerce.number().int().min(1).default(300),
+    SUPPORT_CALLS_GLOBAL_PER_DAY: z.coerce.number().int().min(1).default(1500),
+
     // Deposits from other chains, moved to Arc with CCTP V2. Comma list of chain keys
     // (base, arb, op, matic, avax, uni, monad, eth); only chains with an active Gas Station
     // policy belong here. Preview mode offers base, arb and op when this is empty.
@@ -188,6 +196,7 @@ export function parseConfig(source: Record<string, string | undefined>): Config 
   const rpcUrls = env.ARC_RPC_URLS.split(",").map((u) => u.trim()).filter(Boolean);
   return {
     ...env,
+    SUPPORT_MODEL_ID: env.SUPPORT_MODEL_ID ?? env.AGENT_MODEL_ID,
     FUNDING_ENABLED: env.FUNDING_ENABLED ?? !(env.SPLITS_MODE === "live" && env.CIRCLE_BLOCKCHAIN === "ARC"),
     rpcUrls,
     publicRpcUrl: env.ARC_PUBLIC_RPC_URL ?? rpcUrls[0]!,

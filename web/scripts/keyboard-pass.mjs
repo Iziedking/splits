@@ -131,6 +131,19 @@ async function dialogFrom(page, scenario, opener, title, extra) {
   await step(page, scenario, "focus returns to the opener", { tag: "button", inDialog: false });
 }
 
+async function supportChat(page) {
+  const s = "support-chat";
+  await page.goto(`${BASE}/help`, { waitUntil: "networkidle" });
+  await dialogFrom(page, s, page.getByRole("button", { name: "Chat with us" }), "Talk to us", async () => {
+    const t = await tabTo(page, (f) => f.tag === "textarea", 10);
+    await step(page, s, `Tab x${t} reaches the message box`, { tag: "textarea", inDialog: true });
+    await page.keyboard.type("What happened to my last payment?");
+    await page.keyboard.press("Enter");
+    await page.locator('[role="log"] li').nth(1).waitFor();
+    await step(page, s, "Enter sends; focus stays in the chat", { inDialog: true });
+  });
+}
+
 async function addMoney(page) {
   const s = "add-money";
   await page.goto(`${BASE}/profile`, { waitUntil: "networkidle" });
@@ -191,7 +204,7 @@ async function main() {
   const paymentId = await settledPayment(session.call);
   const browser = await chromium.launch();
   try {
-    for (const run of [pay, addMoney, receive, notifications, (p) => shareReceipt(p, paymentId)]) {
+    for (const run of [pay, addMoney, receive, notifications, supportChat, (p) => shareReceipt(p, paymentId)]) {
       const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
       await context.addCookies([{ ...session.cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
       const page = await context.newPage();

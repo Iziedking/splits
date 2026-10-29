@@ -4,30 +4,12 @@ import type { DraftResult } from "../agent/model";
 import type { Ctx } from "../context";
 import { AppError, tooMany, unavailable, unprocessable } from "../errors";
 import { hitRateLimit, refundRateHit } from "./rateLimits";
+import { windowEnds, withTimeout } from "../agent/timing";
 import type { User } from "./users";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 const UNAVAILABLE = "Couldn't read that right now. Your text and screenshots are still here. Try again.";
-
-/** HH:MM UTC when the fixed window holding `now` ends. */
-function windowEnds(ctx: Ctx, windowMs: number): string {
-  const now = ctx.now().getTime();
-  return new Date(now - (now % windowMs) + windowMs).toISOString().slice(11, 16);
-}
-
-/** Rejects after `ms` and aborts the call, even if the model ignores the signal. */
-function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>, ms: number): Promise<T> {
-  const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => {
-      controller.abort();
-      reject(new Error("timeout"));
-    }, ms);
-  });
-  return Promise.race([run(controller.signal), timeout]).finally(() => clearTimeout(timer));
-}
 
 /**
  * Agentic mode: a description and screenshots in, the payout composer's fields out. The model only

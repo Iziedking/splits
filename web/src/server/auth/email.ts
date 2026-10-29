@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { brandedEmail } from "../email/layout";
+import type { Handover } from "../support/handover";
 
 /** What a recipient is told when money reaches them. */
 export type PaymentNotice = { from: string; amount: string; purpose: string; appUrl: string };
@@ -22,6 +23,8 @@ export interface EmailSender {
   /** A visitor's own receipt: a link back to their payment. */
   sendReceiptLink(to: string, r: { amount: string; url: string }): Promise<void>;
   sendAlert(to: string, alert: AlertEmail): Promise<void>;
+  /** A support chat passed to the team; replying writes to the person. */
+  sendSupportHandover(to: string, replyTo: string, h: Handover): Promise<void>;
 }
 
 /** Preview mode keeps codes in memory so the sign-in screen can show them. Nothing is sent. */
@@ -42,12 +45,16 @@ export class PreviewEmail implements EmailSender {
   async sendAlert(to: string, alert: AlertEmail) {
     this.alerts.push({ to, alert });
   }
+  readonly handovers: { to: string; replyTo: string; h: Handover }[] = [];
+  async sendSupportHandover(to: string, replyTo: string, h: Handover) {
+    this.handovers.push({ to, replyTo, h });
+  }
 }
 
 export function createResendEmail(apiKey: string, from: string, appUrl?: string): EmailSender {
   const resend = new Resend(apiKey);
-  const send = async (to: string, subject: string, content: { html: string; text: string }) => {
-    const { error } = await resend.emails.send({ from, to, subject, ...content });
+  const send = async (to: string, subject: string, content: { html: string; text: string }, replyTo?: string) => {
+    const { error } = await resend.emails.send({ from, to, subject, ...content, ...(replyTo ? { replyTo } : {}) });
     if (error) {
       const err = new Error(`Email provider refused the message: ${error.message}`);
       // A rate limit is the provider asking us to slow down, not a problem with this email.
@@ -108,7 +115,35 @@ export function createResendEmail(apiKey: string, from: string, appUrl?: string)
         }),
       );
     },
+    async sendSupportHandover(to, replyTo, h) {
+      const e = supportHandoverEmail(h, appUrl);
+      await send(to, e.subject, e, replyTo);
+    },
   };
+}
+
+const SPEAKER = { person: "Person", agent: "Agent", action: "Agent did" } as const;
+
+/** What the team gets when the support agent hands a chat over: the summary first, then everything behind it. */
+export function supportHandoverEmail(h: Handover, appUrl?: string): { subject: string; text: string; html: string } {
+  const email = brandedEmail({
+    appUrl,
+    eyebrow: "Support hand-over",
+    title: h.ref ? `Help with payment ${h.ref}` : "Help with Splits",
+    details: [
+      ["From", h.userEmail],
+      ["Reference", h.ref ?? "None given"],
+    ],
+    preheader: h.summary,
+    body: [
+      `Summary: ${h.summary}`,
+      h.payment ? `Payment: ${h.payment}` : "No payment was named in the chat.",
+      "The chat:",
+      ...h.transcript.map((m) => `${m.at.slice(0, 16).replace("T", " ")} UTC, ${SPEAKER[m.role]}: ${m.text}`),
+    ],
+    footer: `Reply to this email to answer ${h.userEmail} directly. They were told to expect a reply within 24 hours.`,
+  });
+  return { subject: h.ref ? `Help with payment ${h.ref}` : "Help with Splits", ...email };
 }
 
 /** The "you received money" email. Signing in with the address it went to is the claim. */

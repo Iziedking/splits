@@ -427,6 +427,10 @@ export const depositMoves = pgTable(
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
     stuckNotifiedAt: timestamp("stuck_notified_at", { withTimezone: true }),
+    /** The step a move was in when it ended as stuck, so support can put it back there. */
+    resumeStatus: text("resume_status", { enum: ["burning", "attesting", "minting"] }),
+    /** Times support restarted a stuck move; part of the provider keys, so a restart sends new transactions. */
+    resumes: integer("resumes").notNull().default(0),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -494,4 +498,32 @@ export const earnMoves = pgTable(
     doneAt: timestamp("done_at", { withTimezone: true }),
   },
   (t) => [index("earn_moves_user").on(t.userId, t.createdAt), index("earn_moves_status").on(t.status)],
+);
+
+/** A signed-in person's chat with the support agent. `ref` is the payment or deposit they asked about. */
+export const supportChats = pgTable(
+  "support_chats",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id),
+    ref: text("ref"),
+    status: text("status", { enum: ["open", "handed_over", "closed"] }).notNull(),
+    handedOverAt: timestamp("handed_over_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("support_chats_user").on(t.userId, t.createdAt)],
+);
+
+/** What was said in a support chat, and the actions the agent took ("action", with the tool's name). */
+export const supportMessages = pgTable(
+  "support_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    chatId: uuid("chat_id").notNull().references(() => supportChats.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["person", "agent", "action"] }).notNull(),
+    text: text("text").notNull(),
+    tool: text("tool"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("support_messages_chat").on(t.chatId, t.createdAt)],
 );

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 /**
- * The four emails as the provider would receive them, built by the real templates (fintech face
+ * The five emails as the provider would receive them, built by the real templates (fintech face
  * WP6). Every run checks their wording; with EMAIL_PREVIEWS_OUT set it also writes the HTML, which
  * is how docs/email-previews is regenerated (never edited by hand).
  */
@@ -39,6 +39,18 @@ async function render() {
     kind: "deposit_ready",
     amount: "19.99",
   });
+  await email.sendSupportHandover("support@mysplits.xyz", "ada@example.com", {
+    chatId: "example",
+    userEmail: "ada@example.com",
+    ref: "8F3C12AA0B1C",
+    summary: "Ada's payment to her landlord has been sending for an hour; checking it again didn't move it.",
+    payment: "8F3C12AA0B1C: $320.00 to Landlord. Splitting and paying out. 2026-10-29 09:12 UTC.",
+    transcript: [
+      { role: "person", text: "My rent payment still isn't through", at: "2026-10-29T10:00:00.000Z" },
+      { role: "action", text: "Checked payment 8F3C12AA0B1C again: Splitting and paying out.", at: "2026-10-29T10:00:04.000Z" },
+      { role: "agent", text: "It's still being paid out. I've passed this to the team.", at: "2026-10-29T10:00:06.000Z" },
+    ],
+  });
   return sent.slice();
 }
 
@@ -59,7 +71,7 @@ describe("the emails", () => {
     const out = process.env.EMAIL_PREVIEWS_OUT;
     if (!out) return;
     mkdirSync(out, { recursive: true });
-    const names = ["1-sign-in.html", "2-received.html", "3-receipt.html", "4-deposit.html"];
+    const names = ["1-sign-in.html", "2-received.html", "3-receipt.html", "4-deposit.html", "5-support-handover.html"];
     (await render()).forEach((m, i) => writeFileSync(join(out, names[i]!), m.html));
   });
 });

@@ -7,6 +7,7 @@ import { SOURCE_CHAINS } from "../crosschain/chains";
 import type { Iris } from "../crosschain/iris";
 import type { Ctx } from "../context";
 import { depositMoves, deposits, notifications } from "../db/schema";
+import { runTool } from "../support/tools";
 import { testCtx } from "../testing";
 import { ensureDepositWallet } from "./depositWallets";
 import { activityFor } from "./activity";
@@ -422,6 +423,60 @@ describe("moving a deposit from another chain to Arc", () => {
     expect(moves.find((m) => m.status === "ready")!.burnAmount).toBe("6000000");
     expect((await ctx.db.select().from(deposits)).map((d) => d.status)).toEqual(["ready", "ready"]);
     expect((await ctx.chain.usdcBalance(mainAddress)) - before).toBeGreaterThan(5_990_000n);
+  });
+
+  it("a move that goes stuck remembers the step it stopped at", async () => {
+    const { ctx, arc, clock, address } = await setup();
+    const transmitter = ctx.crossChain.cctp.messageTransmitter.toLowerCase();
+    // The burn goes through; the mint on Arc keeps failing.
+    const wallets = {
+      ...ctx.wallets,
+      execute: async (input: Parameters<Ctx["wallets"]["execute"]>[0]) =>
+        input.contract.toLowerCase() === transmitter ? { providerTxId: `no-mint-${input.idempotencyKey}` } : ctx.wallets.execute(input),
+      getTx: async (id: string) => (id.startsWith("no-mint-") ? { status: "failed" as const, rawState: "FAILED", error: "out of gas" } : ctx.wallets.getTx(id)),
+    };
+    const flaky = { ...ctx, wallets };
+    arc.simulateDeposit("base", address, 5_000_000n);
+    await drive(flaky, clock, 10);
+    for (let h = 0; h < 10; h++) {
+      clock.advance(60 * 60_000);
+      await drive(flaky, clock, 1);
+    }
+    const [move] = await ctx.db.select().from(depositMoves);
+    expect(move!.status).toBe("stuck");
+    expect(move!.resumeStatus).toBe("minting");
+  });
+
+  it("a restart by support sends a new mint instead of replaying the failed ones, and lands", async () => {
+    const { ctx, arc, clock, user, address } = await setup();
+    const transmitter = ctx.crossChain.cctp.messageTransmitter.toLowerCase();
+    const mintKeys: string[] = [];
+    let failing = true;
+    const wallets = {
+      ...ctx.wallets,
+      execute: async (input: Parameters<Ctx["wallets"]["execute"]>[0]) => {
+        if (input.contract.toLowerCase() !== transmitter) return ctx.wallets.execute(input);
+        mintKeys.push(input.idempotencyKey);
+        return failing ? { providerTxId: `no-mint-${input.idempotencyKey}` } : ctx.wallets.execute(input);
+      },
+      getTx: async (id: string) => (id.startsWith("no-mint-") ? { status: "failed" as const, rawState: "FAILED", error: "out of gas" } : ctx.wallets.getTx(id)),
+    };
+    const flaky = { ...ctx, wallets };
+    arc.simulateDeposit("base", address, 5_000_000n);
+    await drive(flaky, clock, 10);
+    for (let h = 0; h < 10; h++) {
+      clock.advance(60 * 60_000);
+      await drive(flaky, clock, 1);
+    }
+    expect((await ctx.db.select().from(depositMoves))[0]!.status).toBe("stuck");
+    const failed = new Set(mintKeys);
+
+    failing = false;
+    expect((await runTool(flaky, user, "retry_deposit", { ref: "latest" })).ok).toBe(true);
+    await drive(flaky, clock, 6);
+    const [move] = await ctx.db.select().from(depositMoves);
+    expect(move).toMatchObject({ status: "ready", resumes: 1 });
+    expect(mintKeys.filter((k) => !failed.has(k)).length).toBeGreaterThan(0);
   });
 
   it("backs off a step that keeps failing instead of sending a new transaction every sweep (final review I3)", async () => {

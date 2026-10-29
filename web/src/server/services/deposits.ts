@@ -354,7 +354,6 @@ async function attachToEarlierMove(ctx: Ctx, d: DepositRow): Promise<boolean> {
   return Boolean(attached);
 }
 
-/** Circle needs UUID keys: a deterministic one per move, step and attempt, so retries resume. */
 /**
  * A provider transaction is on chain once Circle reports it COMPLETE, or CONFIRMED with a hash.
  * Circle takes many minutes to say COMPLETE on some chains; Fast Transfer is attested at the
@@ -363,7 +362,12 @@ async function attachToEarlierMove(ctx: Ctx, d: DepositRow): Promise<boolean> {
  */
 const landed = (tx: ProviderTx) => tx.status === "complete" || (tx.status === "pending" && tx.rawState === "CONFIRMED" && Boolean(tx.txHash));
 
-const key = (move: Move, step: string) => deterministicUuid(`deposit-move:${move.id}:${step}:${move.attempts}`);
+/**
+ * Circle needs UUID keys: a deterministic one per move, step and attempt, so retries resume. A
+ * restart by support (resumes > 0) gets fresh keys; a move never restarted keeps the keys it always had.
+ */
+const key = (move: Move, step: string) =>
+  deterministicUuid(`deposit-move:${move.id}:${step}:${move.attempts}${move.resumes ? `:r${move.resumes}` : ""}`);
 
 async function save(ctx: Ctx, move: Move, patch: Partial<Move>) {
   await ctx.db
@@ -489,7 +493,7 @@ async function retry(ctx: Ctx, move: Move, error: string) {
   const attempts = move.attempts + 1;
   if (attempts < MAX_ATTEMPTS) return save(ctx, move, { attempts, lastError: error.slice(0, 300) });
   console.error(`[deposits] needs attention: move ${move.id} stopped after ${attempts} tries (${error})`);
-  await save(ctx, move, { status: "stuck", attempts, lastError: error.slice(0, 300), stuckNotifiedAt: move.stuckNotifiedAt ?? ctx.now() });
+  await save(ctx, move, { status: "stuck", resumeStatus: move.status as "burning" | "attesting" | "minting", attempts, lastError: error.slice(0, 300), stuckNotifiedAt: move.stuckNotifiedAt ?? ctx.now() });
   if (!move.burnTxHash) {
     await ctx.db.update(deposits).set({ status: "waiting", moveId: null, updatedAt: ctx.now() }).where(eq(deposits.moveId, move.id));
   }

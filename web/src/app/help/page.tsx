@@ -1,29 +1,14 @@
 import Link from "next/link";
 import { InfoShell } from "@/components/app/info-shell";
 import { MoneyNotice } from "@/components/app/money-notice";
-import { ButtonLink } from "@/components/ui/button";
+import { TalkToUs } from "@/components/app/support-chat";
 import { Notice } from "@/components/ui/field";
-import { SUPPORT_EMAIL, supportMailto } from "@/lib/support";
+import { HELP_ANSWERS, SUPPORT_EMAIL } from "@/lib/support";
 import { userForSession } from "@/server/auth/sessions";
 import { getCtx } from "@/server/context";
 import { sessionToken } from "@/server/http";
 
 export const metadata = { title: "Help", description: "Get help with a payment, and where the terms and privacy notice live." };
-
-const ANSWERS = [
-  {
-    q: "A payment says Not sent",
-    a: "Nobody was paid and nothing left your balance for it. You can check the list and pay again.",
-  },
-  {
-    q: "Someone says they didn't get their part",
-    a: "Open the payment and share their receipt. It shows their part, what it was for and when it was paid. Money sent to an email waits in their Splits balance until they sign in with that email.",
-  },
-  {
-    q: "A payment is taking longer than usual",
-    a: "Most payments land within a few seconds. The payment page updates by itself, and Splits keeps trying. Paying again before it finishes could pay everyone twice.",
-  },
-];
 
 /**
  * Help (fintech face WP7): one way to reach a person, with the payment's reference filled in when
@@ -55,9 +40,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
           )}
           {SUPPORT_EMAIL ? (
             <>
-              <ButtonLink href={supportMailto(SUPPORT_EMAIL, ref)} className="w-full">
-                Email {SUPPORT_EMAIL}
-              </ButtonLink>
+              <TalkToUs agentOn={Boolean(ctx.support)} signedIn={Boolean(user)} initialRef={ref} supportEmail={SUPPORT_EMAIL} />
               <p className="text-sm text-muted-foreground">Write from the email you use with Splits, so we know it is you.</p>
             </>
           ) : (
@@ -72,7 +55,7 @@ export default async function HelpPage({ searchParams }: { searchParams: Promise
             Quick answers
           </h2>
           <dl className="mt-3 divide-y divide-border">
-            {ANSWERS.map((x) => (
+            {HELP_ANSWERS.map((x) => (
               <div key={x.q} className="py-3">
                 <dt className="font-semibold">{x.q}</dt>
                 <dd className="mt-1 text-sm text-muted-foreground">{x.a}</dd>

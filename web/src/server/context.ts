@@ -12,6 +12,9 @@ import { createSourceReader, type SourceReader } from "./crosschain/reader";
 import { createPgliteDb, createPostgresDb, type Db } from "./db/client";
 import { createLiveEarn } from "./earn/circle";
 import type { EarnProvider } from "./earn/types";
+import { bedrockSupportModel } from "./support/bedrock";
+import { emailDesk, type SupportDesk } from "./support/handover";
+import { previewSupportModel, type SupportModel } from "./support/model";
 import type { FeeRule } from "./domain/fees";
 import { ratesFromConfig, type FxRates } from "./domain/fx";
 import { parseUsdc } from "./domain/money";
@@ -39,6 +42,9 @@ export type Limits = {
   agentDraftsPerDay: number;
   agentDraftsGlobalPerHour: number;
   agentDraftsGlobalPerDay: number;
+  supportChatsPerDay: number;
+  supportCallsGlobalPerHour: number;
+  supportCallsGlobalPerDay: number;
   /** Idle Earning-pocket USDC below this stays out of the vault. */
   earnDepositMin: bigint;
 };
@@ -71,6 +77,12 @@ export type Ctx = {
   fees: { rule: FeeRule; address: Address };
   /** Agentic mode's model; null turns it off. */
   agent: DraftModel | null;
+  /** The Help page's support agent; null turns it off. */
+  support: SupportModel | null;
+  /** Where a chat is handed to a person. */
+  supportDesk: SupportDesk;
+  /** The support address people can also write to. */
+  supportInbox: string;
   /** Deposits from other chains: the enabled chains, their reader, Circle's attestations, CCTP. */
   crossChain: CrossChain;
   /**
@@ -107,6 +119,9 @@ export function limitsFromConfig(config: Config): Limits {
     agentDraftsPerDay: config.AGENT_DRAFTS_PER_DAY,
     agentDraftsGlobalPerHour: config.AGENT_DRAFTS_GLOBAL_PER_HOUR,
     agentDraftsGlobalPerDay: config.AGENT_DRAFTS_GLOBAL_PER_DAY,
+    supportChatsPerDay: config.SUPPORT_CHATS_PER_DAY,
+    supportCallsGlobalPerHour: config.SUPPORT_CALLS_GLOBAL_PER_HOUR,
+    supportCallsGlobalPerDay: config.SUPPORT_CALLS_GLOBAL_PER_DAY,
     signinCodesPerIpPerHour: config.SIGNIN_CODES_PER_IP_PER_HOUR,
     signinCodesGlobalPerHour: config.SIGNIN_CODES_GLOBAL_PER_HOUR,
     newWalletsPerSenderPerHour: config.NEW_WALLETS_PER_SENDER_PER_HOUR,
@@ -248,6 +263,9 @@ export function previewCtx(db: Db, config: Config, arc = new PreviewArc()): Ctx 
     ...chainSettings(config, treasuryAddress),
     showCodes: true,
     agent: previewModel(),
+    support: previewSupportModel(),
+    supportDesk: emailDesk(email, "support@mysplits.xyz"),
+    supportInbox: "support@mysplits.xyz",
     earn: config.EARN_ENABLED ? arc.earnProvider : null,
     crossChain: {
       network: "testnet",
@@ -277,6 +295,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
   // PGlite and on-screen-code shortcuts to testnet.
   const router = config.SPLITS_ROUTER_ADDRESS!;
   const screenCodes = config.EMAIL_PROVIDER === "screen";
+  const email: EmailSender = screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM, config.APP_URL);
   const wallets = createCircleWallets({
     apiKey: config.CIRCLE_API_KEY!,
     entitySecret: config.CIRCLE_ENTITY_SECRET!,
@@ -299,7 +318,7 @@ async function buildCtx(config: Config): Promise<Ctx> {
     db: config.DATABASE_URL ? await createPostgresDb(config.DATABASE_URL) : await createPgliteDb(config.PGLITE_DIR),
     wallets,
     chain,
-    email: screenCodes ? new PreviewEmail() : createResendEmail(config.RESEND_API_KEY!, config.EMAIL_FROM, config.APP_URL),
+    email,
     router,
     usdc: config.USDC_ADDRESS,
     treasuryWalletId: config.CIRCLE_TREASURY_WALLET_ID!,
@@ -312,6 +331,9 @@ async function buildCtx(config: Config): Promise<Ctx> {
     ...chainSettings(config, treasuryAddress),
     showCodes: screenCodes,
     agent: config.AGENT_MODEL_ID ? bedrockModel({ modelId: config.AGENT_MODEL_ID, region: config.AWS_REGION }) : null,
+    support: config.SUPPORT_MODEL_ID ? bedrockSupportModel({ modelId: config.SUPPORT_MODEL_ID, region: config.AWS_REGION }) : null,
+    supportDesk: emailDesk(email, config.SUPPORT_INBOX),
+    supportInbox: config.SUPPORT_INBOX,
     crossChain,
     crossPay: await liveCrossPay(config, chain, crossChain, router),
     earn:

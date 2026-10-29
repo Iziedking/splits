@@ -85,6 +85,13 @@
       "when": 1792052803953,
       "tag": "0011_married_stepford_cuckoos",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793286757829,
+      "tag": "0012_smooth_vampiro",
+      "breakpoints": true
     }
   ]
 }
