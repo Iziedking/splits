@@ -31,6 +31,23 @@ describe("landing copy", () => {
     expect(page).not.toContain("Live on Arc");
   });
 
+  it("has none of the writing tells the audit fixed (report 4.2)", () => {
+    const html = renderToStaticMarkup(<Landing />);
+    for (const tell of [/no seed phrase/i, /not a promise/i, /single transaction/i, /—/, /[“”‘’]/, /→/, /seamless|empower|unlock/i]) {
+      expect(page).not.toMatch(tell);
+    }
+    // The hero's long second sentence became two short ones.
+    expect(page).toContain("Each part lands labelled. The people you pay only need an email.");
+    expect(html).toContain("Pay without an account");
+  });
+
+  it("shows Pay without an account in the hero on every screen size", () => {
+    const html = renderToStaticMarkup(<Landing />);
+    const cta = html.match(/<a[^>]*href="\/send"[^>]*>(?:(?!<\/a>).)*Pay without an account/s)?.[0] ?? "";
+    expect(cta).not.toBe("");
+    expect(cta).not.toMatch(/max-sm:hidden|hidden sm:/);
+  });
+
   it("does not claim a rail that is not switched on", () => {
     // Card, Apple Pay, Google Pay and bank transfer appear only in the roadmap, marked Planned.
     const roadmap = page.indexOf("These are next, not live yet.");

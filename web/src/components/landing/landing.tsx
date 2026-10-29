@@ -182,7 +182,7 @@ function Scene({ signedIn }: { signedIn: boolean }) {
               <CtaLink href={signedIn ? "/home" : "/signin"}>
                 Open Splits <ArrowRight aria-hidden="true" className="h-4 w-4" />
               </CtaLink>
-              <CtaLink href="/send" tone="glass" className="max-sm:hidden">
+              <CtaLink href="/send" tone="glass">
                 Pay without an account
               </CtaLink>
             </div>
@@ -463,7 +463,10 @@ export function Landing({ signedIn = false }: { signedIn?: boolean }) {
             {NEXT.map((n, i) => (
               <div key={n.title} className="min-w-0 rounded-3xl border border-border bg-card p-6" style={{ "--c": n.color } as React.CSSProperties}>
                 <div className="flex items-baseline justify-between gap-3 border-b border-border pb-4">
-                  <span className="text-figure leading-none font-extrabold tracking-[-0.02em] text-(--c) tabular-nums">0{i + 1}</span>
+                  {/* The colour is a dot, not the figure: the purpose colours are too light for text on white. */}
+                  <span className="inline-flex items-center gap-2.5 text-figure leading-none font-extrabold tracking-[-0.02em] tabular-nums">
+                    <span aria-hidden="true" className="h-3 w-3 rounded-full bg-(--c)" />0{i + 1}
+                  </span>
                   <span className="text-xs font-bold tracking-[0.14em] text-muted-foreground uppercase">Planned</span>
                 </div>
                 <h3 className="mt-4 text-heading font-extrabold tracking-[-0.01em]">{n.title}</h3>

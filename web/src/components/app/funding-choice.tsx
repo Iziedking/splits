@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { nextIndex, Segmented } from "@/components/app/segmented";
+import { cents } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type FundWith = "card" | "balance";
@@ -61,7 +62,7 @@ export function FundingChoice({
           >
             <span className="block font-semibold">{option === "balance" ? "Balance" : "Test card"}</span>
             <span className="block text-muted-foreground">
-              {option === "balance" ? (disabled ? `$${balance}, not enough` : `$${balance}`) : "No real card is charged. Small daily limit."}
+              {option === "balance" ? (disabled ? `$${cents(balance)}, not enough` : `$${cents(balance)}`) : "No real card is charged. Small daily limit."}
             </span>
           </button>
         );
@@ -89,7 +90,7 @@ export function FundingToggle({
       label="Pay with"
       animated
       options={[
-        { value: "balance", label: `Balance, $${balance}` },
+        { value: "balance", label: `Balance, $${cents(balance)}` },
         { value: "card", label: "Test card" },
       ]}
       value={value}

@@ -2,7 +2,7 @@
 
 Split any payment, to anyone, in one transaction on Arc.
 
-**Live on Arc mainnet at [mysplits.xyz](https://mysplits.xyz).** The router contract is
+**Live now at [mysplits.xyz](https://mysplits.xyz).** The router contract is
 [verified on Sourcify and the Arc explorer](https://explorer.arc.io/address/0x8eDb15a372D3b691E2264fFc897EC53dFF4A64F2?tab=contract).
 
 Splits started with one problem, and it is still the lead example. Someone in London supporting family in Lagos rarely sends money for one thing. Part of it is rent, part is a sibling's school fees, the rest is upkeep. Today they either send one lump sum and hope it gets divided the way they meant, or they make several transfers and pay fees on each.

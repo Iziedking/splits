@@ -248,7 +248,7 @@ function Pay() {
                 <FundingChoice demoCard={demoCard} value={fundWith} onChange={setFundWith} balance={balance} balanceCovers={canUseBalance} />
                 {!canPay && (
                   <Notice>
-                    Your balance is ${balance} and this payment is ${charge}.{" "}
+                    Your balance is ${(cents(balance) / 100).toFixed(2)} and this payment is ${charge}.{" "}
                     <Link href="/home" className="font-semibold underline underline-offset-4">
                       Add money
                     </Link>{" "}

@@ -77,6 +77,18 @@ const SHOTS = [
   { name: "landed", path: (c) => `/payments/${c.paymentId}`, vocab: true },
   { name: "receipt", path: (c) => c.receipt, signedIn: false, vocab: true },
   { name: "receipt-details-open", path: (c) => c.receipt, signedIn: false, act: (p) => p.getByText("Payment details").click() },
+  // WP9a: the landing's pinned scene mid-way, with motion on (the other shots use reduced motion).
+  {
+    name: "landing-motion",
+    path: "/",
+    signedIn: false,
+    motion: true,
+    fullPage: false,
+    act: async (p) => {
+      await p.evaluate(() => window.scrollTo(0, window.innerHeight * 0.9));
+      await p.waitForTimeout(900);
+    },
+  },
   // WP6: the rest of the signed-in screens, also checked for crypto words.
   { name: "split-new", path: "/splits/new", vocab: true },
   { name: "rule-new", path: "/rules/new", vocab: true },
@@ -85,6 +97,79 @@ const SHOTS = [
 /** Shots on the consumer path, checked for crypto vocabulary. */
 const VOCAB = new Set(["signin", "home", "pay", "pay-many", "pay-review-mainnet", "send-split-mainnet", "profile", "settings", "history", "earn", "sheet-add-money", "sheet-notifications"]);
 const FORBIDDEN = /\bArc\b|USDC|0x[0-9a-fA-F]|\bEVM\b|explorer|transaction/i;
+
+/** Pages whose measured contrast fails the run (WP9a). Every other page records its result only. */
+const CONTRAST_GATE = new Set(["landing", "landing-motion"]);
+
+/**
+ * Text contrast as the browser paints it: each visible text's computed colour against its
+ * background, composited up the ancestors to the first opaque one (gradients and images stop the
+ * walk, and that text is counted as not measurable). WCAG AA: 4.5:1, or 3:1 for large text.
+ * Disabled controls are exempt, as WCAG allows.
+ */
+async function contrast(page) {
+  return page.evaluate(() => {
+    const parse = (c) => {
+      const m = c.match(/rgba?\(([^)]+)\)/);
+      if (!m) return null;
+      const [r, g, b, a = "1"] = m[1].split(/[ ,/]+/).filter(Boolean);
+      return [Number(r), Number(g), Number(b), Number(a)];
+    };
+    const over = (top, under) => top.slice(0, 3).map((v, i) => v * top[3] + under[i] * (1 - top[3])).concat(1);
+    const lum = (c) => {
+      const [r, g, b] = c.slice(0, 3).map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const ratio = (a, b) => {
+      const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const page = parse(getComputedStyle(document.body).backgroundColor) ?? [243, 247, 248, 1];
+    const background = (el) => {
+      const layers = [];
+      for (let n = el; n && n.nodeType === 1; n = n.parentElement) {
+        const s = getComputedStyle(n);
+        if (s.backgroundImage !== "none" && n !== document.body && n !== document.documentElement) return null;
+        const c = parse(s.backgroundColor);
+        if (c && c[3] > 0) {
+          layers.push(c);
+          if (c[3] >= 1) break;
+        }
+      }
+      return layers.reverse().reduce((acc, c) => over(c, acc), page.concat(1));
+    };
+    const fails = [];
+    let checked = 0;
+    let skipped = 0;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+      const el = t.parentElement;
+      if (!el || !t.textContent.trim() || el.closest("[aria-hidden='true'], .sr-only, :disabled, [aria-disabled='true'], script, style")) continue;
+      const rect = el.getBoundingClientRect();
+      const s = getComputedStyle(el);
+      if (!rect.width || !rect.height || s.visibility === "hidden" || Number(s.opacity) === 0) continue;
+      const bg = background(el);
+      if (!bg) {
+        skipped++;
+        continue;
+      }
+      const fg = over(parse(s.color), bg);
+      const size = parseFloat(s.fontSize);
+      const large = size >= 24 || (size >= 18.66 && Number(s.fontWeight) >= 700);
+      const need = large ? 3 : 4.5;
+      const r = ratio(fg, bg);
+      checked++;
+      if (r < need) fails.push(`${r.toFixed(2)} < ${need}: "${t.textContent.trim().slice(0, 50)}" ${s.color} on rgb(${bg.slice(0, 3).map(Math.round).join(",")})`);
+    }
+    return { checked, skipped, fails: [...new Set(fails)] };
+  });
+}
+
+/** Whether the page scrolls sideways (it must not, at any width). */
+const overflowsX = (page) => page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
 
 /** Visible text outside the fold and the crypto panel, with any crypto words it contains. */
 async function vocabulary(page) {
@@ -116,7 +201,11 @@ async function main() {
     for (const width of WIDTHS) {
       for (const shot of SHOTS) {
         const file = `${shot.name}-${width}.png`;
-        const context = await browser.newContext({ viewport: { width, height: width < 768 ? 812 : 800 }, deviceScaleFactor: 1, reducedMotion: "reduce" });
+        const context = await browser.newContext({
+          viewport: { width, height: width < 768 ? 812 : 800 },
+          deviceScaleFactor: 1,
+          reducedMotion: shot.motion ? "no-preference" : "reduce",
+        });
         try {
           if (shot.signedIn !== false) {
             await context.addCookies([{ ...ctx.cookie, url: BASE, httpOnly: true, sameSite: "Lax" }]);
@@ -131,8 +220,24 @@ async function main() {
           await page.screenshot({ path: path.join(OUT, file), fullPage: shot.fullPage ?? true });
           const bodyText = (await page.locator("body").innerText()).replace(/\s+/g, " ");
           const words = shot.vocab || VOCAB.has(shot.name) ? await vocabulary(page) : [];
-          manifest.shots.push({ file, route, width, ok: words.length === 0, textSample: bodyText.slice(0, 400), ...(words.length ? { cryptoWords: words } : {}) });
-          console.log(words.length ? `FAIL - ${file}: crypto words outside Payment details: ${words.join(" | ")}` : `ok - ${file}`);
+          const measured = await contrast(page);
+          const sideways = await overflowsX(page);
+          const problems = [
+            ...(words.length ? [`crypto words outside Payment details: ${words.join(" | ")}`] : []),
+            ...(CONTRAST_GATE.has(shot.name) && measured.fails.length ? [`contrast: ${measured.fails.join(" | ")}`] : []),
+            ...(sideways ? ["scrolls sideways"] : []),
+          ];
+          manifest.shots.push({
+            file,
+            route,
+            width,
+            ok: problems.length === 0,
+            textSample: bodyText.slice(0, 400),
+            contrast: measured,
+            ...(words.length ? { cryptoWords: words } : {}),
+            ...(sideways ? { scrollsSideways: true } : {}),
+          });
+          console.log(problems.length ? `FAIL - ${file}: ${problems.join("; ")}` : `ok - ${file}`);
         } catch (err) {
           manifest.shots.push({ file, width, ok: false, error: String(err?.message ?? err) });
           console.log(`FAIL - ${file}: ${err?.message ?? err}`);

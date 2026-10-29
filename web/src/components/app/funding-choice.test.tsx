@@ -23,6 +23,11 @@ describe("the funding choice", () => {
     expect(toggle).not.toMatch(/wallet/i);
   });
 
+  it("shows the balance in cents, never a third decimal", () => {
+    expect(renderToStaticMarkup(<FundingToggle demoCard value="balance" onChange={noop} balance="53.904" />)).toContain("Balance, $53.90");
+    expect(renderToStaticMarkup(<FundingChoice demoCard value="balance" onChange={noop} balance="53.904" balanceCovers />)).toContain("$53.90");
+  });
+
   it("disables the balance when it does not cover the total", () => {
     const html = renderToStaticMarkup(<FundingChoice demoCard value="card" onChange={noop} balance="1.00" balanceCovers={false} />);
     expect(html).toContain("$1.00, not enough");
