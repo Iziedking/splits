@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { Address } from "viem";
 import type { Ctx } from "../context";
-import { splits, transfers } from "../db/schema";
+import { splits, transfers, users } from "../db/schema";
 import { CENT } from "../domain/allocation";
 import { deterministicUuid, transferRef } from "../domain/ids";
 import { queueNotices } from "./notices";
@@ -48,6 +48,7 @@ export async function createAutoTransfer(
     .values({
       id,
       payerUserId: wallet.userId,
+      payerTag: sql`(select ${users.tag} from ${users} where ${users.id} = ${wallet.userId})`,
       payerWalletId: wallet.id,
       payerAddress: wallet.address,
       funding: "balance",

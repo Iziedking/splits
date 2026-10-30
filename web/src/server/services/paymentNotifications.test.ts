@@ -45,10 +45,10 @@ describe("payment notifications", () => {
     ]);
   });
 
-  it("names a payer who has a Split tag by the tag, never the email", async () => {
+  it("names a payer who had a Split tag by the tag they paid with, never the email", async () => {
     const { ctx, ada, bola, transfer } = await setup();
-    await ctx.db.update(users).set({ tag: "adakitchen" }).where(eq(users.id, ada.id));
-    await notifyPaymentOutcome(ctx, transfer({}));
+    await ctx.db.update(users).set({ tag: "ada_now" }).where(eq(users.id, ada.id));
+    await notifyPaymentOutcome(ctx, transfer({ payerTag: "adakitchen" }));
     const received = (await rows(ctx)).find((r) => r.who === bola.id)!;
     expect(received.body).toBe('From @adakitchen, for "rent".');
   });

@@ -7,6 +7,8 @@ import { createPgliteDb, createPostgresDb, type Db } from "./db/client";
 import { PreviewArc, type PreviewArcOptions } from "./preview/previewArc";
 import { setInitialPin } from "./auth/pin";
 import { finishSignIn, startSignIn } from "./services/signin";
+import { claimTag } from "./services/tags";
+import { suggestTag } from "./domain/tags";
 
 /**
  * A fresh, migrated database for one test context. With TEST_DATABASE_URL set (CI and the VPS
@@ -49,11 +51,16 @@ export async function testCtx(env: Record<string, string> = {}, arcOptions: Prev
 
 export const TEST_PIN = "482913";
 
-/** Signs a person in through the real OTP flow and sets their PIN. */
-export async function signedInUser(ctx: Ctx, email: string, pin: string | null = TEST_PIN) {
+/**
+ * Signs a person in through the real OTP flow, sets their PIN and takes a Split tag, as sign-up
+ * does. Pass `tag: null` for an account still at /setup; the default comes from the email.
+ */
+export async function signedInUser(ctx: Ctx, email: string, pin: string | null = TEST_PIN, tag: string | null = suggestTag(email)) {
   const { previewCode } = await startSignIn(ctx, email);
   const result = await finishSignIn(ctx, email, previewCode!);
   if (pin) await setInitialPin(ctx.db, result.user.id, pin);
+  // Two test emails can share a first part; the second gets a random tag instead.
+  if (tag && !result.user.tag) await claimTag(ctx, result.user, tag).catch(() => claimTag(ctx, result.user, `u_${randomUUID().slice(0, 8)}`));
   const [user] = await ctx.db.select().from(users).where(eq(users.id, result.user.id));
   return { ...result, user: user! };
 }

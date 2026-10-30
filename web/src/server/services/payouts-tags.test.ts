@@ -6,14 +6,15 @@ import { advanceWithRules } from "./rules";
 import { checkPayout } from "./payouts";
 import { advanceSplit, confirmSplit, draftSplit } from "./splits";
 import { claimTag, confirmTagChange, startTagChange } from "./tags";
-import { confirmTransfer, getTransfer, quoteTransfer } from "./transfers";
+import { receiptByToken, receiptLinks } from "./receipts";
+import { confirmTransfer, getTransfer, previewTransfer, quoteTransfer } from "./transfers";
 import { mainWallet, type User } from "./users";
 import type { Ctx } from "../context";
 
 async function setup() {
   const { ctx } = await testCtx();
-  const host = await claimTag(ctx, (await signedInUser(ctx, "host@example.com")).user, "host");
-  const ada = await claimTag(ctx, (await signedInUser(ctx, "ada@example.com")).user, "adakitchen");
+  const host = await claimTag(ctx, (await signedInUser(ctx, "host@example.com", TEST_PIN, null)).user, "host");
+  const ada = await claimTag(ctx, (await signedInUser(ctx, "ada@example.com", TEST_PIN, null)).user, "adakitchen");
   return { ctx, host, ada };
 }
 
@@ -72,6 +73,10 @@ describe("paying a Split tag", () => {
     const change = await startTagChange(ctx, ada, "ada_bakes");
     await confirmTagChange(ctx, ada, change.action.id, { pin: TEST_PIN });
 
+    // The owner named her "Ada"; the preview shows the tag she uses today.
+    const preview = await previewTransfer(ctx, host, { splitId: split.id, fundWith: "card", currency: "GBP", fiatMinor: 1000 });
+    expect(preview.legs.map((l) => [l.name, l.tag])).toEqual([["Ada", "ada_bakes"]]);
+
     const before = await ctx.chain.usdcBalance((await mainWallet(ctx, ada.id))!.address as `0x${string}`);
     const paid = await payThroughSplit(ctx, host, split.id);
     expect(paid.status).toBe("settled");
@@ -79,5 +84,24 @@ describe("paying a Split tag", () => {
     expect(after > before).toBe(true);
     expect(JSON.stringify(paid.expected)).not.toContain("ada@example.com");
     expect((await ctx.db.select().from(notifications).where(eq(notifications.userId, ada.id))).length).toBeGreaterThan(0);
+  });
+
+  it("a receipt names the payer by the tag they paid with, not one they changed to later", async () => {
+    const { ctx, host } = await setup();
+    const { split, action } = await draftSplit(ctx, host, {
+      name: "Cake",
+      legs: [{ name: "Ada", to: { type: "tag", tag: "@adakitchen" }, amount: { type: "percent", percent: 100 }, purpose: "cake" }],
+    });
+    let current = await confirmSplit(ctx, host, action.id, { pin: TEST_PIN });
+    for (let i = 0; i < 5 && current.status === "pending"; i++) current = await advanceSplit(ctx, split.id);
+    const paid = await payThroughSplit(ctx, host, split.id);
+    expect(paid.payerTag).toBe("host");
+
+    const change = await startTagChange(ctx, host, "host_new");
+    await confirmTagChange(ctx, host, change.action.id, { pin: TEST_PIN });
+    const [token] = (await receiptLinks(ctx, paid))!;
+    const receipt = JSON.stringify(await receiptByToken(ctx, token!));
+    expect(receipt).toContain("@host");
+    expect(receipt).not.toContain("host_new");
   });
 });

@@ -1,6 +1,7 @@
-import { and, asc, eq, isNull, like, lt, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, like, lt, ne, sql } from "drizzle-orm";
+import { getAddress, isAddress } from "viem";
 import type { Ctx } from "../context";
-import { splitTags, users } from "../db/schema";
+import { splitTags, users, wallets } from "../db/schema";
 import { normaliseTag, showTag, TAG_CHANGES, tagFromPath, tagProblem } from "../domain/tags";
 import { badRequest, conflict, isUniqueViolation, tooMany } from "../errors";
 import { confirmAction, createAction, type Action, type Confirmation } from "./actions";
@@ -67,15 +68,16 @@ export async function confirmTagChange(ctx: Ctx, user: User, actionId: string, p
   const action = await confirmAction(ctx, user.id, actionId, proof, "change_tag", "This confirmation is for something else");
   const tag = String(action.summary.tag);
   return ctx.db.transaction(async (tx) => {
+    // Locked first, so two changes confirmed at once are counted one after the other. Locking after
+    // the insert deadlocks: each insert holds a key-share lock on this row through the foreign key.
+    const [current] = await tx.select().from(users).where(eq(users.id, user.id)).for("update").limit(1);
+    if (!current?.tag || current.tagChanges >= TAG_CHANGES) throw conflict("TAG_CHANGES_USED", "Your tag can't be changed again");
     try {
       await tx.insert(splitTags).values({ tag, userId: user.id, claimedAt: ctx.now() });
     } catch (err) {
       if (isUniqueViolation(err)) throw TAKEN();
       throw err;
     }
-    // Locked, so two changes confirmed at once are counted one after the other, never from the same read.
-    const [current] = await tx.select().from(users).where(eq(users.id, user.id)).for("update").limit(1);
-    if (!current?.tag || current.tagChanges >= TAG_CHANGES) throw conflict("TAG_CHANGES_USED", "Your tag can't be changed again");
     await tx.update(splitTags).set({ retiredAt: ctx.now() }).where(eq(splitTags.tag, current.tag));
     const [updated] = await tx
       .update(users)
@@ -117,6 +119,23 @@ export async function searchTags(ctx: Ctx, user: User, raw: string): Promise<str
     .orderBy(asc(users.tag))
     .limit(5);
   return rows.map((r) => r.tag!).filter(Boolean);
+}
+
+/**
+ * The tag each address's holder uses today, keyed by lowercase address. Only main wallets: a tag
+ * pays the main wallet, so a pocket or an outside address has none.
+ */
+export async function tagsByAddress(ctx: Ctx, addresses: string[]): Promise<Map<string, string>> {
+  const valid = addresses.filter((a) => isAddress(a, { strict: false }));
+  if (!valid.length) return new Map();
+  // Both spellings, so the unique index on address is used whichever way it was stored.
+  const spellings = [...new Set(valid.flatMap((a) => [getAddress(a), a.toLowerCase()]))];
+  const rows = await ctx.db
+    .select({ address: wallets.address, tag: users.tag })
+    .from(wallets)
+    .innerJoin(users, eq(users.id, wallets.userId))
+    .where(and(eq(wallets.kind, "main"), inArray(wallets.address, spellings), isNotNull(users.tag)));
+  return new Map(rows.map((r) => [r.address.toLowerCase(), r.tag!]));
 }
 
 /** What a tag's public page may show: the tag and nothing else about the person. Null pays nobody. */

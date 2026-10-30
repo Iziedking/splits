@@ -68,8 +68,8 @@ export async function notifyPaymentOutcome(ctx: Ctx, t: Transfer): Promise<void>
   }
   if (t.status !== "settled") return;
 
-  const [payer] = t.payerUserId ? await ctx.db.select({ email: users.email, tag: users.tag }).from(users).where(eq(users.id, t.payerUserId)).limit(1) : [];
-  const from = payer?.tag ? `@${payer.tag}` : (payer?.email ?? short(t.payerAddress));
+  const [payer] = t.payerUserId ? await ctx.db.select({ email: users.email }).from(users).where(eq(users.id, t.payerUserId)).limit(1) : [];
+  const from = t.payerTag ? `@${t.payerTag}` : (payer?.email ?? short(t.payerAddress));
   for (const leg of legs) {
     const [owner] = await ctx.db
       .select({ userId: wallets.userId })

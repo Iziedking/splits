@@ -3,12 +3,12 @@ import { generateMetadata } from "@/app/t/[tag]/page";
 import { readPrefill, tagPayHref } from "@/lib/prefill";
 import { tagFromPath } from "@/server/domain/tags";
 import { claimTag, tagPageData } from "@/server/services/tags";
-import { signedInUser, testCtx } from "@/server/testing";
+import { signedInUser, TEST_PIN, testCtx } from "@/server/testing";
 
 describe("a Split tag's page", () => {
   it("finds the tag however the link was cased, and nothing for bad or unknown tags", async () => {
     const { ctx } = await testCtx();
-    await claimTag(ctx, (await signedInUser(ctx, "ada@example.com")).user, "adakitchen");
+    await claimTag(ctx, (await signedInUser(ctx, "ada@example.com", TEST_PIN, null)).user, "adakitchen");
     expect(await tagPageData(ctx, "AdaKitchen")).toEqual({ tag: "adakitchen" });
     expect(await tagPageData(ctx, "%40adakitchen")).toEqual({ tag: "adakitchen" });
     expect(await tagPageData(ctx, "a.b")).toBeNull();

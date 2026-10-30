@@ -33,10 +33,11 @@ export async function previewSession(base, email = "ada@example.com", { tag = ta
   if (verify.status !== 200) throw new Error(`auth verify ${verify.status}`);
   const pin = await call("POST", "/api/security/pin", { pin: PIN });
   if (pin.status !== 200) throw new Error(`pin ${pin.status}: ${JSON.stringify(pin.data)}`);
-  if (tag) {
-    const claimed = await call("POST", "/api/tags", { tag });
-    if (claimed.status !== 200) throw new Error(`tag ${claimed.status}: ${JSON.stringify(claimed.data)}`);
-  }
+  const [name, value] = cookie().split("=");
+  // Without a tag the account is still at /setup: it can't hold money or make a split yet.
+  if (!tag) return { call, splitId: null, cookie: { name, value }, tag };
+  const claimed = await call("POST", "/api/tags", { tag });
+  if (claimed.status !== 200) throw new Error(`tag ${claimed.status}: ${JSON.stringify(claimed.data)}`);
 
   // Preview-only: money arrives as if sent from another chain, so Home and Pay show a balance.
   const deposit = await call("POST", "/api/demo/deposit", { chain: "base", amount: "60" });
@@ -62,7 +63,6 @@ export async function previewSession(base, email = "ada@example.com", { tag = ta
     await wait(300);
     split = (await call("GET", `/api/splits/${split.id}`)).data.split;
   }
-  const [name, value] = cookie().split("=");
   return { call, splitId: split.id, cookie: { name, value }, tag };
 }
 

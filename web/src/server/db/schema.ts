@@ -32,7 +32,10 @@ export const users = pgTable("users", {
   /** Tag changes used; an account gets 3 in its lifetime. */
   tagChanges: integer("tag_changes").notNull().default(0),
   createdAt: createdAt(),
-});
+}, (t) => [
+  // Tag search is a prefix LIKE; text_pattern_ops lets it use an index under any collation.
+  index("users_tag_prefix").on(t.tag.op("text_pattern_ops")),
+]);
 
 /**
  * Every tag ever held. The primary key settles two people taking one tag at once, and a retired
@@ -181,6 +184,8 @@ export const transfers = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     /** Null when a visitor paid from their own wallet. */
     payerUserId: uuid("payer_user_id").references(() => users.id),
+    /** The payer's Split tag when they paid. Receipts show this one, so a later change doesn't link old and new tags. */
+    payerTag: text("payer_tag"),
     payerWalletId: uuid("payer_wallet_id").references(() => wallets.id),
     /** The address the money leaves from: the payer's Splits wallet, or the visitor's own wallet. */
     payerAddress: text("payer_address").notNull(),

@@ -33,7 +33,8 @@ type Preview = {
   total: string;
   rate: string | null;
   simulatedCard: boolean;
-  legs: { name: string; purpose: string; amount: string }[];
+  /** `tag` is the Split tag the person uses today, when they have one. */
+  legs: { name: string; purpose: string; amount: string; tag: string | null }[];
   /** Set when the split shares out under 100%: the amount typed, of which `amount` is sent. */
   whole: string | null;
 };
@@ -205,6 +206,7 @@ function Send() {
                     <span className="flex items-center gap-2.5">
                       <PurposeDot index={i} size="md" />
                       <span className="font-medium">{leg.name}</span>
+                      {leg.tag && leg.name !== `@${leg.tag}` && <span className="text-sm text-muted-foreground">@{leg.tag}</span>}
                       <span className="text-sm text-muted-foreground">{leg.purpose}</span>
                     </span>
                     <span className="font-semibold tabular-nums">${leg.amount}</span>

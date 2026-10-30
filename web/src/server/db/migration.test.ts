@@ -57,3 +57,46 @@ describe("migration 0004", () => {
     await client.close();
   });
 });
+
+/** Payments made before 0014 get the tag their payer held at the time, or none if they had none yet. */
+describe("migration 0014", () => {
+  it("backfills each payment's payer tag from the tag held when it was made", async () => {
+    const { PGlite } = await import("@electric-sql/pglite");
+    const { drizzle } = await import("drizzle-orm/pglite");
+    const { migrate } = await import("drizzle-orm/pglite/migrator");
+    const full = path.join(process.cwd(), "drizzle");
+    const early = mkdtempSync(path.join(tmpdir(), "splits-mig-"));
+    try {
+      cpSync(full, early, { recursive: true });
+      const journalPath = path.join(early, "meta", "_journal.json");
+      const journal = JSON.parse(readFileSync(journalPath, "utf8"));
+      journal.entries = journal.entries.filter((e: { idx: number }) => e.idx <= 13);
+      writeFileSync(journalPath, JSON.stringify(journal));
+
+      const client = new PGlite();
+      const db = drizzle(client);
+      await migrate(db, { migrationsFolder: early });
+      const user = "00000000-0000-4000-8000-000000000001";
+      const pay = (id: string, at: string) =>
+        `insert into transfers (id, payer_user_id, payer_address, kind, amount, expected, ref, status, created_at)
+           values ('${id}', '${user}', '0xAbC0000000000000000000000000000000000001', 'pay', '5000000', '[]', '${id}', 'settled', '${at}');`;
+      await client.exec(`
+        insert into users (id, email, status, tag, tag_changes) values ('${user}', 'a@example.com', 'active', 'ada_new', 1);
+        insert into split_tags (tag, user_id, claimed_at, retired_at) values
+          ('ada', '${user}', '2026-10-29T10:00:00Z', '2026-10-29T12:00:00Z'),
+          ('ada_new', '${user}', '2026-10-29T12:00:00Z', null);
+        ${pay("00000000-0000-4000-8000-00000000000a", "2026-10-28T09:00:00Z")}
+        ${pay("00000000-0000-4000-8000-00000000000b", "2026-10-29T11:00:00Z")}
+        ${pay("00000000-0000-4000-8000-00000000000c", "2026-10-29T13:00:00Z")}
+      `);
+      await migrate(db, { migrationsFolder: full });
+      const { rows } = await client.query<{ payer_tag: string | null }>("select payer_tag from transfers order by id");
+      expect(rows.map((r) => r.payer_tag)).toEqual([null, "ada", "ada_new"]);
+      const { rows: idx } = await client.query<{ indexdef: string }>("select indexdef from pg_indexes where indexname = 'users_tag_prefix'");
+      expect(idx[0]?.indexdef).toMatch(/text_pattern_ops/);
+      await client.close();
+    } finally {
+      rmSync(early, { recursive: true, force: true });
+    }
+  });
+});

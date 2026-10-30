@@ -3,9 +3,9 @@ import { and, eq, gt } from "drizzle-orm";
 import { passkeyAssertionOptions, verifyPasskeyAssertion } from "../auth/passkeys";
 import { verifyPin } from "../auth/pin";
 import type { Ctx } from "../context";
-import { actions } from "../db/schema";
+import { actions, users } from "../db/schema";
 import { randomToken } from "../domain/ids";
-import { badRequest, conflict, notFound } from "../errors";
+import { badRequest, conflict, forbidden, notFound } from "../errors";
 
 export type Action = typeof actions.$inferSelect;
 
@@ -22,6 +22,9 @@ export async function createAction(
   subjectId: string,
   summary: Record<string, unknown>,
 ): Promise<Action> {
+  // The app sends a tagless account to /setup first; this holds for anything that skips the app.
+  const [owner] = await ctx.db.select({ tag: users.tag }).from(users).where(eq(users.id, userId)).limit(1);
+  if (!owner?.tag) throw forbidden("TAG_NEEDED", "Pick your Split tag first");
   const now = ctx.now();
   const [action] = await ctx.db
     .insert(actions)

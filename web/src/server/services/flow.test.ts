@@ -778,7 +778,7 @@ describe("activity", () => {
 
     const a = await activityFor(ctx, bob);
     expect(a.receivedError).toBeNull();
-    expect(a.received.find((r) => r.amount === "2.00")).toMatchObject({ purpose: "giveaway prize", fromLabel: "host@example.com" });
+    expect(a.received.find((r) => r.amount === "2.00")).toMatchObject({ purpose: "giveaway prize", fromLabel: "@host" });
 
     // The demo card's top-up comes from the app's treasury; it is named, not shown as a bare address.
     const hostActivity = await activityFor(ctx, host);
@@ -827,11 +827,12 @@ describe("receipts", () => {
       purpose: "school fees",
       amount: formatUsdc(BigInt(schoolLeg.amount)),
       to: schoolLeg.address,
-      from: "Ada",
       txHash: t.txHash,
       simulated: true,
       whole: false,
     });
+    // Named by the Split tag they paid with; the email stays out.
+    expect(school.from).toBe("@ada_obi");
     const shown = JSON.stringify(school);
     for (const other of [t.expected[0]!, t.expected[2]!]) {
       expect(shown).not.toContain(other.name);

@@ -20,6 +20,7 @@ import { checkSendLimit, withSendLimitLock } from "./sendLimits";
 import { crossPaymentFor, stepCrossPay } from "./crossPay";
 import type { StepResult } from "./stepResult";
 import { expectedAmounts, getSplit, sharesUnderWhole } from "./splits";
+import { tagsByAddress } from "./tags";
 import { mainWallet, type User } from "./users";
 
 export type Transfer = typeof transfers.$inferSelect;
@@ -85,6 +86,7 @@ export async function quoteTransfer(
     .values({
       id,
       payerUserId: user.id,
+      payerTag: user.tag,
       payerWalletId: wallet.id,
       payerAddress: wallet.address,
       funding: topUp > 0n ? "card" : "balance",
@@ -122,6 +124,8 @@ export async function quoteTransfer(
 /** The exact breakdown a payment would have, without creating anything. */
 export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput) {
   const { amount, fee, charge, quoteData, expected } = await priceTransfer(ctx, user, input);
+  // A saved split names people as its owner chose ("Landlord"); the tag says who that is today.
+  const tags = await tagsByAddress(ctx, expected.map((l) => l.address));
   return {
     amount: formatUsdc(amount),
     fee: formatUsdc(fee.amount),
@@ -131,7 +135,7 @@ export async function previewTransfer(ctx: Ctx, user: User, input: TransferInput
     simulatedCard: quoteData?.simulated === true,
     /** Through a split under 100%: the amount typed; `amount` is the part actually sent. */
     whole: typeof (quoteData as Record<string, unknown> | null)?.whole === "string" ? formatUsdc(BigInt((quoteData as { whole: string }).whole)) : null,
-    legs: expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)) })),
+    legs: expected.map((l) => ({ ...l, amount: formatUsdc(BigInt(l.amount)), tag: tags.get(l.address.toLowerCase()) ?? null })),
   };
 }
 

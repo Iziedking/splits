@@ -5,7 +5,9 @@ import { splitTags, users } from "../db/schema";
 import { AppError } from "../errors";
 import { signedInUser, TEST_PIN, testCtx } from "../testing";
 import { userView } from "../views";
-import { checkTag, claimTag, confirmTagChange, resolveTag, searchTags, startTagChange } from "./tags";
+import { draftSplit } from "./splits";
+import { checkTag, claimTag, confirmTagChange, resolveTag, searchTags, startTagChange, tagsByAddress } from "./tags";
+import { mainWallet } from "./users";
 import type { User } from "./users";
 
 async function code(promise: Promise<unknown>): Promise<string> {
@@ -19,7 +21,7 @@ async function code(promise: Promise<unknown>): Promise<string> {
 }
 
 async function person(ctx: Ctx, email: string) {
-  return (await signedInUser(ctx, email)).user;
+  return (await signedInUser(ctx, email, TEST_PIN, null)).user;
 }
 
 async function change(ctx: Ctx, user: User, tag: string, pin = TEST_PIN) {
@@ -164,6 +166,36 @@ describe("finding tags", () => {
     const me = await claimTag(ctx, await person(ctx, "me@example.com"), "me_me");
     for (let i = 0; i < 60; i++) await searchTags(ctx, me, "ab");
     expect(await code(searchTags(ctx, me, "ab"))).toBe("TOO_MANY_SEARCHES");
+  });
+});
+
+describe("an account without a tag", () => {
+  it("can't start anything that needs the PIN, even by calling the API directly", async () => {
+    const { ctx } = await testCtx();
+    const ada = await person(ctx, "ada@example.com");
+    const split = draftSplit(ctx, ada, {
+      name: "Rent",
+      legs: [{ name: "Bo", to: { type: "address", address: "0x00000000000000000000000000000000000000f1" }, amount: { type: "percent", percent: 100 }, purpose: "rent" }],
+    });
+    expect(await code(split)).toBe("TAG_NEEDED");
+    await claimTag(ctx, ada, "ada");
+    expect(await code(draftSplit(ctx, await fresh(ctx, ada.id), {
+      name: "Rent",
+      legs: [{ name: "Bo", to: { type: "address", address: "0x00000000000000000000000000000000000000f1" }, amount: { type: "percent", percent: 100 }, purpose: "rent" }],
+    }))).toBe("OK");
+  });
+});
+
+describe("current tags by address", () => {
+  it("finds the tag of each main wallet's holder, in any letter case, and nothing else", async () => {
+    const { ctx } = await testCtx();
+    const ada = await claimTag(ctx, await person(ctx, "ada@example.com"), "ada");
+    const bo = await person(ctx, "bo@example.com");
+    const adaAddress = (await mainWallet(ctx, ada.id))!.address;
+    const boAddress = (await mainWallet(ctx, bo.id))!.address;
+    const found = await tagsByAddress(ctx, [adaAddress.toUpperCase().replace("0X", "0x"), boAddress, "0x00000000000000000000000000000000000000f1", "nonsense"]);
+    expect([...found]).toEqual([[adaAddress.toLowerCase(), "ada"]]);
+    expect((await tagsByAddress(ctx, [])).size).toBe(0);
   });
 });
 
