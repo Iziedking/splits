@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splits · Send once. It lands divided.</title>
+<meta name="description" content="Splits sends one payment that arrives divided by purpose, rent, school fees and upkeep, with a private receipt for every person.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Splits · Send once. It lands divided.">
+<meta property="og:description" content="One payment that reaches everyone it’s meant for, each part labelled with what it’s for.">
+<meta property="og:image" content="https://mysplits.site/assets/og.png">
+<meta property="og:url" content="https://mysplits.site/">
+<link rel="canonical" href="https://mysplits.site/">
+<meta name="theme-color" content="#F3F7F8">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="preload" href="assets/Manrope.ttf" as="font" type="font/ttf" crossorigin>
+<!-- Layout and craft pass follow the unslop method by Damir Sokolovsky (@heydamir), CC BY 4.0. -->
+<style>
+@font-face {
+  font-family: "Manrope";
+  src: url("assets/Manrope.ttf") format("truetype");
+  font-weight: 200 800;
+  font-display: swap;
+}
+:root {
+  /* Ink-tinted neutrals around the Splits brand */
+  --bg: #F3F7F8;
+  --card: #FFFFFF;
+  --raised: #EAF0F2;
+  --line: rgba(14, 28, 43, 0.08);
+  --text: #0E1C2B;
+  --text-2: #43525F;
+  --text-3: #5B6B78;
+  /* One accent: Splits teal. Fill shade carries white text at 5.4:1 */
+  --accent: #0A7A73;
+  --accent-hover: #086660;
+  --accent-ink: #08706A;
+  --accent-soft: #D9F2EF;
+  /* Purpose colours, only inside the split itself */
+  --rent: #2BC4BA;
+  --school: #9B8CF2;
+  --upkeep: #F2896D;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 400 16px/1.6 "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+img, svg { display: block; max-width: 100%; }
+h1, h2, h3, p, ol, ul, dl, dd, figure { margin: 0; }
+ol, ul { padding: 0; list-style: none; }
+a { color: inherit; }
+.wrap { width: 100%; max-width: 1152px; margin: 0 auto; padding: 0 24px; }
+.skip { position: absolute; left: -9999px; top: 8px; background: var(--text); color: #fff; padding: 8px 16px; border-radius: 8px; z-index: 20; }
+.skip:focus { left: 16px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Signature: the three-part split bar */
+.splitmark { display: inline-flex; gap: 3px; vertical-align: middle; }
+.splitmark i { display: block; height: 6px; border-radius: 3px; }
+.splitmark i:nth-child(1) { width: 16px; background: var(--rent); }
+.splitmark i:nth-child(2) { width: 14px; background: var(--school); }
+.splitmark i:nth-child(3) { width: 10px; background: var(--upkeep); }
+.label { display: flex; align-items: center; gap: 12px; font-size: 15px; font-weight: 600; color: var(--text-2); }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 10px; font: inherit; font-size: 16px; font-weight: 600; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+  transition: background-color 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease), transform 120ms var(--ease); }
+.btn:active { transform: scale(0.98); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--card); color: var(--text); border-color: var(--line); }
+.btn-secondary:hover { background: var(--raised); }
+
+/* Header */
+.top { position: sticky; top: 0; z-index: 10; background: rgba(243, 247, 248, 0.92); border-bottom: 1px solid transparent; transition: border-color 200ms var(--ease); }
+.top.scrolled { border-bottom-color: var(--line); }
+.top .wrap { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.brand img { height: 28px; width: auto; }
+.nav { display: flex; align-items: center; gap: 32px; }
+.nav a.link { font-size: 15px; font-weight: 500; color: var(--text-2); text-decoration: none; transition: color 160ms var(--ease); }
+.nav a.link:hover { color: var(--text); }
+.nav .btn { min-height: 36px; padding: 0 16px; font-size: 15px; border-radius: 8px; }
+
+/* Hero */
+.hero { min-height: calc(100vh - 64px); display: flex; align-items: center; padding: 64px 0 96px; }
+.hero .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+.hero h1 { margin-top: 24px; font-size: clamp(40px, 6.2vw, 72px); line-height: 1.04; font-weight: 600; letter-spacing: -0.03em; }
+.hero .lede { margin-top: 24px; max-width: 36rem; font-size: 19px; line-height: 1.55; color: var(--text-2); }
+.actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* The calculator: the one bright moment */
+.calc { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: 0 8px 24px rgba(14, 28, 43, 0.06); }
+.calc-field { display: block; padding: 16px; border-radius: 12px; background: var(--raised); }
+.calc-field > span:first-child { display: block; font-size: 14px; color: var(--text-3); }
+.calc-field .calc-input { display: flex; align-items: baseline; gap: 4px; margin-top: 4px; }
+.calc-input b { font-size: 32px; font-weight: 600; color: var(--text-3); }
+.calc-input input { width: 100%; border: 0; background: transparent; font: inherit; font-size: 36px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); font-variant-numeric: tabular-nums; padding: 0; }
+.calc-input input:focus { outline: none; }
+.calc-field:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
+.calc-note { margin-top: 8px; font-size: 13px; color: var(--text-3); }
+.bar { margin: 20px 0; display: flex; gap: 4px; height: 10px; }
+.bar span { height: 100%; border-radius: 5px; transform-origin: left center; }
+.legs { display: grid; gap: 8px; }
+.leg { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.leg b { display: block; font-size: 15px; font-weight: 600; }
+.leg small { display: block; font-size: 13px; color: var(--text-3); }
+.leg .amt { font-size: 17px; font-weight: 600; }
+.calc-sum { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: 14px; color: var(--text-2); }
+.calc-sum div { display: flex; justify-content: space-between; }
+.calc-sum .total { margin-top: 4px; font-size: 16px; font-weight: 600; color: var(--text); }
+.landed { margin-top: 16px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: var(--accent-ink); }
+.landed svg { width: 20px; height: 20px; }
+.landed circle { fill: var(--accent-soft); }
+.landed path { fill: none; stroke: var(--accent-ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 20; stroke-dashoffset: 20; }
+.landed.drawn path { stroke-dashoffset: 0; transition: stroke-dashoffset 500ms var(--ease) 120ms; }
+.landed span { opacity: 0; transform: translateX(-4px); }
+.landed.drawn span { opacity: 1; transform: none; transition: opacity 300ms var(--ease) 300ms, transform 300ms var(--ease) 300ms; }
+
+/* Sections */
+section { scroll-margin-top: 72px; }
+.block { padding: 112px 0; }
+.block.alt { background: var(--card); }
+.head { max-width: 40rem; }
+.head h2, .h2 { margin-top: 16px; font-size: clamp(30px, 4vw, 44px); line-height: 1.12; font-weight: 600; letter-spacing: -0.02em; }
+.head p { margin-top: 16px; font-size: 18px; color: var(--text-2); }
+
+.problem { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 64px; align-items: center; }
+.problem .copy p { margin-top: 20px; font-size: 18px; color: var(--text-2); }
+.problem .copy p.key { color: var(--text); font-weight: 600; }
+.stats { display: grid; gap: 16px; }
+.stat { padding: 24px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); }
+.stat strong { display: block; font-size: 48px; line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
+.stat span { display: block; margin-top: 8px; font-size: 15px; color: var(--text-2); }
+.source { margin-top: 12px; font-size: 13px; color: var(--text-3); }
+
+/* Steps with a line that draws across */
+.steps { position: relative; margin-top: 56px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.steps::before { content: ""; position: absolute; left: 0; right: 0; top: 19px; height: 2px; background: var(--line); }
+.steps .track { position: absolute; left: 0; right: 0; top: 19px; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left center; transition: transform 1200ms var(--ease) 200ms; }
+.steps.in .track { transform: scaleX(1); }
+.step { position: relative; }
+.step .n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--card); border: 1px solid var(--line); font-size: 15px; font-weight: 600; color: var(--accent-ink); transition: background-color 300ms var(--ease), color 300ms var(--ease), border-color 300ms var(--ease); }
+.steps.in .step .n { background: var(--accent); border-color: var(--accent); color: #fff; }
+.steps.in .step:nth-child(3) .n { transition-delay: 300ms; }
+.steps.in .step:nth-child(4) .n { transition-delay: 600ms; }
+.steps.in .step:nth-child(5) .n { transition-delay: 900ms; }
+.step h3 { margin-top: 20px; font-size: 20px; font-weight: 600; }
+.step p { margin-top: 8px; color: var(--text-2); }
+
+.features { margin-top: 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 64px; }
+.feature { display: grid; grid-template-columns: 40px 1fr; gap: 16px; padding: 24px 0; border-top: 1px solid var(--line); }
+.feature svg { width: 20px; height: 20px; margin-top: 2px; fill: none; stroke: var(--text-3); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.feature .ic { width: 40px; height: 40px; border-radius: 10px; background: var(--raised); display: grid; place-items: center; }
+.feature h3 { font-size: 18px; font-weight: 600; }
+.feature p { margin-top: 4px; color: var(--text-2); }
+
+.promises { margin-top: 56px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.promise { padding: 24px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.promise h3 { font-size: 20px; font-weight: 600; }
+.promise p { margin-top: 8px; color: var(--text-2); }
+.fine { margin-top: 24px; font-size: 15px; color: var(--text-3); }
+
+.who { margin-top: 56px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.who li { padding: 24px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); }
+.who h3 { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600; }
+.who p { margin-top: 8px; color: var(--text-2); }
+.who .soon { margin-left: auto; font-size: 12px; font-weight: 500; color: var(--text-3); }
+
+.about { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 64px; align-items: start; }
+.about .copy p { margin-top: 20px; font-size: 18px; color: var(--text-2); }
+.contact { padding: 24px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); }
+.contact dt { font-size: 14px; color: var(--text-3); }
+.contact dd { margin-top: 4px; font-size: 18px; font-weight: 600; }
+.contact dd a { text-decoration: none; border-bottom: 1px solid var(--accent); transition: color 160ms var(--ease); }
+.contact dd a:hover { color: var(--accent-ink); }
+.contact .btn { margin-top: 24px; width: 100%; }
+
+.close { text-align: center; }
+.close .h2 { margin-top: 0; }
+.close p { margin: 16px auto 0; max-width: 34rem; font-size: 18px; color: var(--text-2); }
+.close .actions { justify-content: center; }
+
+footer { border-top: 1px solid var(--line); padding: 32px 0; font-size: 14px; color: var(--text-3); }
+footer .wrap { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+footer img { height: 22px; width: auto; }
+footer nav { display: flex; gap: 24px; }
+footer a { text-decoration: none; transition: color 160ms var(--ease); }
+footer a:hover { color: var(--text); }
+
+/* Motion: one entrance on load, then each section reveals once as it scrolls in */
+.js .rise { opacity: 0; transform: translateY(12px); }
+.js .rise.in { opacity: 1; transform: none; transition: opacity 500ms var(--ease), transform 500ms var(--ease); transition-delay: var(--d, 0ms); }
+.js .bar span { transform: scaleX(0); }
+.js .bar.in span { transform: scaleX(1); transition: transform 600ms var(--ease); }
+.js .bar.in span:nth-child(2) { transition-delay: 120ms; }
+.js .bar.in span:nth-child(3) { transition-delay: 240ms; }
+
+@media (max-width: 960px) {
+  .hero { min-height: 0; }
+  .hero .wrap, .problem, .about { grid-template-columns: 1fr; gap: 48px; }
+  .steps { grid-template-columns: 1fr 1fr; row-gap: 40px; }
+  .steps::before, .steps .track { display: none; }
+  .who { grid-template-columns: 1fr 1fr; }
+  .nav a.link { display: none; }
+}
+@media (max-width: 640px) {
+  .wrap { padding: 0 16px; }
+  .hero { padding: 48px 0 64px; }
+  .hero h1 { font-size: 40px; }
+  .hero .lede { font-size: 17px; }
+  .block { padding: 80px 0; }
+  .steps, .features, .promises, .who { grid-template-columns: 1fr; }
+  .actions .btn { flex: 1 1 100%; }
+  .calc { padding: 16px; }
+  .stat strong { font-size: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { transition: none !important; }
+  .js .rise, .js .bar span { opacity: 1 !important; transform: none !important; }
+  .steps .track { transform: scaleX(1); }
+  .landed path { stroke-dashoffset: 0; }
+  .landed span { opacity: 1; transform: none; }
+}
+</style>
+<script>document.documentElement.classList.add("js");</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top" id="top">
+  <div class="wrap">
+    <a class="brand" href="#main" aria-label="Splits home"><img src="assets/logo.svg" alt="Splits" width="91" height="28"></a>
+    <nav class="nav" aria-label="Main">
+      <a class="link" href="#how">How it works</a>
+      <a class="link" href="#product">Product</a>
+      <a class="link" href="#trust">Trust</a>
+      <a class="link" href="#company">Company</a>
+      <a class="btn btn-primary" href="#contact">Get in touch</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div>
+        <p class="label rise" style="--d:0ms"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>Payments, divided by purpose</p>
+        <h1 id="hero-title" class="rise" style="--d:60ms">Send once.<br>It lands divided.</h1>
+        <p class="lede rise" style="--d:120ms">Say who gets what, and why, once. Rent, school fees and upkeep arrive as separate parts of one payment, with a private receipt for every person.</p>
+        <div class="actions rise" style="--d:180ms">
+          <a class="btn btn-primary" href="https://mysplits.xyz/home">Launch app</a>
+          <a class="btn btn-secondary" href="#contact">Get in touch</a>
+        </div>
+      </div>
+
+      <form class="calc rise" style="--d:240ms" aria-label="Try a split" onsubmit="return false">
+        <label class="calc-field" for="amount">
+          <span>You send</span>
+          <span class="calc-input"><b aria-hidden="true">$</b><input id="amount" name="amount" inputmode="decimal" autocomplete="off" value="450.00" aria-describedby="amount-note"></span>
+        </label>
+        <p class="calc-note" id="amount-note">Up to $500 per payment while identity checks roll out</p>
+        <div class="bar" id="bar" aria-hidden="true">
+          <span style="flex-grow:40;background:var(--rent)"></span>
+          <span style="flex-grow:35;background:var(--school)"></span>
+          <span style="flex-grow:25;background:var(--upkeep)"></span>
+        </div>
+        <ul class="legs" aria-live="polite">
+          <li class="leg"><span class="dot" style="background:var(--rent)"></span><span><b>Rent · 40%</b><small>To the landlord</small></span><span class="amt num" data-part="0">$180.00</span></li>
+          <li class="leg"><span class="dot" style="background:var(--school)"></span><span><b>School fees · 35%</b><small>To the school</small></span><span class="amt num" data-part="1">$157.50</span></li>
+          <li class="leg"><span class="dot" style="background:var(--upkeep)"></span><span><b>Upkeep · 25%</b><small>To a sister</small></span><span class="amt num" data-part="2">$112.50</span></li>
+        </ul>
+        <div class="calc-sum">
+          <div><span>Splits fee · 1.5%</span><span class="num" id="fee">$6.75</span></div>
+          <div class="total"><span>Total you pay</span><span class="num" id="total">$456.75</span></div>
+        </div>
+        <p class="landed" id="landed"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10"/><path d="m6 10.5 2.6 2.6L14 7.6"/></svg><span>Landed, divided. Each person gets a receipt</span></p>
+      </form>
+    </div>
+  </section>
+
+  <section class="block alt" aria-labelledby="problem-title">
+    <div class="wrap problem">
+      <div class="copy rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>The problem</p>
+        <h2 class="h2" id="problem-title">Money sent home is rarely for one thing</h2>
+        <p>Someone in London supporting family in Lagos covers rent, a sibling’s school fees and upkeep in the same month.</p>
+        <p>Today they send one lump sum and hope it’s divided the way they meant, or make several transfers and pay a fee on each.</p>
+        <p class="key">No app lets the sender say what the money is for at the moment they send it. Splits does.</p>
+      </div>
+      <div class="rise" style="--d:120ms">
+        <div class="stats">
+          <div class="stat"><strong class="num" data-count="685" data-prefix="$" data-suffix="B">$685B</strong><span>sent to low- and middle-income countries in 2024</span></div>
+          <div class="stat"><strong class="num" data-count="19.5" data-prefix="$" data-suffix="B" data-decimals="1">$19.5B</strong><span>sent to Nigeria in 2023, about 35% of Sub-Saharan Africa’s total</span></div>
+        </div>
+        <p class="source">Source: World Bank remittance estimates</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>How it works</p>
+        <h2 id="how-title">Four steps, one approval</h2>
+        <p>Every payment lands already divided, with a receipt for each part.</p>
+      </div>
+      <ol class="steps" id="steps">
+        <li class="track" aria-hidden="true"></li>
+        <li class="step rise" style="--d:0ms"><span class="n">1</span><h3>Check</h3><p>Duplicates, typos and unreachable recipients are caught before any money moves.</p></li>
+        <li class="step rise" style="--d:60ms"><span class="n">2</span><h3>Approve</h3><p>See the exact total and fee, then approve with a PIN, Face ID or fingerprint.</p></li>
+        <li class="step rise" style="--d:120ms"><span class="n">3</span><h3>Pay</h3><p>Everyone is paid in one go, or nobody is. Each part keeps its purpose.</p></li>
+        <li class="step rise" style="--d:180ms"><span class="n">4</span><h3>Confirm</h3><p>Every payout is confirmed before you see “Landed”, with a receipt for each person.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block alt" id="product" aria-labelledby="product-title">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>Product</p>
+        <h2 id="product-title">Everything a divided payment needs</h2>
+        <p>Recipients don’t need an app. They’re paid by email and find the money waiting when they sign in.</p>
+      </div>
+      <ul class="features">
+        <li class="feature rise"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><div><h3>Pay up to 50 people</h3><p>In one payment, split equally to the cent or by amount.</p></div></li>
+        <li class="feature rise" style="--d:60ms"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg></span><div><h3>Saved splits</h3><p>Set up rent, school fees and upkeep once, then reuse it every month.</p></div></li>
+        <li class="feature rise"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span><div><h3>A receipt per person</h3><p>Each person sees only their part and what it was for.</p></div></li>
+        <li class="feature rise" style="--d:60ms"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><div><h3>Secure approval</h3><p>A PIN, Face ID or fingerprint approves every payment.</p></div></li>
+        <li class="feature rise"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span><div><h3>Lists drafted for you</h3><p>Paste a note or a screenshot and the list is filled in. You check it and approve.</p></div></li>
+        <li class="feature rise" style="--d:60ms"><span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56"/><path d="M21 3v6h-6"/></svg></span><div><h3>Automatic splits</h3><p>“30% of everything I receive into savings” runs by itself.</p></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block" id="trust" aria-labelledby="trust-title">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>Trust</p>
+        <h2 id="trust-title">Built to be trusted with money</h2>
+        <p>Three promises on every payment.</p>
+      </div>
+      <div class="promises">
+        <div class="promise rise"><h3>All or nothing</h3><p>Every split pays everyone, or nobody. No half-delivered payments.</p></div>
+        <div class="promise rise" style="--d:60ms"><h3>Confirmed first</h3><p>Each payout is confirmed before the sender sees “Landed”.</p></div>
+        <div class="promise rise" style="--d:120ms"><h3>Approved by you</h3><p>Nothing moves until the sender approves it with a PIN, Face ID or fingerprint.</p></div>
+      </div>
+      <p class="fine rise">Security audit completed in October 2026. Sending limits stay in place until identity checks are live.</p>
+    </div>
+  </section>
+
+  <section class="block alt" aria-labelledby="who-title">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>Who it serves</p>
+        <h2 id="who-title">Anyone who needs one payment divided</h2>
+      </div>
+      <ul class="who">
+        <li class="rise"><h3><span class="dot" style="background:var(--rent)" aria-hidden="true"></span>Families</h3><p>Rent, school fees and upkeep from one transfer, starting with London to Lagos.</p></li>
+        <li class="rise" style="--d:60ms"><h3><span class="dot" style="background:var(--school)" aria-hidden="true"></span>Creators</h3><p>Twenty giveaway winners paid from one pot, to the cent.</p></li>
+        <li class="rise" style="--d:120ms"><h3><span class="dot" style="background:var(--upkeep)" aria-hidden="true"></span>Small teams</h3><p>Revenue shares and contractor payouts in one approval.</p></li>
+        <li class="rise" style="--d:180ms"><h3><span class="dot" style="background:var(--text-3)" aria-hidden="true"></span>Platforms<span class="soon">Next</span></h3><p>Fintech and payroll apps divide payments through the Splits API.</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block" id="company" aria-labelledby="company-title">
+    <div class="wrap about">
+      <div class="copy rise">
+        <p class="label"><span class="splitmark" aria-hidden="true"><i></i><i></i><i></i></span>Company</p>
+        <h2 class="h2" id="company-title">About Splits</h2>
+        <p>Splits is a payments company built around one idea: when you send money, you should be able to say what it’s for, and it should arrive that way.</p>
+        <p>We started with families sending money home, where a single transfer usually has to cover several needs. Next we’re adding card and bank funding, cash-out to bank accounts and mobile money, and new corridors across Europe and Asia.</p>
+      </div>
+      <div class="contact rise" id="contact" style="--d:120ms">
+        <dl>
+          <dt>Contact</dt>
+          <dd><a href="mailto:hello@mysplits.site">hello@mysplits.site</a></dd>
+        </dl>
+        <a class="btn btn-primary" href="mailto:hello@mysplits.site">Email us</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="block alt close" aria-labelledby="close-title">
+    <div class="wrap rise">
+      <h2 class="h2" id="close-title">Send once. It lands divided.</h2>
+      <p>Tell us about the payments you send, and we’ll show you how Splits divides them.</p>
+      <div class="actions"><a class="btn btn-primary" href="mailto:hello@mysplits.site">Get in touch</a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <img src="assets/logo.svg" alt="Splits" width="71" height="22">
+    <nav aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#company">Company</a>
+      <a href="mailto:hello@mysplits.site">Contact</a>
+    </nav>
+    <p>© 2026 Splits</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var ease = function (t) { return 1 - Math.pow(1 - t, 3); };
+
+  // Header hairline once the page scrolls
+  var top = document.getElementById("top");
+  var onScroll = function () { top.classList.toggle("scrolled", window.scrollY > 8); };
+  onScroll();
+  window.addEventListener("scroll", onScroll, { passive: true });
+
+  // Count a figure up once
+  function countUp(el) {
+    var to = parseFloat(el.dataset.count), dec = parseInt(el.dataset.decimals || "0", 10);
+    var pre = el.dataset.prefix || "", suf = el.dataset.suffix || "";
+    if (reduce) return;
+    var start = performance.now(), dur = 900, final = el.textContent;
+    setTimeout(function () { el.textContent = final; }, dur + 80);
+    (function frame(now) {
+      var t = Math.min(1, (now - start) / dur);
+      el.textContent = pre + (to * ease(t)).toFixed(dec) + suf;
+      if (t < 1) requestAnimationFrame(frame);
+    })(start);
+  }
+
+  // Reveal each block once as it enters the viewport; old browsers just show everything
+  var hero = document.querySelector(".hero");
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        e.target.classList.add("in");
+        e.target.querySelectorAll("[data-count]").forEach(countUp);
+        io.unobserve(e.target);
+      });
+    }, { threshold: 0.18, rootMargin: "0px 0px -40px 0px" });
+    document.querySelectorAll(".rise, #steps").forEach(function (el) {
+      if (hero.contains(el)) return;
+      io.observe(el);
+    });
+  } else {
+    document.querySelectorAll(".rise, #steps").forEach(function (el) { el.classList.add("in"); });
+  }
+  // The hero enters on load, not on scroll, so it never waits on the observer
+  setTimeout(function () {
+    hero.querySelectorAll(".rise").forEach(function (el) { el.classList.add("in"); });
+  }, 40);
+
+  // The calculator
+  var input = document.getElementById("amount");
+  var bar = document.getElementById("bar");
+  var landed = document.getElementById("landed");
+  var outs = [].slice.call(document.querySelectorAll("[data-part]"));
+  var feeEl = document.getElementById("fee"), totalEl = document.getElementById("total");
+  var shown = [18000, 15750, 11250, 675, 45675];
+  var money = function (c) { return "$" + (c / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+  function target(cents) {
+    // Whole cents only: the last part takes any remainder, as the app does
+    var a = Math.floor(cents * 40 / 100), b = Math.floor(cents * 35 / 100), c = cents - a - b, fee = Math.round(cents * 15 / 1000);
+    return [a, b, c, fee, cents + fee];
+  }
+  function paint(vals) {
+    outs.forEach(function (el, i) { el.textContent = money(vals[i]); });
+    feeEl.textContent = money(vals[3]);
+    totalEl.textContent = money(vals[4]);
+  }
+  var raf, settle;
+  function tweenTo(next) {
+    cancelAnimationFrame(raf);
+    clearTimeout(settle);
+    if (reduce) { shown = next; paint(next); return; }
+    var from = shown.slice(), start = performance.now(), dur = 420;
+    // Always land on the exact figures, even if the browser pauses animation frames
+    settle = setTimeout(function () { cancelAnimationFrame(raf); shown = next; paint(next); }, dur + 60);
+    (function frame(now) {
+      var t = Math.min(1, (now - start) / dur), k = ease(t);
+      shown = from.map(function (f, i) { return Math.round(f + (next[i] - f) * k); });
+      paint(shown);
+      if (t < 1) raf = requestAnimationFrame(frame);
+    })(start);
+  }
+  input.addEventListener("input", function () {
+    var clean = input.value.replace(/[^0-9.]/g, "");
+    var v = Math.min(500, Math.max(0, parseFloat(clean) || 0));
+    tweenTo(target(Math.round(v * 100)));
+  });
+  input.addEventListener("blur", function () {
+    var v = Math.min(500, Math.max(0, parseFloat(input.value.replace(/[^0-9.]/g, "")) || 0));
+    input.value = v.toFixed(2);
+  });
+
+  // First load: the split fills in, the figures count up, then the receipt check draws
+  setTimeout(function () {
+    bar.classList.add("in");
+    shown = [0, 0, 0, 0, 0];
+    paint(shown);
+    tweenTo(target(45000));
+    setTimeout(function () { landed.classList.add("drawn"); }, reduce ? 0 : 700);
+  }, reduce ? 0 : 400);
+})();
+</script>
+</body>
+</html>
