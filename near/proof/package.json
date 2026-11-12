@@ -1,0 +1,15 @@
+{
+  "name": "splits-near-proof",
+  "private": true,
+  "description": "Proves the Splits router on NEAR testnet from a terminal, with fresh accounts and no wallet.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "testnet": "node testnet-proof.mjs"
+  },
+  "dependencies": {
+    "near-api-js": "7.5.3"
+  }
+}

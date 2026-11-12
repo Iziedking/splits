@@ -1,0 +1,5 @@
+# Written by proof/contract-tests.sh when it runs in Docker, and by npm in proof/.
+/target
+/.cargo-home
+/.rustup-home
+/proof/node_modules
