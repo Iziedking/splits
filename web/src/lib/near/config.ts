@@ -15,7 +15,8 @@ export const NEAR = {
   token: process.env.NEXT_PUBLIC_NEAR_TOKEN || "3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af",
   tokenSymbol: "USDC",
   tokenDecimals: 6,
-  rpc: process.env.NEXT_PUBLIC_NEAR_RPC || (network === "mainnet" ? "https://rpc.mainnet.near.org" : "https://rpc.testnet.near.org"),
+  // rpc.*.near.org answers 429 with a deprecation notice; FastNEAR is listed at docs.near.org/api/rpc/providers.
+  rpc: process.env.NEXT_PUBLIC_NEAR_RPC || (network === "mainnet" ? "https://free.rpc.fastnear.com" : "https://test.rpc.fastnear.com"),
   explorer: network === "mainnet" ? "https://nearblocks.io" : "https://testnet.nearblocks.io",
   /** Where people get testnet USDC. */
   faucet: "https://faucet.circle.com",
