@@ -188,7 +188,7 @@ export function SharesList({ shares, example = 100_000_000n }: { shares: Share[]
             </div>
             <div className="text-right">
               <p className="figure text-sm">{(s.bps / 100).toString()}%</p>
-              <p className="text-xs text-muted-foreground">{formatUnits(parts[i]!)} of 100</p>
+              <p className="text-xs text-muted-foreground">{formatUnits(parts[i]!)} of {formatUnits(example)}</p>
             </div>
           </li>
         ))}

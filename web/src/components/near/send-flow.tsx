@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { PurposeDot } from "@/components/app/purpose-dot";
+import { Segmented } from "@/components/app/segmented";
 import { Button } from "@/components/ui/button";
 import { Field, Notice, inputClass } from "@/components/ui/field";
 import { NEAR } from "@/lib/near/config";
@@ -140,7 +141,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
     );
   }
 
-  const lineProblem = (i: number) => problems.find((p) => p.line === i + 1)?.message ?? null;
+  const lineProblem = (i: number) => problems.filter((p) => p.line === i + 1).map((p) => p.message).join(" · ") || null;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
@@ -149,23 +150,19 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
           <h2 id="list-title" className="text-xl font-bold">
             Who gets what
           </h2>
-          <div role="radiogroup" aria-label="How to divide" className="flex rounded-full bg-white/70 p-1 ring-1 ring-white">
-            {(["each", "equal"] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                role="radio"
-                aria-checked={mode === m}
-                onClick={() => {
-                  setMode(m);
-                  setReview(null);
-                }}
-                className={cn("rounded-full px-3 py-1.5 text-sm font-medium", mode === m ? "bg-primary-fill text-primary-foreground" : "text-muted-foreground")}
-              >
-                {m === "each" ? "Amount for each" : "Share a total"}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            kind="radio"
+            label="How to divide"
+            options={[
+              { value: "each", label: "Amount for each" },
+              { value: "equal", label: "Share a total" },
+            ]}
+            value={mode}
+            onChange={(m) => {
+              setMode(m);
+              setReview(null);
+            }}
+          />
         </div>
 
         {mode === "equal" && (

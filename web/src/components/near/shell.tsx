@@ -63,7 +63,10 @@ export function NearShell({ children }: { children: React.ReactNode }) {
                 try {
                   await signIn();
                 } catch (e) {
-                  setError(e instanceof Error ? e.message : "The wallet did not connect");
+                  // Closing the wallet picker is a choice, not an error.
+                  const message = e instanceof Error ? e.message : "";
+                  if (/reject|cancel|closed/i.test(message)) return;
+                  setError(message || "The wallet did not connect");
                 }
               }}
             >
