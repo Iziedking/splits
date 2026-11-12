@@ -15,7 +15,9 @@
 //      c. a part to an account that cannot hold the token comes back; the others still land;
 //      d. "auto-split my income into tax, savings and spending": ada saves a split once, then a
 //         payment sent to her divides itself on arrival;
-//      e. a payer who saw an older version of ada's split is refused and refunded.
+//      e. a payer who saw an older version of ada's split is refused and refunded;
+//      f. a group fund: a Sputnik DAO votes a split into the router (one vote of two is not
+//         enough, two are), then a payment to the group divides by the rule it voted on.
 // Exits non-zero if any check fails. Takes about two minutes.
 
 import { createHash, randomBytes } from "node:crypto";
@@ -27,6 +29,7 @@ const FAUCET = "https://helper.nearprotocol.com/account";
 const EXPLORER = "https://testnet.nearblocks.io";
 const LIVE_ROUTER = process.env.LIVE_ROUTER ?? "splits.kingizie.testnet";
 const TOKEN_CODE = process.env.TOKEN_CODE ?? "splits-test-dollar.testnet";
+const DAO_FACTORY = process.env.DAO_FACTORY ?? "sputnikv2.testnet"; // the Sputnik DAO v2 factory on testnet
 
 // near-api-js only signs and sends; every read below uses plain JSON-RPC.
 const RPC_PROVIDER = new JsonRpcProvider({ url: RPC });
@@ -172,7 +175,7 @@ async function main() {
   h = await send(acct(token), token, [call("new", { owner_id: root, total_supply: String(USD(1000)) })]);
   console.log(`   ${token}: 1,000.00 TEST DOLLAR minted to ${root}  ${link(h)}`);
 
-  for (const id of [tax, savings, mum, ada, nobody]) await newSub(id, id === ada ? 300 : 120);
+  for (const id of [tax, savings, mum, ada, nobody]) await newSub(id, id === ada ? 600 : 120);
   console.log(`   Created ${[tax, savings, mum, ada, nobody].join(", ")}`);
   h = await send(
     payer,
@@ -246,6 +249,48 @@ async function main() {
   after = await balances();
   ok(ev.some((e) => e.event === "payment_refused" && e.data[0].reason === "stale_split_version"), "refused: stale_split_version");
   ok(diff(before, after, root) === 0n, "the payer kept the 1.00");
+
+  step("3f. A group fund whose split is set by a vote (Sputnik DAO)");
+  // A second faucet account founds the DAO, so the payer keeps enough NEAR for the rest.
+  const founder = await faucetAccount(keyPair);
+  const daoName = `splits-proof-${randomBytes(3).toString("hex")}`;
+  const dao = `${daoName}.${DAO_FACTORY}`;
+  const daoArgs = { config: { name: daoName, purpose: "Splits proof: a group fund whose split is set by a vote", metadata: "" }, policy: [root, ada] };
+  h = await send(acct(founder), DAO_FACTORY, [call("create", { name: daoName, args: Buffer.from(JSON.stringify(daoArgs)).toString("base64") }, NEAR * 6n, 150n)]);
+  console.log(`   ${founder} created ${dao}; its council is ${root} and ${ada}  ${link(h)}`);
+  const policy = await view(dao, "get_policy");
+  h = await send(payer, token, [call("storage_deposit", { account_id: dao, registration_only: true }, STORAGE, 10n)]);
+  const groupShares = [
+    { account_id: mum, bps: 4000, purpose: "rent" },
+    { account_id: tax, bps: 3000, purpose: "bills" },
+    { account_id: savings, bps: 3000, purpose: "trip fund" },
+  ];
+  const kind = {
+    FunctionCall: {
+      receiver_id: router,
+      actions: [{ method_name: "set_split", args: Buffer.from(JSON.stringify({ shares: groupShares })).toString("base64"), deposit: String(milliNear(10)), gas: String(50n * TGAS) }],
+    },
+  };
+  h = await send(payer, dao, [call("add_proposal", { proposal: { description: "Splits: divide the group's income 40% rent, 30% bills, 30% trip fund", kind } }, BigInt(policy.proposal_bond), 50n)]);
+  const id = (await view(dao, "get_last_proposal_id")) - 1;
+  console.log(`   ${root} proposed the split as proposal ${id}  ${link(h)}`);
+  h = await send(payer, dao, [call("act_proposal", { id, action: "VoteApprove", proposal: kind }, 0n, 200n)]);
+  console.log(`   ${root} voted yes  ${link(h)}`);
+  ok((await view(router, "get_split", { account_id: dao })) === null, "one vote of two is not enough: the group has no split yet");
+  h = await send(acct(ada), dao, [call("act_proposal", { id, action: "VoteApprove", proposal: kind }, 0n, 200n)]);
+  console.log(`   ${ada} voted yes  ${link(h)}`);
+  const proposal = await view(dao, "get_proposal", { id });
+  const groupSplit = await view(router, "get_split", { account_id: dao });
+  ok(proposal.status === "Approved", `the proposal passed (status ${proposal.status})`);
+  ok(groupSplit?.version === 1 && JSON.stringify(groupSplit.shares) === JSON.stringify(groupShares), "the vote saved the group's split in the router: 40% rent, 30% bills, 30% trip fund");
+  const people = [mum, tax, savings];
+  const groupBefore = await Promise.all(people.map(bal));
+  h = await pay(USD(10), { ref: `proof-${randomBytes(4).toString("hex")}`, to: dao, version: 1 });
+  console.log(`   ${root} pays the group 10.00  ${link(h)}`);
+  const groupAfter = await Promise.all(people.map(bal));
+  const got = groupAfter.map((b, i) => b - groupBefore[i]);
+  ok(got[0] === USD(4) && got[1] === USD(3) && got[2] === USD(3), "it divided by the rule the group voted on: 4.00 rent, 3.00 bills, 3.00 trip fund");
+  ok((await bal(router)) === 0n && (await bal(dao)) === 0n, "neither the router nor the DAO holds the payment");
 
   console.log(`\n${failures === 0 ? "All checks passed." : `${failures} check(s) failed.`}`);
   console.log(`Every account from this run is under ${root}; look it up at ${EXPLORER}/address/${root}`);
