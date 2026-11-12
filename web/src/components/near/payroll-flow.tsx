@@ -66,9 +66,10 @@ export function PayrollFlow() {
         >
           <FileUp className="h-6 w-6 text-primary-text" strokeWidth={1.75} aria-hidden="true" />
           <span className="font-medium">{file ? file.name : "Choose a CSV file, or drop it here"}</span>
-          <span className="text-sm text-muted-foreground">{file && !file.problems.length ? `${file.lines.length} people` : "Nothing is paid until you check the list and approve it"}</span>
+          <span className="text-sm text-muted-foreground">{file && !file.problems.length ? `${file.lines.length} people` : "Nothing is paid until you review it and approve"}</span>
           <input
             id="payroll-file"
+            aria-label="Upload a payroll CSV"
             type="file"
             accept=".csv,text/csv"
             className="sr-only"
