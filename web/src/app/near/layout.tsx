@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Backdrop } from "@/components/app/backdrop";
-import { NearShell } from "@/components/near/shell";
 import { NearWalletProvider } from "@/components/near/wallet";
 import { nearEnabled } from "@/lib/near/config";
+
+// Account names are addresses on NEAR, so they are set in a mono that reads clearly at small sizes.
+const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap", weight: ["400", "500"] });
 
 export const metadata: Metadata = {
   title: { default: "Splits on NEAR", template: "%s · Splits on NEAR" },
@@ -19,7 +22,7 @@ export default function NearLayout({ children }: { children: ReactNode }) {
   return (
     <NearWalletProvider>
       <Backdrop />
-      <NearShell>{children}</NearShell>
+      <div className={mono.variable}>{children}</div>
     </NearWalletProvider>
   );
 }

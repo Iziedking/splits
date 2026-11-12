@@ -71,9 +71,9 @@ export function PayFlow({ owner }: { owner: string }) {
 
   return (
     <div className="mx-auto max-w-xl">
-      <div className="surface rounded-lg p-5 sm:p-6">
+      <div className="surface rounded-2xl p-6 sm:p-7">
         <p className="text-sm font-medium text-primary-text">Pay</p>
-        <h1 className="display-face mt-1 text-3xl font-bold break-all">{owner}</h1>
+        <h1 className="mt-1 font-mono text-2xl font-semibold break-all sm:text-3xl">{owner}</h1>
         {split === undefined && <p className="mt-3 text-sm text-muted-foreground">Reading their split from NEAR…</p>}
         {split === null && <Notice className="mt-4">{owner} has no saved split, so there is nothing to divide by. Ask them for their Splits pay link.</Notice>}
         {split && (

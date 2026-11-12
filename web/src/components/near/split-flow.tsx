@@ -7,15 +7,21 @@ import { Button } from "@/components/ui/button";
 import { Notice, inputClass } from "@/components/ui/field";
 import type { Share } from "@/lib/near/instruction";
 import { NEAR, txUrl } from "@/lib/near/config";
-import { BPS_TOTAL, divideByShares, formatUnits, splitsEvents } from "@/lib/near/payment";
+import { divideByShares, formatUnits, splitsEvents } from "@/lib/near/payment";
 import { finalTx, getSplit, type SavedSplit } from "@/lib/near/rpc";
-import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
+import { AccountName, SplitBar } from "./split-card";
 import { useNearWallet } from "./wallet";
 
 /** The lead example, in the words of the track's own idea. */
-export const LEAD_EXAMPLE = (me: string) =>
-  `Auto-split my income: 30% to tax.${me} for tax, 20% to savings.${me} for savings, the rest stays for spending`;
+export const LEAD_EXAMPLE = (me: string) => `Auto-split my income: 30% to tax.${me} for tax, 20% to savings.${me} for savings, the rest stays for spending`;
+
+/** The lead example as a split, shown before anyone connects. Example names, never signed. */
+const EXAMPLE_SHARES: Share[] = [
+  { account_id: "tax.you.testnet", bps: 3000, purpose: "tax" },
+  { account_id: "savings.you.testnet", bps: 2000, purpose: "savings" },
+  { account_id: "you.testnet", bps: 5000, purpose: "spending" },
+];
 
 /** Storage set_split may need; the router returns what it does not use. */
 const SET_SPLIT_DEPOSIT = 10_000_000_000_000_000_000_000n; // 0.01 NEAR
@@ -24,7 +30,11 @@ export function SplitFlow() {
   const { accountId, signIn, send } = useNearWallet();
   const [saved, setSaved] = React.useState<SavedSplit | null | undefined>(undefined);
   const [text, setText] = React.useState("");
-  const [draft, setDraft] = React.useState<{ shares: Share[]; notes: string[]; by: string } | null>(null);
+  const [draft, setDraft] = React.useState<{
+    shares: Share[];
+    notes: string[];
+    by: string;
+  } | null>(null);
   const [busy, setBusy] = React.useState<null | "reading" | "signing">(null);
   const [error, setError] = React.useState<string | null>(null);
   const [savedTx, setSavedTx] = React.useState<string | null>(null);
@@ -41,12 +51,21 @@ export function SplitFlow() {
 
   if (!accountId) {
     return (
-      <div className="surface rounded-lg p-6">
-        <h2 className="text-xl font-bold">Connect your NEAR wallet</h2>
-        <p className="mt-2 text-muted-foreground">Your saved split lives on your own account. Connect to see it or set one.</p>
-        <Button className="mt-4" onClick={() => void signIn()}>
-          Connect NEAR wallet
-        </Button>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="surface h-fit rounded-2xl p-6 sm:p-7">
+          <h2 className="text-lg font-semibold">Connect your NEAR wallet</h2>
+          <p className="mt-2 text-muted-foreground">Your saved split lives on your own account. Connect to see it or set one.</p>
+          <Button className="mt-5" onClick={() => void signIn()}>
+            Connect NEAR wallet
+          </Button>
+        </div>
+        <section aria-labelledby="example-title" className="surface rounded-2xl p-6 sm:p-7">
+          <h2 id="example-title" className="text-lg font-semibold">
+            What you&apos;ll save
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">You write &ldquo;{LEAD_EXAMPLE("you.testnet")}&rdquo;. Splits turns it into this, and every payment of 100.00 sent to you lands like so:</p>
+          <SharesList shares={EXAMPLE_SHARES} />
+        </section>
       </div>
     );
   }
@@ -56,10 +75,23 @@ export function SplitFlow() {
     setDraft(null);
     setBusy("reading");
     try {
-      const res = await fetch("/api/near/instruction", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, me: accountId }) });
-      const body = (await res.json()) as { shares?: Share[]; notes?: string[]; by?: string; error?: string };
+      const res = await fetch("/api/near/instruction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, me: accountId }),
+      });
+      const body = (await res.json()) as {
+        shares?: Share[];
+        notes?: string[];
+        by?: string;
+        error?: string;
+      };
       if (!res.ok || !body.shares) throw new Error(body.error ?? "Could not read that instruction");
-      setDraft({ shares: body.shares, notes: body.notes ?? [], by: body.by ?? "rules" });
+      setDraft({
+        shares: body.shares,
+        notes: body.notes ?? [],
+        by: body.by ?? "rules",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read that instruction");
     } finally {
@@ -77,7 +109,12 @@ export function SplitFlow() {
         actions: [
           {
             type: "FunctionCall",
-            params: { methodName: "set_split", args: { shares: draft.shares }, gas: (30n * 10n ** 12n).toString(), deposit: SET_SPLIT_DEPOSIT.toString() },
+            params: {
+              methodName: "set_split",
+              args: { shares: draft.shares },
+              gas: (30n * 10n ** 12n).toString(),
+              deposit: SET_SPLIT_DEPOSIT.toString(),
+            },
           },
         ],
       });
@@ -98,8 +135,8 @@ export function SplitFlow() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <section className="surface rounded-lg p-5 sm:p-6" aria-labelledby="now-title">
-        <h2 id="now-title" className="text-xl font-bold">
+      <section className="surface rounded-2xl p-6 sm:p-7" aria-labelledby="now-title">
+        <h2 id="now-title" className="text-lg font-semibold">
           Your split now
         </h2>
         {saved === undefined ? (
@@ -110,7 +147,7 @@ export function SplitFlow() {
           <>
             <p className="mt-1 text-sm text-muted-foreground">Version {saved.version}. Every payment sent to you through Splits is divided like this, on chain, the moment it arrives.</p>
             <SharesList shares={saved.shares} />
-            <div className="mt-4 rounded-md bg-white/70 p-3 ring-1 ring-white">
+            <div className="mt-4 rounded-xl bg-white/70 p-4 ring-1 ring-white">
               <p className="text-sm font-semibold">Your pay link</p>
               <p className="mt-1 text-sm break-all text-primary-text">{payLink}</p>
               <div className="mt-2 flex gap-2">
@@ -134,8 +171,8 @@ export function SplitFlow() {
         )}
       </section>
 
-      <section className="surface rounded-lg p-5 sm:p-6" aria-labelledby="set-title">
-        <h2 id="set-title" className="text-xl font-bold">
+      <section className="surface rounded-2xl p-6 sm:p-7" aria-labelledby="set-title">
+        <h2 id="set-title" className="text-lg font-semibold">
           Say how to split your income
         </h2>
         <label htmlFor="instruction" className="mt-2 block text-sm text-muted-foreground">
@@ -157,7 +194,8 @@ export function SplitFlow() {
             ))}
             <p className="mt-3 text-xs text-muted-foreground">
               {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits: " : "Read by Splits' rules: "}
-              only accounts and percentages you wrote can appear, and the rest is worked out by code. Saving asks your wallet to approve it, with 0.01 NEAR for storage; the router returns what it doesn&apos;t use.
+              only accounts and percentages you wrote can appear, and the rest is worked out by code. Saving asks your wallet to approve it, with 0.01 NEAR for storage; the router returns what it
+              doesn&apos;t use.
             </p>
             <Button className="mt-3 w-full" busy={busy === "signing"} disabled={draft.shares.length === 0} onClick={() => void onSave()}>
               Save this split
@@ -177,27 +215,25 @@ export function SplitFlow() {
 export function SharesList({ shares, example = 100_000_000n }: { shares: Share[]; example?: bigint }) {
   const parts = divideByShares(example, shares);
   return (
-    <>
-      <ul className="mt-3 space-y-2">
+    <div className="mt-4 rounded-xl bg-white/70 p-4 ring-1 ring-white">
+      <SplitBar weights={shares.map((s) => s.bps)} />
+      <ul className="mt-3 divide-y divide-foreground/8">
         {shares.map((s, i) => (
-          <li key={s.account_id} className="flex items-center gap-3 rounded-md bg-white/60 px-3 py-2 ring-1 ring-white">
+          <li key={s.account_id} className="flex items-center gap-3 py-3 last:pb-0">
             <PurposeDot index={i} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{s.account_id}</p>
-              <p className="text-xs text-muted-foreground">{s.purpose}</p>
+              <AccountName id={s.account_id} className="font-medium" />
+              <p className="text-xs text-muted-foreground first-letter:uppercase">{s.purpose}</p>
             </div>
             <div className="text-right">
-              <p className="figure text-sm">{(s.bps / 100).toString()}%</p>
-              <p className="text-xs text-muted-foreground">{formatUnits(parts[i]!)} of {formatUnits(example)}</p>
+              <p className="text-sm font-semibold tabular-nums">{(s.bps / 100).toString()}%</p>
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {formatUnits(parts[i]!)} of {formatUnits(example)}
+              </p>
             </div>
           </li>
         ))}
       </ul>
-      <div className="mt-2 flex h-2 overflow-hidden rounded-full" aria-hidden="true">
-        {shares.map((s, i) => (
-          <span key={s.account_id} className="h-full" style={{ width: `${(s.bps / BPS_TOTAL) * 100}%`, background: purposeFill(i) }} />
-        ))}
-      </div>
-    </>
+    </div>
   );
 }

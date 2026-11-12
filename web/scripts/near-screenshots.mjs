@@ -21,6 +21,18 @@ const SAVED = "DWpdDLmdLrCWxtVgSg9fhQFmExnZWmnKpvK4529cpC4b";
 
 const SHOTS = [
   { name: "home", path: "/near" },
+  { name: "app-overview", path: "/near/app" },
+  { name: "payroll-empty", path: "/near/payroll" },
+  {
+    name: "payroll-uploaded",
+    path: "/near/payroll",
+    act: async (p) => {
+      const rows = ["account,amount,purpose", "tax.kingizie.testnet,0.30,payroll tax", "savings.kingizie.testnet,0.20,pension", "mum.kingizie.testnet,0.50,salary"];
+      await p.locator("#payroll-file").setInputFiles({ name: "march-payroll.csv", mimeType: "text/csv", buffer: Buffer.from(rows.join("\n")) });
+      await p.getByRole("button", { name: "Check the list" }).click();
+      await p.getByText("Total", { exact: true }).waitFor({ timeout: 20_000 });
+    },
+  },
   { name: "send-empty", path: "/near/send" },
   {
     name: "send-sample-review",

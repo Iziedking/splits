@@ -22,6 +22,7 @@ import { getAccount, isRegistered, spendable, tokenBalance } from "@/lib/near/rp
 import { cn } from "@/lib/utils";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
 import { useNearWallet } from "./wallet";
+import { AccountName, SplitBar } from "./split-card";
 
 const EMPTY: Line = { account: "", amount: "", purpose: "" };
 
@@ -145,9 +146,9 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-      <section aria-labelledby="list-title" className="surface rounded-lg p-5 sm:p-6">
+      <section aria-labelledby="list-title" className="surface rounded-2xl p-6 sm:p-7">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="list-title" className="text-xl font-bold">
+          <h2 id="list-title" className="text-lg font-semibold">
             Who gets what
           </h2>
           <Segmented
@@ -213,8 +214,8 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
         ))}
       </section>
 
-      <aside aria-labelledby="review-title" className="surface h-fit rounded-lg p-5 sm:p-6 lg:sticky lg:top-6">
-        <h2 id="review-title" className="text-xl font-bold">
+      <aside aria-labelledby="review-title" className="surface h-fit rounded-2xl p-6 sm:p-7 lg:sticky lg:top-6">
+        <h2 id="review-title" className="text-lg font-semibold">
           Review
         </h2>
         {!review ? (
@@ -226,19 +227,20 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
           </>
         ) : (
           <>
-            <ul className="mt-3 divide-y divide-white/80">
+            <SplitBar className="mt-4" weights={review.legs.map((l) => Number(BigInt(l.amount) / 10_000n) || 1)} />
+            <ul className="mt-3 divide-y divide-foreground/8">
               {review.legs.map((l, i) => (
-                <li key={l.account_id} className="flex items-start gap-2 py-2">
+                <li key={l.account_id} className="flex items-start gap-3 py-3">
                   <PurposeDot index={i} className="mt-1.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{l.account_id}</p>
+                    <AccountName id={l.account_id} className="font-medium" />
                     <p className="text-xs text-muted-foreground">{l.purpose}</p>
                   </div>
-                  <p className="figure text-sm">{formatUnits(BigInt(l.amount))}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatUnits(BigInt(l.amount))}</p>
                 </li>
               ))}
             </ul>
-            <div className="mt-2 flex items-baseline justify-between border-t border-white pt-3">
+            <div className="mt-2 flex items-baseline justify-between border-t border-foreground/8 pt-3">
               <span className="font-semibold">Total</span>
               <span className="figure text-2xl">
                 {formatUnits(review.total)} <span className="text-sm text-muted-foreground">{NEAR.tokenSymbol}</span>

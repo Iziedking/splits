@@ -7,6 +7,11 @@ import { Notice } from "@/components/ui/field";
 import { NEAR, txUrl } from "@/lib/near/config";
 import { formatUnits, refusalText, splitsEvents, verifyPayment, type Leg, type Verdict } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
+import { purposeFill } from "@/lib/palette";
+import { Download } from "lucide-react";
+import { paymentCsv } from "@/lib/near/csv";
+import { download } from "./download";
+import { AccountName, SplitBar } from "./split-card";
 
 /** What the payer approved, kept across a wallet that redirects away and back. */
 export type Pending = { payer: string; ref: string; legs: Leg[] | null; to?: string; total: string };
@@ -80,7 +85,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
   }
   if (check.state === "error") {
     return (
-      <div className="surface rounded-lg p-6">
+      <div className="surface rounded-2xl p-6 sm:p-7">
         <Notice tone="error">Could not read the result yet: {check.message}</Notice>
         <TxLink hash={hash} />
       </div>
@@ -89,7 +94,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
   const v = check.verdict;
   if (v.kind === "refused") {
     return (
-      <div className="surface rounded-lg p-6">
+      <div className="surface rounded-2xl p-6 sm:p-7">
         <h2 className="text-2xl font-bold">Nothing was sent</h2>
         <p className="mt-2 text-muted-foreground">{refusalText(v.reason)} The token returned the full amount to you.</p>
         <TxLink hash={hash} />
@@ -99,7 +104,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
   }
   if (v.kind === "mismatch" || v.kind === "unknown") {
     return (
-      <div className="surface rounded-lg p-6">
+      <div className="surface rounded-2xl p-6 sm:p-7">
         <Notice tone="error">This transaction does not match the payment you approved: {v.detail}. Check it on the explorer.</Notice>
         <TxLink hash={hash} />
       </div>
@@ -107,7 +112,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
   }
   return (
     <div className="enter space-y-5">
-      <div className="surface rounded-lg p-6">
+      <div className="surface rounded-2xl p-6 sm:p-7">
         <p className="text-sm font-medium text-primary-text">{v.kind === "landed" ? "Final on NEAR" : "Partly paid"}</p>
         <h2 className="display-face mt-1 text-3xl font-bold">{v.kind === "landed" ? "Landed, divided." : "Some parts came back to you"}</h2>
         <p className="figure mt-3 text-4xl">
@@ -119,17 +124,34 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
           </p>
         )}
         {pending.to && <p className="mt-2 text-sm text-muted-foreground">Divided by {pending.to}&apos;s saved split.</p>}
-        <TxLink hash={hash} />
+        <SplitBar className="mt-5" weights={v.legs.map((l) => Number(BigInt(l.amount) / 10_000n) || 1)} />
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
+          <TxLink hash={hash} />
+          <button
+            type="button"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            onClick={() =>
+              download(
+                `splits-payment-${pending.ref}.csv`,
+                paymentCsv({ legs: v.legs, payer: pending.payer, ref: pending.ref, tx: hash, token: NEAR.token, symbol: NEAR.tokenSymbol, network: NEAR.network, explorerTx: txUrl(hash), at: new Date() }),
+              )
+            }
+          >
+            <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Download CSV for your records
+          </button>
+        </div>
       </div>
-      <ul className="grid gap-3 sm:grid-cols-2">
+      <ul className="grid gap-4 sm:grid-cols-2">
         {v.legs.map((l, i) => (
-          <li key={l.account_id} className="surface rounded-lg p-4">
+          <li key={l.account_id} className="surface overflow-hidden rounded-2xl p-5 pt-6">
+            <span aria-hidden="true" className="-mx-5 -mt-6 mb-5 block h-1" style={{ backgroundColor: purposeFill(i) }} />
             <div className="flex items-center gap-2">
               <PurposeDot index={i} />
-              <span className="truncate font-semibold">{l.account_id}</span>
+              <AccountName id={l.account_id} className="font-medium" />
             </div>
-            <p className="figure mt-2 text-2xl">{formatUnits(BigInt(l.amount))}</p>
-            <p className="text-sm text-muted-foreground">{l.purpose}</p>
+            <p className="figure mt-3 text-2xl tabular-nums">{formatUnits(BigInt(l.amount))}</p>
+            <p className="text-sm text-muted-foreground first-letter:uppercase">{l.purpose}</p>
             <p className={l.landed ? "mt-2 text-sm font-medium text-success-text" : "mt-2 text-sm font-medium text-destructive"}>
               {l.landed ? "Landed" : "Returned to you"}
             </p>
