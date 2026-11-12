@@ -100,7 +100,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
           <label htmlFor="dao-account" className="sr-only">
             The group&apos;s DAO account
           </label>
-          <input id="dao-account" className={cn(inputClass, "font-mono text-sm")} placeholder={`flatmates.${NEAR.daoFactory}`} value={existing} onChange={(e) => setExisting(e.target.value)} />
+          <input id="dao-account" className={cn(inputClass, "font-mono text-base lg:text-sm")} placeholder={`flatmates.${NEAR.daoFactory}`} value={existing} onChange={(e) => setExisting(e.target.value)} />
           <Button type="submit" variant="secondary" disabled={!isAccountId(normaliseAccount(existing))}>
             Open
           </Button>
@@ -123,7 +123,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
               Members who vote
             </label>
             <p className="text-xs text-muted-foreground">NEAR accounts, one per line or separated by commas. A change needs more than half of them.</p>
-            <textarea id="members" className={cn(inputClass, "mt-2 min-h-24 py-3 font-mono text-sm")} value={members} onChange={(e) => setMembers(e.target.value)} />
+            <textarea id="members" className={cn(inputClass, "mt-2 min-h-24 py-3 font-mono text-base lg:text-sm")} value={members} onChange={(e) => setMembers(e.target.value)} />
           </div>
         </div>
         {accountId ? (
