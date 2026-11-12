@@ -173,7 +173,7 @@ export function ButtonSetup() {
   );
 }
 
-function Copyable({ label, value, className }: { label: string; value: string; className?: string }) {
+export function Copyable({ label, value, className }: { label: string; value: string; className?: string }) {
   const [copied, setCopied] = React.useState(false);
   return (
     <div className={className}>

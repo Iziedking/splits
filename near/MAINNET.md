@@ -24,6 +24,10 @@ About 2.8 NEAR in all:
 
 On 2026-11-12 `izie17.tg` held 0.0198 NEAR, so top it up with about 3 NEAR first. The test payment needs a little USDC (or another listed coin) on another chain, plus that chain's gas. 1Click adds 0.25% to each quote without a partner key.
 
+## The short way
+
+`bash near/mainnet-setup.sh` runs steps 1 to 8 below in order. It checks the balance before spending anything, skips any step already done, and stops at the first error, so running it again is safe. The steps are below in full for reference.
+
 ## Steps
 
 You need near-cli-rs (`near --version`, v0.14 or newer) and a mainnet account whose key is in your keychain. A HOT wallet account such as `izie17.tg` can be imported with its seed phrase (`near account import-account using-seed-phrase ...`). Below, `izie17.tg` signs and the router is `splits.izie17.tg`.

@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, ReceiptText, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -16,9 +16,10 @@ const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon; p
   { href: "/near/app", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/near/split", label: "Auto-split my income", short: "Auto-split", icon: PieChart },
   { href: "/near/send", label: "Pay people", short: "Pay", icon: Send },
-  { href: "/near/payroll", label: "Payroll", short: "Payroll", icon: FileSpreadsheet },
+  { href: "/near/bill", label: "Split a bill", short: "Bill", icon: ReceiptText },
+  { href: "/near/payroll", label: "Payroll", short: "Payroll", icon: FileSpreadsheet, phone: false },
   { href: "/near/group", label: "Group fund", short: "Group", icon: Users },
-  // Merchants set this up at a desk; the phone tab bar keeps the five everyday tabs.
+  // Payroll and the checkout button are set up at a desk; the phone tab bar keeps the five everyday tabs.
   { href: "/near/button", label: "Checkout button", short: "Button", icon: ShoppingBag, phone: false },
 ];
 

@@ -74,6 +74,8 @@ const SHOTS = [
   { name: "shop", path: "/near/shop" },
   { name: "shop-buy", path: "/near/shop", act: async (p) => { await p.getByRole("link", { name: "Pay with Splits" }).click(); await p.getByText("Your payment divides as it arrives").waitFor({ timeout: 20_000 }); } },
   { name: "button-setup", path: "/near/button", act: (p) => p.getByRole("button", { name: "Fill the coffee shop example" }).click() },
+  { name: "bill-setup", path: "/near/bill", act: (p) => p.getByRole("button", { name: "Fill the dinner example" }).click() },
+  { name: "bill-tab", path: "/near/tab?b=eyJ2IjoxLCJpIjoiZGVtbzI2MTEiLCJ0IjoiRGlubmVyIGF0IFllbGxvdyBDaGlsbGkiLCJoIjoia2luZ2l6aWUudGVzdG5ldCIsIm4iOiJJc3JhZWwiLCJhIjoiNTkuNDAiLCJwIjpbWyJCbyIsImJvLnNwbGl0cy1mbGF0LW13ZHB0ODJzZGQ0OS50ZXN0bmV0IiwiMTQuODUiXSxbIkNoaSIsInNwbGl0cy1kZW1vLXRpcGphci50ZXN0bmV0IiwiMTQuODUiXSxbIkRheW8iLCJsYW5kbG9yZC5zcGxpdHMtZmxhdC1td2RwdDgyc2RkNDkudGVzdG5ldCIsIjE0Ljg1Il1dfQ", wait: "0 of 3 paid" },
 ];
 
 await mkdir(OUT, { recursive: true });

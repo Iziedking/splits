@@ -64,11 +64,11 @@ export function legsFor(c: ButtonConfig, units: bigint): Leg[] {
 
 type Wire = { v: 1; s: string; i?: string; a?: string; p: [string, number, string][] };
 
-const toB64Url = (s: string) => {
+export const toB64Url = (s: string) => {
   const b64 = typeof btoa === "function" ? btoa(unescape(encodeURIComponent(s))) : Buffer.from(s, "utf8").toString("base64");
   return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 };
-const fromB64Url = (s: string) => {
+export const fromB64Url = (s: string) => {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
   return typeof atob === "function" ? decodeURIComponent(escape(atob(b64))) : Buffer.from(b64, "base64").toString("utf8");
 };
