@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import * as React from "react";
+import { Check, Clock, Copy, Download, X } from "lucide-react";
+import { PaymentDetails } from "@/components/app/payment-details";
 import { PurposeDot } from "@/components/app/purpose-dot";
-import { Notice } from "@/components/ui/field";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { NEAR, txUrl } from "@/lib/near/config";
 import { formatUnits, refusalText, splitsEvents, verifyPayment, type Leg, type Verdict } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
-import { purposeFill } from "@/lib/palette";
-import { Download } from "lucide-react";
 import { paymentCsv } from "@/lib/near/csv";
+import { cn } from "@/lib/utils";
 import { download } from "./download";
 import { AccountName, SplitBar } from "./split-card";
 
@@ -71,115 +72,191 @@ export function useVerify(hash: string | null, pending: Pending | null): Check |
   return check;
 }
 
+/**
+ * The end of a payment, the way a banking app shows it: a clear outcome, the amount, who got what,
+ * and the technical record folded away under "Details" for anyone who wants it.
+ */
 export function PaymentResult({ hash, pending, check, onAgain }: { hash: string; pending: Pending; check: Check | null; onAgain: () => void }) {
   if (!check || check.state === "checking") {
     return (
-      <div className="surface enter rounded-lg p-6" role="status">
-        <p className="text-lg font-semibold">Checking the payment on NEAR…</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          NEAR finishes the router&apos;s transfers over a few blocks. This screen says &ldquo;Landed&rdquo; only once every part is final on chain and matches what you approved.
-        </p>
-        <TxLink hash={hash} />
-      </div>
+      <Panel>
+        <div role="status" className="flex flex-col items-center py-6 text-center">
+          <span aria-hidden="true" className="h-14 w-14 motion-safe:animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <h2 className="mt-6 text-xl font-semibold">Confirming your payment</h2>
+          <p className="mt-1 text-sm text-muted-foreground">This usually takes a few seconds.</p>
+        </div>
+      </Panel>
     );
   }
   if (check.state === "error") {
     return (
-      <div className="surface rounded-2xl p-6 sm:p-7">
-        <Notice tone="error">Could not read the result yet: {check.message}</Notice>
-        <TxLink hash={hash} />
+      <div className="mx-auto w-full max-w-xl space-y-4">
+        <Panel>
+          <Outcome tone="wait" title="We couldn't confirm it yet" text="Your payment may still be on its way. Check again in a minute; nothing is charged twice." />
+        </Panel>
+        <Details hash={hash} />
+        <Actions onAgain={onAgain} again="Try again" />
       </div>
     );
   }
   const v = check.verdict;
   if (v.kind === "refused") {
     return (
-      <div className="surface rounded-2xl p-6 sm:p-7">
-        <h2 className="text-2xl font-bold">Nothing was sent</h2>
-        <p className="mt-2 text-muted-foreground">{refusalText(v.reason)} The token returned the full amount to you.</p>
-        <TxLink hash={hash} />
-        <Again onAgain={onAgain} />
+      <div className="mx-auto w-full max-w-xl space-y-4">
+        <Panel>
+          <Outcome tone="stop" title="Nothing was sent" text={`${refusalText(v.reason)} The full amount stayed with you.`} />
+        </Panel>
+        <Details hash={hash} />
+        <Actions onAgain={onAgain} again="Try again" />
       </div>
     );
   }
   if (v.kind === "mismatch" || v.kind === "unknown") {
     return (
-      <div className="surface rounded-2xl p-6 sm:p-7">
-        <Notice tone="error">This transaction does not match the payment you approved: {v.detail}. Check it on the explorer.</Notice>
-        <TxLink hash={hash} />
+      <div className="mx-auto w-full max-w-xl space-y-4">
+        <Panel>
+          <Outcome tone="stop" title="Something doesn't match" text={`This payment is not the one you approved (${v.detail}). Please don't pay again until you've checked it.`} />
+        </Panel>
+        <Details hash={hash} />
+        <Actions onAgain={onAgain} again="Start again" />
       </div>
     );
   }
+
+  const landed = v.kind === "landed";
+  const people = v.legs.length;
   return (
-    <div className="enter space-y-5">
-      <div className="surface rounded-2xl p-6 sm:p-7">
-        <p className="text-sm font-medium text-primary-text">{v.kind === "landed" ? "Final on NEAR" : "Partly paid"}</p>
-        <h2 className="display-face mt-1 text-3xl font-bold">{v.kind === "landed" ? "Landed, divided." : "Some parts came back to you"}</h2>
-        <p className="figure mt-3 text-4xl">
-          {formatUnits(v.paid)} <span className="text-lg font-semibold text-muted-foreground">{NEAR.tokenSymbol}</span>
-        </p>
-        {v.kind === "partly" && (
-          <p className="mt-2 text-sm text-muted-foreground">
-            {formatUnits(v.refunded)} {NEAR.tokenSymbol} could not be delivered and the token returned it to you. NEAR runs each part as its own transfer, so the others still landed.
-          </p>
-        )}
-        {pending.to && <p className="mt-2 text-sm text-muted-foreground">Divided by {pending.to}&apos;s saved split.</p>}
-        <SplitBar className="mt-5" weights={v.legs.map((l) => Number(BigInt(l.amount) / 10_000n) || 1)} />
-        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <TxLink hash={hash} />
-          <button
-            type="button"
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-            onClick={() =>
-              download(
-                `splits-payment-${pending.ref}.csv`,
-                paymentCsv({ legs: v.legs, payer: pending.payer, ref: pending.ref, tx: hash, token: NEAR.token, symbol: NEAR.tokenSymbol, network: NEAR.network, explorerTx: txUrl(hash), at: new Date() }),
-              )
-            }
-          >
-            <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            Download CSV for your records
-          </button>
-        </div>
-      </div>
-      <ul className="grid gap-4 sm:grid-cols-2">
+    <div className="mx-auto w-full max-w-xl space-y-4">
+      <Panel>
+        <Outcome
+          tone={landed ? "done" : "wait"}
+          title={landed ? "Payment sent" : "Sent, with part returned"}
+          text={
+            landed
+              ? `Split between ${people} ${people === 1 ? "person" : "people"}${pending.to ? ` by ${pending.to}'s saved split` : ""}.`
+              : `${formatUnits(v.refunded)} ${NEAR.tokenSymbol} couldn't be delivered and came back to you. The other parts arrived.`
+          }
+          amount={formatUnits(v.paid)}
+        />
+        <SplitBar className="mt-6" weights={v.legs.map((l) => Number(BigInt(l.amount) / 10_000n) || 1)} />
+      </Panel>
+
+      <ul className="surface divide-y divide-foreground/8 rounded-3xl px-2" aria-label="Who received what">
         {v.legs.map((l, i) => (
-          <li key={l.account_id} className="surface overflow-hidden rounded-2xl p-5 pt-6">
-            <span aria-hidden="true" className="-mx-5 -mt-6 mb-5 block h-1" style={{ backgroundColor: purposeFill(i) }} />
-            <div className="flex items-center gap-2">
-              <PurposeDot index={i} />
+          <li key={l.account_id} className="enter flex items-center gap-3 px-3 py-4" style={{ animationDelay: `${120 + i * 70}ms` }}>
+            <PurposeDot index={i} />
+            <div className="min-w-0 flex-1">
               <AccountName id={l.account_id} className="font-medium" />
+              <p className="text-sm text-muted-foreground first-letter:uppercase">
+                {l.purpose}
+                {!l.landed && <span className="text-destructive"> · returned to you</span>}
+              </p>
             </div>
-            <p className="figure mt-3 text-2xl tabular-nums">{formatUnits(BigInt(l.amount))}</p>
-            <p className="text-sm text-muted-foreground first-letter:uppercase">{l.purpose}</p>
-            <p className={l.landed ? "mt-2 text-sm font-medium text-success-text" : "mt-2 text-sm font-medium text-destructive"}>
-              {l.landed ? "Landed" : "Returned to you"}
-            </p>
-            {l.landed && (
-              <Link className="mt-1 inline-block text-sm text-primary-text underline" href={`/near/r/${hash}?from=${encodeURIComponent(pending.payer)}&to=${encodeURIComponent(l.account_id)}`}>
-                Their receipt
-              </Link>
-            )}
+            <div className="text-right">
+              <p className="font-semibold tabular-nums">{formatUnits(BigInt(l.amount))}</p>
+              {l.landed && (
+                <Link
+                  className="text-sm font-medium text-primary-text underline-offset-4 hover:underline"
+                  href={`/near/r/${hash}?from=${encodeURIComponent(pending.payer)}&to=${encodeURIComponent(l.account_id)}`}
+                >
+                  Receipt
+                </Link>
+              )}
+            </div>
           </li>
         ))}
       </ul>
-      <Again onAgain={onAgain} />
+
+      <Details
+        hash={hash}
+        csv={() =>
+          download(
+            `splits-payment-${pending.ref}.csv`,
+            paymentCsv({ legs: v.legs, payer: pending.payer, ref: pending.ref, tx: hash, token: NEAR.token, symbol: NEAR.tokenSymbol, network: NEAR.network, explorerTx: txUrl(hash), at: new Date() }),
+          )
+        }
+      />
+      <Actions onAgain={onAgain} again="Pay again" />
     </div>
   );
 }
 
-function TxLink({ hash }: { hash: string }) {
+function Panel({ children }: { children: React.ReactNode }) {
+  return <div className="surface enter mx-auto w-full max-w-xl rounded-3xl p-6 sm:p-8">{children}</div>;
+}
+
+/** The outcome at a glance: a mark that draws itself, a title, the amount and one plain sentence. */
+function Outcome({ tone, title, text, amount }: { tone: "done" | "wait" | "stop"; title: string; text: string; amount?: string }) {
   return (
-    <a className="mt-3 inline-block text-sm text-primary-text underline" href={txUrl(hash)} target="_blank" rel="noreferrer">
-      See the transaction on the NEAR explorer
-    </a>
+    <div className="flex flex-col items-center text-center">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex h-16 w-16 items-center justify-center rounded-full motion-safe:animate-[pop_420ms_cubic-bezier(0.34,1.4,0.64,1)_both]",
+          tone === "done" ? "bg-success/15 text-success-text" : tone === "wait" ? "bg-primary/10 text-primary-text" : "bg-destructive/10 text-destructive",
+        )}
+      >
+        {tone === "done" ? (
+          <svg viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path className="draw" pathLength={1} d="M5 12.5l4.5 4.5L19 7.5" />
+          </svg>
+        ) : tone === "wait" ? (
+          <Clock className="h-8 w-8" strokeWidth={2} />
+        ) : (
+          <X className="h-8 w-8" strokeWidth={2.5} />
+        )}
+      </span>
+      <h2 className="mt-5 text-2xl font-bold">{title}</h2>
+      {amount && (
+        <p className="figure mt-2 text-figure-lg tabular-nums">
+          {amount} <span className="text-lg font-semibold text-muted-foreground">{NEAR.tokenSymbol}</span>
+        </p>
+      )}
+      <p className="mt-2 max-w-sm text-muted-foreground">{text}</p>
+    </div>
   );
 }
 
-function Again({ onAgain }: { onAgain: () => void }) {
-  return (
-    <button type="button" className="text-sm font-semibold text-primary-text underline" onClick={onAgain}>
-      Make another payment
+/** The technical record, folded the way the main app folds it: reference, proof, and a file. */
+export function Details({ hash, csv }: { hash: string; csv?: () => void }) {
+  const [copied, setCopied] = React.useState(false);
+  const reference = (
+    <button
+      type="button"
+      aria-label={copied ? "Reference copied" : "Copy the reference"}
+      className="inline-flex min-h-9 items-center gap-1.5 font-mono text-micro"
+      onClick={() =>
+        void navigator.clipboard?.writeText(hash).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+      }
+    >
+      {hash.slice(0, 6)}…{hash.slice(-6)}
+      {copied ? <Check className="h-4 w-4 text-success-text" aria-hidden="true" /> : <Copy className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
     </button>
+  );
+  return (
+    <PaymentDetails className="surface mx-auto w-full max-w-xl" rows={[{ label: "Reference", value: reference }]} proofUrl={txUrl(hash)}>
+      {csv && (
+        <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-text underline-offset-4 hover:underline" onClick={csv}>
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Download for your records
+        </button>
+      )}
+    </PaymentDetails>
+  );
+}
+
+function Actions({ onAgain, again }: { onAgain: () => void; again: string }) {
+  return (
+    <div className="mx-auto grid w-full max-w-xl gap-3 sm:grid-cols-2">
+      <ButtonLink href="/near/app" className="w-full">
+        Done
+      </ButtonLink>
+      <Button variant="secondary" className="w-full" onClick={onAgain}>
+        {again}
+      </Button>
+    </div>
   );
 }

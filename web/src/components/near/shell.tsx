@@ -4,31 +4,28 @@ import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, Users, type Lucide
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
+import { BackLink } from "@/components/app/back-link";
 import { Logo } from "@/components/app/logo";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { NEAR, accountUrl } from "@/lib/near/config";
+import { NEAR } from "@/lib/near/config";
 import { cn } from "@/lib/utils";
 import { useNearWallet } from "./wallet";
 
 /** The app's sections, in the order people use them. */
 const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon }[] = [
-  { href: "/near/app", label: "Overview", short: "Overview", icon: LayoutGrid },
+  { href: "/near/app", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/near/split", label: "Auto-split my income", short: "Auto-split", icon: PieChart },
-  { href: "/near/send", label: "Pay a split", short: "Pay", icon: Send },
-  { href: "/near/payroll", label: "Payroll from a CSV", short: "Payroll", icon: FileSpreadsheet },
+  { href: "/near/send", label: "Pay people", short: "Pay", icon: Send },
+  { href: "/near/payroll", label: "Payroll", short: "Payroll", icon: FileSpreadsheet },
   { href: "/near/group", label: "Group fund", short: "Group", icon: Users },
 ];
 
-function NetworkTag({ tone = "light" }: { tone?: "light" | "dark" }) {
+/** "Test mode" while this runs on testnet, the way payment dashboards say it. Nothing on mainnet. */
+function TestMode({ tone = "light" }: { tone?: "light" | "dark" }) {
+  if (NEAR.network !== "testnet") return null;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        tone === "light" ? "bg-white/60 text-muted-foreground ring-1 ring-foreground/10" : "bg-white/12 text-white/85 ring-1 ring-white/15",
-      )}
-    >
-      <span aria-hidden="true" className={cn("h-1.5 w-1.5 rounded-full", tone === "light" ? "bg-primary" : "bg-white")} />
-      NEAR {NEAR.network}
+    <span className={cn("rounded-full px-3 py-1 text-xs font-bold", tone === "light" ? "bg-purpose-4 text-foreground" : "bg-white/15 text-white")}>
+      Test mode<span className="sr-only">. Payments use test money with no value.</span>
     </span>
   );
 }
@@ -50,40 +47,61 @@ function useConnect() {
   return { ready, accountId, connect, signOut, error };
 }
 
-function Footer() {
+/** The signed-in account as a person sees it: an initial and the name. */
+function AccountChip({ id, tone = "light" }: { id: string; tone?: "light" | "dark" }) {
   return (
-    <footer className="border-t border-foreground/8 pt-6 text-xs leading-relaxed text-muted-foreground">
-      Splits on NEAR {NEAR.network}. Payments go through the{" "}
-      <a className="underline underline-offset-2" href={accountUrl(NEAR.router)} target="_blank" rel="noreferrer">
-        splits router
-      </a>{" "}
-      contract, which has no owner. Testnet money has no value.{" "}
+    <span className={cn("inline-flex max-w-full min-w-0 items-center gap-2", tone === "dark" ? "text-white" : "text-foreground")}>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold uppercase",
+          tone === "dark" ? "bg-white text-primary-fill" : "bg-primary-fill text-white",
+        )}
+      >
+        {id.charAt(0)}
+      </span>
+      <span className="min-w-0 truncate font-mono text-micro">{id}</span>
+    </span>
+  );
+}
+
+function ConnectOrAccount() {
+  const { ready, accountId, connect } = useConnect();
+  return accountId ? (
+    <AccountChip id={accountId} />
+  ) : (
+    <Button size="sm" busy={!ready} onClick={() => void connect()}>
+      Connect<span className="hidden sm:inline"> wallet</span>
+    </Button>
+  );
+}
+
+function SiteFooter() {
+  return (
+    <footer className="border-t border-foreground/8 pt-6 text-sm text-muted-foreground">
+      {NEAR.network === "testnet" ? "Splits on NEAR is in test mode: payments use test money with no value. " : "Splits on NEAR. "}
       <Link className="underline underline-offset-2" href="/near/how">
-        How it works and its limits
+        How it works
       </Link>
-      .
     </footer>
   );
 }
 
 // ------------------------------------------------------------------ the public site
 
-/** Landing, how it works, pay links and receipts: a full-width bar and one way into the app. */
+/** Landing and how it works: a calm bar and one way into the app. */
 export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh w-full flex-col">
-      <header className="sticky top-0 z-20 w-full border-b print:hidden border-white/70 bg-white/55 backdrop-blur-md">
+      <header className="sticky top-0 z-20 w-full border-b border-white/70 bg-white/55 backdrop-blur-md print:hidden">
         <div className="flex items-center gap-4 px-4 py-3 sm:px-8 lg:px-10">
-          <Link href="/near" className="flex items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none" aria-label="Splits on NEAR, home">
+          <Link href="/near" className="flex items-center gap-2 rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none" aria-label="Splits, home">
             <Logo className="h-7 w-auto" />
-            <NetworkTag />
           </Link>
+          <TestMode />
           <nav aria-label="Site" className="ml-auto hidden items-center gap-6 text-sm font-medium text-muted-foreground sm:flex">
-            <Link className="transition-colors hover:text-foreground" href="/near#how">
+            <Link className="transition-colors hover:text-foreground" href="/near/how">
               How it works
-            </Link>
-            <Link className="transition-colors hover:text-foreground" href="/near#proof">
-              Check it yourself
             </Link>
           </nav>
           <ButtonLink href="/near/app" size="sm" className="ml-auto sm:ml-0">
@@ -94,9 +112,40 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
       <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 pt-8 pb-12 sm:px-8">
         <main className="flex-1">{children}</main>
         <div className="mt-24 print:hidden">
-          <Footer />
+          <SiteFooter />
         </div>
       </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------ one task, start to finish
+
+/**
+ * Paying a link, paying from another chain, a receipt: one task on one screen. A back control to
+ * wherever the person came from, the logo, and who is signed in. Nothing else competes.
+ */
+export function FlowShell({ children }: { children: React.ReactNode }) {
+  const { accountId } = useNearWallet();
+  return (
+    <div className="flex min-h-dvh w-full flex-col">
+      <header className="sticky top-0 z-20 w-full border-b border-white/70 bg-white/55 backdrop-blur-md print:hidden">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-3 sm:px-8">
+          <BackLink fallback={accountId ? "/near/app" : "/near"} className="ml-0" />
+          <Link href={accountId ? "/near/app" : "/near"} aria-label="Splits, home" className="rounded-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none">
+            <Logo className="h-6 w-auto" />
+          </Link>
+          <div className="flex min-w-0 justify-end">
+            <ConnectOrAccount />
+          </div>
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-16 sm:px-8 sm:pt-10">
+        <div className="mb-5 flex justify-center">
+          <TestMode />
+        </div>
+        {children}
+      </main>
     </div>
   );
 }
@@ -105,7 +154,7 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
 
 /**
  * The app frame, after the Arc app's desktop layout (UI_BRIEF.md v5): a teal sidebar with labels on
- * desktop, a top bar and a bottom tab bar on phones. The wallet lives in the sidebar's foot.
+ * desktop, a top bar and a bottom tab bar on phones. Each page settles in as it opens.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -115,11 +164,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh w-full lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col bg-primary-fill px-4 py-6 text-white lg:flex">
-        <Link href="/near" className="flex items-center gap-2 rounded-md px-2 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none" aria-label="Splits on NEAR, home">
+        <Link href="/near/app" className="flex items-center gap-2 rounded-md px-2 focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none" aria-label="Splits, home">
           <Logo tone="white" className="h-7 w-auto" />
         </Link>
         <div className="mt-3 px-2">
-          <NetworkTag tone="dark" />
+          <TestMode tone="dark" />
         </div>
         <nav aria-label="App" className="mt-8 flex flex-col gap-1">
           {APP_NAV.map(({ href, label, icon: Icon }) => (
@@ -128,11 +177,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               href={href}
               aria-current={current(href) ? "page" : undefined}
               className={cn(
-                "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none",
+                "flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium text-white/80 transition-[background-color,color,transform] duration-150 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none active:scale-[0.98] motion-reduce:active:scale-100",
                 current(href) && "bg-white/15 text-white",
               )}
             >
-              <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
               {label}
             </Link>
           ))}
@@ -140,46 +189,41 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto rounded-xl bg-white/10 p-3">
           {accountId ? (
             <>
-              <p className="text-xs text-white/70">Connected</p>
-              <a href={accountUrl(accountId)} target="_blank" rel="noreferrer" className="mt-0.5 block font-mono text-micro break-all text-white underline-offset-4 hover:underline">
-                {accountId}
-              </a>
+              <AccountChip id={accountId} tone="dark" />
               <button
                 type="button"
                 onClick={() => void signOut()}
                 className="mt-3 inline-flex min-h-9 items-center gap-2 rounded-md text-sm text-white/80 transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
               >
                 <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-                Disconnect
+                Sign out
               </button>
             </>
           ) : (
             <>
-              <p className="text-sm text-white/85">Connect a NEAR wallet to pay and save your split.</p>
+              <p className="text-sm text-white/85">Connect a NEAR wallet to pay people and save your split.</p>
               <button
                 type="button"
                 disabled={!ready}
                 onClick={() => void connect()}
-                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-primary-fill transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-fill focus-visible:outline-none disabled:opacity-60"
+                className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-primary-fill transition-[background-color,transform] duration-150 hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-fill focus-visible:outline-none active:scale-[0.98] disabled:opacity-60"
               >
-                Connect NEAR wallet
+                Connect wallet
               </button>
             </>
           )}
         </div>
       </aside>
 
-      {/* Phones and tablets: a top bar with the wallet, and tabs at the bottom. */}
+      {/* Phones and tablets: a top bar with the account, and tabs at the bottom. */}
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-white/70 bg-white/60 px-4 py-3 backdrop-blur-md lg:hidden">
-        <Link href="/near" aria-label="Splits on NEAR, home">
+        <Link href="/near/app" aria-label="Splits, home">
           <Logo className="h-6 w-auto" />
         </Link>
-        <NetworkTag />
-        <div className="ml-auto">
+        <TestMode />
+        <div className="ml-auto flex min-w-0 justify-end">
           {accountId ? (
-            <a href={accountUrl(accountId)} target="_blank" rel="noreferrer" className="block max-w-[9rem] truncate font-mono text-xs text-foreground">
-              {accountId}
-            </a>
+            <AccountChip id={accountId} />
           ) : (
             <Button size="sm" busy={!ready} onClick={() => void connect()}>
               Connect
@@ -194,10 +238,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {error}
           </p>
         )}
-        <main className="flex-1">{children}</main>
-        <div className="mt-16">
-          <Footer />
-        </div>
+        {/* Keyed by page, so each one settles in as it opens instead of swapping in place. */}
+        <main key={path} className="enter flex-1">
+          {children}
+        </main>
       </div>
 
       <nav aria-label="App" className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/80 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
@@ -208,11 +252,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 aria-current={current(href) ? "page" : undefined}
                 className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors",
+                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-xs font-medium text-muted-foreground transition-[color,transform] duration-150 active:scale-95 motion-reduce:active:scale-100",
                   current(href) && "text-primary-text",
                 )}
               >
-                <Icon className="h-5 w-5" strokeWidth={1.75} aria-hidden="true" />
+                <Icon className="h-5 w-5" strokeWidth={current(href) ? 2.25 : 1.75} aria-hidden="true" />
                 {short}
               </Link>
             </li>

@@ -3,6 +3,7 @@ import { JetBrains_Mono } from "next/font/google";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { Backdrop } from "@/components/app/backdrop";
+import { NearSplash } from "@/components/near/splash";
 import { NearWalletProvider } from "@/components/near/wallet";
 import { nearEnabled } from "@/lib/near/config";
 
@@ -21,6 +22,7 @@ export default function NearLayout({ children }: { children: ReactNode }) {
   if (!nearEnabled()) notFound();
   return (
     <NearWalletProvider>
+      <NearSplash />
       <Backdrop />
       <div className={mono.variable}>{children}</div>
     </NearWalletProvider>

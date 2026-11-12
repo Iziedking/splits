@@ -26,7 +26,8 @@ export const viewport = { themeColor: MIST };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={body.variable}>
+    // NEAR mode marks <html> before first paint once its splash has been seen (components/near/splash.tsx).
+    <html lang="en" className={body.variable} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

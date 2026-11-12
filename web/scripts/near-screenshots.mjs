@@ -20,6 +20,7 @@ const HAND = "99VCLC4F4FKZYDaPLJxr14ThM6gvem1RcSLDVVFmRW1M";
 const SAVED = "DWpdDLmdLrCWxtVgSg9fhQFmExnZWmnKpvK4529cpC4b";
 
 const SHOTS = [
+  { name: "splash", path: "/near", splash: true },
   { name: "home", path: "/near" },
   { name: "app-overview", path: "/near/app" },
   { name: "payroll-empty", path: "/near/payroll" },
@@ -65,8 +66,8 @@ const SHOTS = [
     },
   },
   { name: "split-signed-out", path: "/near/split" },
-  { name: "pay-link", path: "/near/pay/kingizie.testnet", wait: "Version", act: (p) => p.getByLabel(/^Amount/).fill("25") },
-  { name: "pay-link-no-split", path: "/near/pay/nobody-here-12345.testnet", wait: "no saved split" },
+  { name: "pay-link", path: "/near/pay/kingizie.testnet", wait: "divides automatically", act: (p) => p.getByLabel(/^Amount/).fill("25") },
+  { name: "pay-link-no-split", path: "/near/pay/nobody-here-12345.testnet", wait: "set up a split" },
   { name: "receipt-recipient", path: `/near/r/${HAND}?from=kingizie.testnet&to=mum.kingizie.testnet` },
   { name: "receipt-whole", path: `/near/r/${SAVED}?from=mum.kingizie.testnet` },
   { name: "how", path: "/near/how" },
@@ -79,14 +80,16 @@ try {
   for (const width of WIDTHS) {
     for (const shot of SHOTS) {
       const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+      // The opening splash shows once per tab session; skip it so each shot shows the screen itself.
+      if (!shot.splash) await context.addInitScript(() => sessionStorage.setItem("splits-near-splash", "1"));
       const page = await context.newPage();
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
-      const res = await page.goto(BASE + shot.path, { waitUntil: "networkidle" });
+      const res = await page.goto(BASE + shot.path, { waitUntil: shot.splash ? "domcontentloaded" : "networkidle" });
       if (shot.wait) await page.getByText(shot.wait).first().waitFor({ timeout: 20_000 });
       if (shot.act) await shot.act(page);
-      await page.waitForTimeout(400);
+      await page.waitForTimeout(shot.splash ? 0 : 400);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       const file = `${shot.name}-${width}.png`;
       await page.screenshot({ path: path.join(OUT, file), fullPage: true });

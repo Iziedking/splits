@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Copy, FileSpreadsheet, PieChart, Send, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, Copy, FileSpreadsheet, LogOut, PieChart, Send, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -14,13 +14,13 @@ type Snapshot = { usdc: bigint | null; near: bigint | null; split: SavedSplit | 
 
 const ACTIONS: { href: string; title: string; text: string; icon: LucideIcon }[] = [
   { href: "/near/split", title: "Auto-split my income", text: "Save how payments to you divide into tax, savings and spending", icon: PieChart },
-  { href: "/near/send", title: "Pay a split", text: "One payment to several people, a purpose on every part", icon: Send },
-  { href: "/near/payroll", title: "Payroll from a CSV", text: "Upload people and amounts, approve once, export what landed", icon: FileSpreadsheet },
-  { href: "/near/group", title: "Group fund", text: "A flat or a trip votes once on how shared money divides", icon: Users },
+  { href: "/near/send", title: "Pay people", text: "One payment to several people, a purpose on every part", icon: Send },
+  { href: "/near/payroll", title: "Payroll", text: "Upload a spreadsheet of people and amounts, approve once", icon: FileSpreadsheet },
+  { href: "/near/group", title: "Group fund", text: "Flatmates or a trip vote once on how shared money divides", icon: Users },
 ];
 
 export function Overview() {
-  const { ready, accountId, signIn } = useNearWallet();
+  const { ready, accountId, signIn, signOut } = useNearWallet();
   const [snap, setSnap] = React.useState<Snapshot | null>(null);
   const [copied, setCopied] = React.useState(false);
 
@@ -39,17 +39,29 @@ export function Overview() {
 
   return (
     <div className="enter space-y-8">
-      <header>
-        <h1 className="display-face text-3xl leading-tight font-bold sm:text-4xl">Overview</h1>
-        <p className="mt-2 text-muted-foreground">
-          {accountId ? (
-            <>
-              Signed in as <span className="font-mono text-ui text-foreground">{accountId}</span> on NEAR {NEAR.network}
-            </>
-          ) : (
-            "Your split, your pay link and what you can do from here"
-          )}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="display-face text-3xl leading-tight font-bold sm:text-4xl">{accountId ? "Welcome back" : "Home"}</h1>
+          <p className="mt-2 text-muted-foreground">
+            {accountId ? (
+              <>
+                Signed in as <span className="font-mono text-ui break-all text-foreground">{accountId}</span>
+              </>
+            ) : (
+              "Your rule, your pay link and what you can do from here"
+            )}
+          </p>
+        </div>
+        {accountId && (
+          <button
+            type="button"
+            onClick={() => void signOut()}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:hidden"
+          >
+            <LogOut className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            Sign out
+          </button>
+        )}
       </header>
 
       {!accountId ? (
@@ -57,21 +69,21 @@ export function Overview() {
           <div aria-hidden="true" className="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-purpose-1/50 blur-[90px]" />
           <div className="relative max-w-lg">
             <h2 className="text-xl font-semibold">Connect a NEAR wallet to start</h2>
-            <p className="mt-2 text-white/80">Your saved split lives on your own account. Any NEAR wallet on {NEAR.network} works, and nothing moves without your approval.</p>
+            <p className="mt-2 text-white/80">Your rule stays in your own account, and nothing moves without your approval.</p>
             <button
               type="button"
               disabled={!ready}
               onClick={() => void signIn().catch(() => undefined)}
               className="mt-6 inline-flex min-h-12 items-center rounded-full bg-white px-6 font-semibold text-primary-fill transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-fill focus-visible:outline-none disabled:opacity-60"
             >
-              Connect NEAR wallet
+              Connect wallet
             </button>
           </div>
         </section>
       ) : (
         <section aria-label="Balances" className="grid gap-4 sm:grid-cols-2">
           <Stat label={`${NEAR.tokenSymbol} balance`} value={snap?.usdc == null ? null : formatUnits(snap.usdc)} unit={NEAR.tokenSymbol} />
-          <Stat label="NEAR free for gas" value={snap?.near == null ? null : formatNear(snap.near)} unit="NEAR" />
+          <Stat label="NEAR for fees" value={snap?.near == null ? null : formatNear(snap.near)} unit="NEAR" />
         </section>
       )}
 
@@ -80,21 +92,21 @@ export function Overview() {
           <section aria-labelledby="split-title" className="surface rounded-2xl p-6 sm:p-7">
             <div className="flex items-center justify-between gap-3">
               <h2 id="split-title" className="text-lg font-semibold">
-                Your split
+                Your rule
               </h2>
               <Link href="/near/split" className="text-sm font-medium text-primary-text underline-offset-4 hover:underline">
                 {snap?.split ? "Change it" : "Set it up"}
               </Link>
             </div>
             {snap === null ? (
-              <p className="mt-3 text-sm text-muted-foreground">Reading it from NEAR…</p>
+              <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
             ) : snap.split ? (
               <>
-                <p className="mt-1 text-sm text-muted-foreground">Version {snap.split.version}. Every payment sent to you through Splits divides like this when it arrives.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Every payment sent to you through Splits divides like this when it arrives.</p>
                 <SharesList shares={snap.split.shares} />
               </>
             ) : (
-              <p className="mt-3 text-sm text-muted-foreground">No saved split yet, so money sent to you arrives whole. Save one to auto-split your income into tax, savings and spending.</p>
+              <p className="mt-3 text-sm text-muted-foreground">No rule yet, so money sent to you arrives whole. Set one to auto-split your income into tax, savings and spending.</p>
             )}
           </section>
 
@@ -103,7 +115,7 @@ export function Overview() {
               Your pay link
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {snap?.split ? "Whoever pays you through it, the money arrives divided." : "It works once you save a split."}
+              {snap?.split ? "Whoever pays you through it, the money arrives divided." : "It works once you set your rule."}
             </p>
             {payLink && <p className="mt-4 rounded-lg bg-white/70 px-3 py-2.5 font-mono text-micro break-all ring-1 ring-white">{payLink}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
@@ -137,11 +149,11 @@ export function Overview() {
           What you can do
         </h2>
         <ul className="mt-4 grid gap-3 md:grid-cols-2">
-          {ACTIONS.map(({ href, title, text, icon: Icon }) => (
-            <li key={href}>
+          {ACTIONS.map(({ href, title, text, icon: Icon }, i) => (
+            <li key={href} className="enter" style={{ animationDelay: `${80 + i * 50}ms` }}>
               <Link
                 href={href}
-                className="surface group flex h-full flex-col rounded-2xl p-5 transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                className="surface group flex h-full flex-col rounded-2xl p-5 transition-[transform,background-color] duration-150 ease-out hover:-translate-y-0.5 hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none active:translate-y-0 active:scale-[0.98] motion-reduce:transform-none"
               >
                 <span className="flex items-center justify-between">
                   <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-fill/10 text-primary-text">

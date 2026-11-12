@@ -253,7 +253,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
               </p>
             )}
             <p className="mt-3 text-xs text-muted-foreground">
-              One approval in your wallet. On NEAR each part is its own transfer: if one can&apos;t be delivered, that part comes back to you and the others still land. No Splits fee on testnet.
+              You approve once in your wallet. If one part can&apos;t be delivered, it comes back to you and the others still arrive. No fees in test mode.
             </p>
             {review.blockers.map((b) => (
               <Notice key={b} tone="error" className="mt-3">

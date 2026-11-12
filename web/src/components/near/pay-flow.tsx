@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
@@ -15,7 +16,7 @@ import { useNearWallet } from "./wallet";
  * The payer sees the split and its version; if it changes before the payment lands, the router
  * refuses it and the token returns the money.
  */
-export function PayFlow({ owner }: { owner: string }) {
+export function PayFlow({ owner, checkout = false }: { owner: string; checkout?: boolean }) {
   const { accountId, signIn, send } = useNearWallet();
   const [split, setSplit] = React.useState<SavedSplit | null | undefined>(undefined);
   const [amount, setAmount] = React.useState("");
@@ -74,11 +75,11 @@ export function PayFlow({ owner }: { owner: string }) {
       <div className="surface rounded-2xl p-6 sm:p-7">
         <p className="text-sm font-medium text-primary-text">Pay</p>
         <h1 className="mt-1 font-mono text-2xl font-semibold break-all sm:text-3xl">{owner}</h1>
-        {split === undefined && <p className="mt-3 text-sm text-muted-foreground">Reading their split from NEAR…</p>}
-        {split === null && <Notice className="mt-4">{owner} has no saved split, so there is nothing to divide by. Ask them for their Splits pay link.</Notice>}
+        {split === undefined && <p className="mt-3 text-sm text-muted-foreground">Loading…</p>}
+        {split === null && <Notice className="mt-4">{owner} hasn&apos;t set up a split yet, so there&apos;s nothing to pay into. Ask them for their Splits pay link.</Notice>}
         {split && (
           <>
-            <p className="mt-2 text-sm text-muted-foreground">Whatever you pay is divided on arrival by the split {owner} saved (version {split.version}):</p>
+            <p className="mt-2 text-sm text-muted-foreground">Whatever you pay divides automatically like this:</p>
             <SharesList shares={split.shares} example={units ?? 100_000_000n} />
             <Field className="mt-5" label={`Amount (${NEAR.tokenSymbol})`} inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} error={amount && cents === null ? "Enter an amount like 25 or 12.50" : null} />
             {accountId ? (
@@ -90,7 +91,15 @@ export function PayFlow({ owner }: { owner: string }) {
                 Connect a NEAR wallet to pay
               </Button>
             )}
-            <p className="mt-3 text-xs text-muted-foreground">One approval in your wallet. The division happens in the splits router contract, not on a Splits server.</p>
+            <p className="mt-3 text-xs text-muted-foreground">You approve once in your wallet, and the money divides as it arrives.</p>
+            {checkout && (
+              <p className="mt-3 text-sm">
+                <Link className="font-medium text-primary-text underline-offset-4 hover:underline" href={`/near/checkout/${owner}`}>
+                  Pay from another chain instead
+                </Link>{" "}
+                <span className="text-muted-foreground">(USDC, USDT, ETH, SOL and more)</span>
+              </p>
+            )}
           </>
         )}
         {error && (

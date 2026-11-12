@@ -120,7 +120,7 @@ export function SplitFlow() {
       });
       const tx = await finalTx(hash, accountId!);
       const ok = splitsEvents(tx, NEAR.router).some((e) => e.event === "split_saved" && e.data.owner === accountId);
-      if (!ok) throw new Error("The router did not record the split. Check the transaction.");
+      if (!ok) throw new Error("Your rule wasn't saved. Please try again.");
       setSavedTx(hash);
       setDraft(null);
       await load();
@@ -194,8 +194,7 @@ export function SplitFlow() {
             ))}
             <p className="mt-3 text-xs text-muted-foreground">
               {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits: " : "Read by Splits' rules: "}
-              only accounts and percentages you wrote can appear, and the rest is worked out by code. Saving asks your wallet to approve it, with 0.01 NEAR for storage; the router returns what it
-              doesn&apos;t use.
+              only accounts and percentages you wrote can appear. Saving asks your wallet to approve it, with a small 0.01 NEAR deposit; whatever isn&apos;t needed comes back.
             </p>
             <Button className="mt-3 w-full" busy={busy === "signing"} disabled={draft.shares.length === 0} onClick={() => void onSave()}>
               Save this split

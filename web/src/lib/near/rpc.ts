@@ -16,7 +16,12 @@ export class NearRpcError extends Error {
 }
 
 async function rpc<T>(method: string, params: unknown, signal?: AbortSignal): Promise<T> {
-  const res = await fetch(NEAR.rpc, {
+  return rpcAt<T>(NEAR.rpc, method, params, signal);
+}
+
+/** The same call on another network's RPC: checkout reads NEAR mainnet from a testnet build. */
+async function rpcAt<T>(url: string, method: string, params: unknown, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ jsonrpc: "2.0", id: "splits", method, params }),
@@ -34,7 +39,13 @@ const toBase64 = (s: string) =>
 
 /** Call a view method and parse its JSON result. */
 export async function view<T>(contract: string, method: string, args: Record<string, unknown> = {}, signal?: AbortSignal): Promise<T> {
-  const r = await rpc<{ result: number[] }>(
+  return viewAt<T>(NEAR.rpc, contract, method, args, signal);
+}
+
+/** A view call on the network whose RPC is `url`. */
+export async function viewAt<T>(url: string, contract: string, method: string, args: Record<string, unknown> = {}, signal?: AbortSignal): Promise<T> {
+  const r = await rpcAt<{ result: number[] }>(
+    url,
     "query",
     { request_type: "call_function", finality: "final", account_id: contract, method_name: method, args_base64: toBase64(JSON.stringify(args)) },
     signal,

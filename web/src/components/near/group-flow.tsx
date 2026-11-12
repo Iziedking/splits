@@ -98,7 +98,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
           }}
         >
           <label htmlFor="dao-account" className="sr-only">
-            The group&apos;s DAO account
+            The group&apos;s account
           </label>
           <input id="dao-account" className={cn(inputClass, "font-mono text-base lg:text-sm")} placeholder={`flatmates.${NEAR.daoFactory}`} value={existing} onChange={(e) => setExisting(e.target.value)} />
           <Button type="submit" variant="secondary" disabled={!isAccountId(normaliseAccount(existing))}>
@@ -112,8 +112,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
           Start a group
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          A flat, a trip, a team: a Sputnik DAO whose members vote once on how the group&apos;s money divides. Founding it costs 6 test NEAR,
-          which stays in the group&apos;s account.
+          Flatmates, a trip, a team: a shared account whose members vote on how its money divides. Starting one costs 6 test NEAR, which stays in the group&apos;s account.
         </p>
         <div className="mt-4 space-y-4">
           <Field label="Name" hint={`It becomes ${name || "name"}.${NEAR.daoFactory}`} value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="flatmates" />
@@ -297,7 +296,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
               ))}
               <p className="mt-3 text-xs text-muted-foreground">
                 {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits." : "Read by Splits' rules."} Proposing asks your wallet for the group&apos;s{" "}
-                {formatNear(BigInt(group.policy.proposal_bond))} NEAR bond, which the DAO returns once the group decides.
+                {formatNear(BigInt(group.policy.proposal_bond))} NEAR deposit, returned once the group decides.
               </p>
               {accountId ? (
                 <Button

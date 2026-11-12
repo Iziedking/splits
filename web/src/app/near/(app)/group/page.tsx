@@ -9,7 +9,7 @@ export default function NearGroupPage() {
   return (
     <div>
       <PageHead title="Group fund">
-        A flat, a trip or a team decides once, by a vote in its Sputnik DAO, how the group&apos;s money divides. Every payment to the group then follows that rule on NEAR.
+        Flatmates, a trip or a team vote once on how shared money divides. Every payment to the group then follows that rule.
       </PageHead>
       <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}>
         <GroupFlow />

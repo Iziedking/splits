@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
  * outward (globals.css, `split-piece`). Still for people who turn motion off. Lists and buttons
  * keep their own placeholders; this is for a screen with nothing to show yet.
  */
-export function Loader({ label = "Loading", className }: { label?: string; className?: string }) {
+export function Loader({ label = "Loading", className, markClassName }: { label?: string; className?: string; markClassName?: string }) {
   return (
     <div role="status" className={cn("flex min-h-[40vh] items-center justify-center", className)}>
-      <svg viewBox="150 150 442 394" aria-hidden="true" className="h-14 w-auto text-primary-text">
+      <svg viewBox="150 150 442 394" aria-hidden="true" className={cn("h-14 w-auto text-primary-text", markClassName)}>
         <g transform="matrix(1,0,0,1,-293,-382)" fill="currentColor">
           <g transform="matrix(2.25317,0,0,2.25317,-909.210836,-434.962492)">
             <g transform="matrix(0.501415,0,0,0.420441,35.186976,297.745019)">

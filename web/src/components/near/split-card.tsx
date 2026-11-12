@@ -1,3 +1,4 @@
+import * as React from "react";
 import type { ReactNode } from "react";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { purposeFill } from "@/lib/palette";
@@ -5,12 +6,21 @@ import { cn } from "@/lib/utils";
 
 /**
  * NEAR mode's signature: an account name is the address, so it is always set in mono, the way the
- * person types it. Long names (64-character implicit accounts) wrap rather than hide.
+ * person types it. Names wrap after a dot when they must; 64-character implicit accounts still wrap.
  */
 export function AccountName({ id, className }: { id: string; className?: string }) {
   return (
-    <span className={cn("block font-mono text-micro tracking-normal break-all", className)}>
-      {id}
+    <span className={cn("block font-mono text-micro tracking-normal [overflow-wrap:anywhere]", className)}>
+      {id.split(".").map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && (
+            <>
+              .<wbr />
+            </>
+          )}
+          {part}
+        </React.Fragment>
+      ))}
     </span>
   );
 }
@@ -53,7 +63,7 @@ export function LandingPanel({ className }: { className?: string }) {
         <div className="mt-3 rounded-2xl bg-white/95 p-6 text-foreground shadow-panel">
           <div className="flex items-baseline justify-between gap-4">
             <p className="text-sm text-muted-foreground">One payment</p>
-            <p className="text-xs text-muted-foreground">Saved split, version 1</p>
+            <p className="text-xs text-muted-foreground">Your rule</p>
           </div>
           <p className="figure mt-1 text-figure-lg leading-none tabular-nums">
             1,000.00 <span className="text-lg font-semibold text-muted-foreground">USDC</span>
@@ -77,7 +87,7 @@ export function LandingPanel({ className }: { className?: string }) {
             <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-primary-text" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M3.5 8.5l3 3 6-7" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            Divided on chain as it arrived. One approval.
+            Divided automatically as it arrived.
           </p>
         </div>
       </div>
