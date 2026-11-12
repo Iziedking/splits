@@ -1,4 +1,4 @@
-import { FileSpreadsheet, Link2, MessageSquareText, Users, type LucideIcon } from "lucide-react";
+import { FileSpreadsheet, Link2, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ButtonLink } from "@/components/ui/button";
@@ -20,8 +20,8 @@ export default function NearLanding() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <ButtonLink href="/near/app">Open the app</ButtonLink>
-            <ButtonLink href="/near#start" variant="secondary">
-              How to start
+            <ButtonLink href="/near/shop" variant="secondary">
+              Try the demo shop
             </ButtonLink>
           </div>
         </div>
@@ -47,18 +47,22 @@ export default function NearLanding() {
         <h2 id="more-title" className="display-face text-3xl font-bold">
           Built for money that has to be shared
         </h2>
+        <p className="mt-3 max-w-2xl text-muted-foreground">Other apps move money when you tell them to. Splits keeps a rule that divides money as it arrives, and gives every part a purpose and a receipt.</p>
         <ul className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Feature icon={FileSpreadsheet} title="Payroll from a CSV">
-            Upload a list of people, amounts and what each payment is for. Check it, approve once, and get a CSV of what landed that an accountant can open.
+          <Feature icon={ShoppingBag} title="A checkout button that divides the sale">
+            Paste a &ldquo;Pay with Splits&rdquo; button into any shop. Each sale lands split between the supplier, the tax pot and the tip jar.{" "}
+            <Link className="font-medium text-primary-text underline underline-offset-4" href="/near/shop">
+              Try it
+            </Link>
           </Feature>
           <Feature icon={Users} title="A group fund set by a vote">
             Flatmates or a trip vote once on how shared money divides. When the vote passes, every payment to the group follows the new rule.
           </Feature>
-          <Feature icon={MessageSquareText} title="Say it in plain words">
-            &ldquo;Thirty percent to tax, a fifth to savings, the rest is mine.&rdquo; NEAR AI reads it, and Splits only keeps accounts and numbers you actually wrote.
+          <Feature icon={FileSpreadsheet} title="Payroll from a CSV">
+            Upload a list of people, amounts and what each payment is for. Check it, approve once, and get a CSV of what landed that an accountant can open.
           </Feature>
           <Feature icon={Link2} title="A pay link for anyone">
-            Share one link. Whoever pays you, the money arrives already divided by your rule.
+            Share one link. Whoever pays you, the money arrives already divided by your rule. Say the rule in plain words; NEAR AI reads it.
           </Feature>
         </ul>
       </section>

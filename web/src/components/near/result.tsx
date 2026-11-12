@@ -76,7 +76,20 @@ export function useVerify(hash: string | null, pending: Pending | null): Check |
  * The end of a payment, the way a banking app shows it: a clear outcome, the amount, who got what,
  * and the technical record folded away under "Details" for anyone who wants it.
  */
-export function PaymentResult({ hash, pending, check, onAgain }: { hash: string; pending: Pending; check: Check | null; onAgain: () => void }) {
+export function PaymentResult({
+  hash,
+  pending,
+  check,
+  onAgain,
+  done = DONE,
+}: {
+  hash: string;
+  pending: Pending;
+  check: Check | null;
+  onAgain: () => void;
+  /** Where "Done" goes: Home in the app, or back to the shop for a checkout. */
+  done?: { href: string; label: string };
+}) {
   if (!check || check.state === "checking") {
     return (
       <Panel>
@@ -95,7 +108,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
           <Outcome tone="wait" title="We couldn't confirm it yet" text="Your payment may still be on its way. Check again in a minute; nothing is charged twice." />
         </Panel>
         <Details hash={hash} />
-        <Actions onAgain={onAgain} again="Try again" />
+        <Actions done={done} onAgain={onAgain} again="Try again" />
       </div>
     );
   }
@@ -107,7 +120,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
           <Outcome tone="stop" title="Nothing was sent" text={`${refusalText(v.reason)} The full amount stayed with you.`} />
         </Panel>
         <Details hash={hash} />
-        <Actions onAgain={onAgain} again="Try again" />
+        <Actions done={done} onAgain={onAgain} again="Try again" />
       </div>
     );
   }
@@ -118,7 +131,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
           <Outcome tone="stop" title="Something doesn't match" text={`This payment is not the one you approved (${v.detail}). Please don't pay again until you've checked it.`} />
         </Panel>
         <Details hash={hash} />
-        <Actions onAgain={onAgain} again="Start again" />
+        <Actions done={done} onAgain={onAgain} again="Start again" />
       </div>
     );
   }
@@ -176,7 +189,7 @@ export function PaymentResult({ hash, pending, check, onAgain }: { hash: string;
           )
         }
       />
-      <Actions onAgain={onAgain} again="Pay again" />
+      <Actions done={done} onAgain={onAgain} again="Pay again" />
     </div>
   );
 }
@@ -248,11 +261,13 @@ export function Details({ hash, csv }: { hash: string; csv?: () => void }) {
   );
 }
 
-function Actions({ onAgain, again }: { onAgain: () => void; again: string }) {
+const DONE = { href: "/near/app", label: "Done" };
+
+function Actions({ onAgain, again, done }: { onAgain: () => void; again: string; done: { href: string; label: string } }) {
   return (
     <div className="mx-auto grid w-full max-w-xl gap-3 sm:grid-cols-2">
-      <ButtonLink href="/near/app" className="w-full">
-        Done
+      <ButtonLink href={done.href} className="w-full">
+        {done.label}
       </ButtonLink>
       <Button variant="secondary" className="w-full" onClick={onAgain}>
         {again}

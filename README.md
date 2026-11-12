@@ -1,5 +1,90 @@
 # Splits
 
+## NEAR Hackathon entry
+
+**Splits on NEAR: auto-split my income into tax, savings and spending.** A person saves a rule once ("30% to tax, 20% to savings, the rest to spend"), and every USDC payment sent to their NEAR account through the splits router divides itself on chain as it arrives, with a purpose and a receipt on every part. The same router puts a **Pay with Splits** button on any shop, so each sale lands already divided between supplier, tax and tips; it also pays a list of people in one approval, runs payroll from a CSV, and lets a group fund change its split only by a passed Sputnik DAO vote.
+
+Hosted demo: **[near.mysplits.xyz](https://near.mysplits.xyz)** (NEAR testnet; test money with no value).
+
+### Disclosure
+
+Splits already exists on Arc and is live at [mysplits.xyz](https://mysplits.xyz); everything below this section describes that earlier product. Only the NEAR integration was built in the hackathon window: the Rust contract in [`near/`](near), the proof scripts in [`near/proof/`](near/proof), and NEAR mode in the web app (`web/src/app/near`, `web/src/components/near`, `web/src/lib/near`, `web/src/server/near`, `web/src/app/api/near`). The hackathon work is the diff between the two tags: [pre-hackathon...hackathon-submission](https://github.com/Iziedking/splits/compare/pre-hackathon...hackathon-submission).
+
+The same developer also entered Kova (https://github.com/Iziedking/kova). The two projects are independent: different products, repos, contracts and accounts.
+
+### Track
+
+`realworld`
+
+### On chain (NEAR testnet)
+
+| | |
+| --- | --- |
+| Router contract | [`splits.kingizie.testnet`](https://testnet.nearblocks.io/address/splits.kingizie.testnet) (Rust, near-sdk 5.30.1, source in [`near/splits-router`](near/splits-router)) |
+| Token | Circle's testnet USDC on NEAR, [`3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af`](https://testnet.nearblocks.io/address/3e2210e1184b45b64c8a434c0a7e7b23cc04ea7eb7a6c3c32520d03d4afcb8af), 6 decimals |
+| A payment divided three ways | [`99VCLC4F…VmRW1M`](https://testnet.nearblocks.io/txns/99VCLC4F4FKZYDaPLJxr14ThM6gvem1RcSLDVVFmRW1M) |
+| A payment divided by a saved split | [`DWpdDLmd…9cpC4b`](https://testnet.nearblocks.io/txns/DWpdDLmdLrCWxtVgSg9fhQFmExnZWmnKpvK4529cpC4b) |
+| Test token for the proof run | [`splits-test-dollar.testnet`](https://testnet.nearblocks.io/address/splits-test-dollar.testnet), TEST DOLLAR (no value), its only key deleted |
+
+The router contract has no owner, admin or upgrade methods, and the token it accepts is fixed at deploy. The account `splits.kingizie.testnet` still holds a full-access key, held by the developer, so whoever holds that key could deploy different code to the account. The proof run below checks that the code it tests is byte for byte the code on that account.
+
+### Do X, see Y
+
+Prove it from a terminal first (no wallet, no keys). Run from the repository root:
+
+1. `bash near/proof/contract-tests.sh`. See the router's 14 unit tests and a sandbox test pass, ending in `== All contract tests passed`. Uses local Rust, or Docker (`--docker`).
+2. `cd near/proof && npm ci && node testnet-proof.mjs` (Node 20+, about three minutes). See `PASS` for each check with an explorer link: the live router's code matches its on-chain hash; a fresh faucet account deploys that exact code; a three-way payment lands with a purpose on each part and the router keeps nothing; a reused reference is refused; a part to an account that cannot hold the token returns to the payer while the others land; an account saves 30/20/50 and a 10.00 payment naming only her divides into 3.00, 2.00 and 5.00; a payer who saw an older split is refused; a two-member Sputnik DAO sets its split only after both vote yes and a payment to the group then divides. It ends with `All checks passed.` Details in [`near/proof/README.md`](near/proof/README.md).
+
+Then the hosted demo, [near.mysplits.xyz](https://near.mysplits.xyz):
+
+3. Get a NEAR testnet wallet (for example [Meteor](https://wallet.meteorwallet.app) or [MyNearWallet](https://testnet.mynearwallet.com)), test NEAR for fees from [near-faucet.io](https://near-faucet.io), and test USDC from [faucet.circle.com](https://faucet.circle.com) (choose NEAR Testnet). See both balances in your wallet.
+4. Open the demo shop, [near.mysplits.xyz/near/shop](https://near.mysplits.xyz/near/shop), and choose **Pay with Splits**. See the checkout show where the 1.00 USDC goes: 0.70 to the farm, 0.20 to the sales tax pot, 0.10 to the staff tip jar. Choose **Connect a NEAR wallet to pay**, then **Pay 1.00 USDC** and approve once. See "Payment sent" with each part, its purpose and its **Receipt**.
+5. Choose **Open the app** on the site, then **Connect wallet**. See Home with your USDC balance and your pay link.
+6. Choose **Checkout button**, then **Fill the coffee shop example**. See a live button, the one line of HTML to paste into any page, an optional script that opens the checkout over the page, and the link. Change a share and see the button update; shares that do not add up to 100% are explained in plain words.
+7. Choose **Pay people**, then **Fill a sample split**, then **Check the list**. See three parts (0.30 tax, 0.20 savings, 0.50 upkeep) and a total of 1.00 USDC. Choose **Pay 1.00 USDC** and approve once. See one row per person with its purpose and a **Receipt** link; the receipt shows that person only their own part.
+8. Choose **Auto-split my income**, then **Use the example: tax, savings and spending**, then **Turn it into a split**, then **Save this split** and approve. See your split; every payment to your pay link now divides by it. Open your pay link (on Home) in another browser or wallet, enter an amount and pay. See the payment divided by your saved split, with no list typed by the payer.
+9. Choose **Payroll**, upload a CSV with the columns `account,amount,purpose`, check it and pay. See the same result screen, and **Download for your records** gives a CSV of what landed.
+10. Open the demo group fund, [`flat-5f4200.sputnikv2.testnet`](https://near.mysplits.xyz/near/group?dao=flat-5f4200.sputnikv2.testnet). See its split, 40% rent, 30% bills and 30% trip fund, and the vote that passed it 2 of 2. Pay it from [its pay link](https://near.mysplits.xyz/near/pay/flat-5f4200.sputnikv2.testnet) and see the payment divide by the voted rule. To vote yourself, choose **Group fund**, start a group with two members, propose a split in plain words, and vote from each member's wallet; the split changes only once more than half have voted yes.
+
+Run it locally: `cd web && npm ci && NEAR_ENABLED=1 NEAR_HOSTS=near.localhost npm run dev`, then open `http://near.localhost:3000`.
+
+### What NEAR enables here
+
+- **Named accounts as recipients.** `tax.ada.testnet` is the address, so a split reads like the instruction it came from.
+- **The token call carries the split.** The payer's wallet calls `ft_transfer_call` on USDC with the split in `msg`: one approval sends the money and the instructions, and the token refunds whatever the router does not use.
+- **A checkout button with no backend.** The shop's split travels in the button's link; the payer's one `ft_transfer_call` carries it to the router, which pays supplier, tax and tips in the same payment. The shop needs no account here and nothing is stored.
+- **A saved split that runs on chain on arrival.** No backend, no cron: the division happens in the router when the payment lands, even if this website is down.
+- **A group fund set by a vote.** A Sputnik DAO saves its split through a `FunctionCall` proposal to the router; only a passed vote changes how the group's income divides.
+- **NEAR AI Cloud** reads plain-language instructions ("thirty percent to tax, a fifth to savings, the rest is mine") when the deterministic rules cannot. Only accounts and numbers the person typed can appear in the result.
+
+### What is different from Arc, and limits
+
+- **Not atomic across parts.** NEAR runs each part as its own transfer. If one cannot be delivered, that part returns to the payer and the others still land; the result screen says which. (On Arc a payment lands whole or not at all.)
+- The router holds the money for a few blocks, between receiving it and paying it out.
+- Recipients must be registered with the token; the payer's approval registers them for 0.00125 NEAR each.
+- Up to 10 parts per payment; the smallest payment is 0.01 USDC.
+- Testnet only, with Circle's testnet USDC.
+
+### Not built
+
+- **Pay from any chain with NEAR Intents.** The code is in the repo (`web/src/server/near/oneclick.ts`, `web/src/components/near/checkout-flow.tsx`, steps in [`near/MAINNET.md`](near/MAINNET.md)), but NEAR Intents is mainnet only and the router is not deployed on mainnet, so it is switched off on the demo.
+- **Gasless payments** (meta transactions).
+- Payouts to other chains.
+
+### Libraries, templates and AI-generated code
+
+- Contract: [near-sdk](https://crates.io/crates/near-sdk) 5.30.1; tests with near-sandbox 0.4, near-api 0.8 and cargo-near-build. Scaffolded with `cargo near new`.
+- Web: Next.js 16, React 19, Tailwind CSS 4, zod, qrcode, motion; [@hot-labs/near-connect](https://www.npmjs.com/package/@hot-labs/near-connect) 0.12.0 for wallets. Proof scripts: [near-api-js](https://www.npmjs.com/package/near-api-js) 7.5.3.
+- Services: NEAR AI Cloud (OpenAI-compatible chat completions), Sputnik DAO v2 (`sputnikv2.testnet`), FastNEAR RPC, NEAR Intents 1Click API (built, off).
+- AI-generated code: an AI coding agent (Claude Code) wrote most of the NEAR code under the developer's direction and review. It used the NEAR agent skills from [near/agent-skills](https://github.com/near/agent-skills): `near-smart-contracts`, `near-api-js`, `near-dapp`, `near-ai-cloud`, `near-intents`, `near-cli-rs` and `near-contract-audit`.
+
+### Team
+
+Israel Dominic (founder and lead developer) and Amarachi Blessing (marketing lead).
+
+---
+
+
 Split any payment, to anyone, in one transaction on Arc.
 
 **Live now at [mysplits.xyz](https://mysplits.xyz).** The router contract is

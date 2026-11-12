@@ -4,8 +4,9 @@ import { Loader } from "@/components/app/loader";
 const SEEN = "splits-near-splash";
 
 // Runs while the page is parsed, before first paint: a visitor who saw the splash in this tab
-// session skips it, and a browser without storage simply sees it each time.
-const skipScript = `try{if(sessionStorage.getItem("${SEEN}"))document.documentElement.dataset.splashSeen="1";else sessionStorage.setItem("${SEEN}","1")}catch(e){}`;
+// session skips it, and a browser without storage simply sees it each time. The demo shop is a
+// merchant's page, not Splits, so it never shows there.
+const skipScript = `try{if(location.pathname.split("/").filter(Boolean).pop()==="shop"||sessionStorage.getItem("${SEEN}"))document.documentElement.dataset.splashSeen="1";else sessionStorage.setItem("${SEEN}","1")}catch(e){}`;
 
 /**
  * The opening moment of NEAR mode: the Splits mark on teal, its pieces lighting up in turn as the

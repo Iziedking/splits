@@ -11,6 +11,8 @@ export const INK = "#0e1c2b";
 export const TEAL = "#0fa39a";
 export const MIST = "#f3f7f8";
 export const WHITE = "#ffffff";
+/** --primary-fill: the "Pay with Splits" button pasted into other sites, where our CSS does not reach. */
+export const PRIMARY_FILL = "#0a7a73";
 
 export function purposeFill(index: number): string {
   return PURPOSE_FILLS[index % PURPOSE_FILLS.length]!;

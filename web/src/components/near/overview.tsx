@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Copy, FileSpreadsheet, LogOut, PieChart, Send, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, Copy, FileSpreadsheet, LogOut, PieChart, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ const ACTIONS: { href: string; title: string; text: string; icon: LucideIcon }[]
   { href: "/near/send", title: "Pay people", text: "One payment to several people, a purpose on every part", icon: Send },
   { href: "/near/payroll", title: "Payroll", text: "Upload a spreadsheet of people and amounts, approve once", icon: FileSpreadsheet },
   { href: "/near/group", title: "Group fund", text: "Flatmates or a trip vote once on how shared money divides", icon: Users },
+  { href: "/near/button", title: "Checkout button", text: "A Pay with Splits button for your shop: every sale lands divided", icon: ShoppingBag },
 ];
 
 export function Overview() {

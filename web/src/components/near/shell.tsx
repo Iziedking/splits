@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, Users, type LucideIcon } from "lucide-react";
+import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -12,12 +12,14 @@ import { cn } from "@/lib/utils";
 import { useNearWallet } from "./wallet";
 
 /** The app's sections, in the order people use them. */
-const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon }[] = [
+const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon; phone?: false }[] = [
   { href: "/near/app", label: "Home", short: "Home", icon: LayoutGrid },
   { href: "/near/split", label: "Auto-split my income", short: "Auto-split", icon: PieChart },
   { href: "/near/send", label: "Pay people", short: "Pay", icon: Send },
   { href: "/near/payroll", label: "Payroll", short: "Payroll", icon: FileSpreadsheet },
   { href: "/near/group", label: "Group fund", short: "Group", icon: Users },
+  // Merchants set this up at a desk; the phone tab bar keeps the five everyday tabs.
+  { href: "/near/button", label: "Checkout button", short: "Button", icon: ShoppingBag, phone: false },
 ];
 
 /** "Test mode" while this runs on testnet, the way payment dashboards say it. Nothing on mainnet. */
@@ -246,7 +248,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       <nav aria-label="App" className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/80 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
         <ul className="grid grid-cols-5">
-          {APP_NAV.map(({ href, short, icon: Icon }) => (
+          {APP_NAV.filter((n) => n.phone !== false).map(({ href, short, icon: Icon }) => (
             <li key={href}>
               <Link
                 href={href}

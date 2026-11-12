@@ -71,6 +71,9 @@ const SHOTS = [
   { name: "receipt-recipient", path: `/near/r/${HAND}?from=kingizie.testnet&to=mum.kingizie.testnet` },
   { name: "receipt-whole", path: `/near/r/${SAVED}?from=mum.kingizie.testnet` },
   { name: "how", path: "/near/how" },
+  { name: "shop", path: "/near/shop" },
+  { name: "shop-buy", path: "/near/shop", act: async (p) => { await p.getByRole("link", { name: "Pay with Splits" }).click(); await p.getByText("Your payment divides as it arrives").waitFor({ timeout: 20_000 }); } },
+  { name: "button-setup", path: "/near/button", act: (p) => p.getByRole("button", { name: "Fill the coffee shop example" }).click() },
 ];
 
 await mkdir(OUT, { recursive: true });

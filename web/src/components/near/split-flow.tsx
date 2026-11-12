@@ -179,6 +179,15 @@ export function SplitFlow() {
           In plain words: who gets what share, and what it&apos;s for. Name each NEAR account. Whatever you don&apos;t give away stays with you.
         </label>
         <textarea id="instruction" className={cn(inputClass, "mt-3 min-h-32 py-3")} value={text} onChange={(e) => (setText(e.target.value), setDraft(null))} />
+        {!text.trim() && accountId && (
+          <button
+            type="button"
+            className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold text-primary-text underline-offset-4 hover:underline"
+            onClick={() => (setText(LEAD_EXAMPLE(accountId)), setDraft(null))}
+          >
+            Use the example: tax, savings and spending
+          </button>
+        )}
         <Button className="mt-3 w-full" variant="secondary" busy={busy === "reading"} disabled={!text.trim()} onClick={() => void onRead()}>
           Turn it into a split
         </Button>
