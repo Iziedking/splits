@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { checkoutMsg, checkoutRef, isFinal, payOptions, statusText, type IntentsToken } from "./checkout";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { checkoutFor, checkoutMsg, checkoutRef, isFinal, payOptions, statusText, type IntentsToken } from "./checkout";
 
 const t = (blockchain: string, symbol: string, assetId = `nep141:${blockchain}-${symbol}.omft.near`): IntentsToken => ({ assetId, blockchain, symbol, decimals: 6 });
 
@@ -46,5 +46,20 @@ describe("status", () => {
   it("says what each one means without jargon", () => {
     expect(statusText("SUCCESS")).toMatch(/divided/);
     expect(statusText("REFUNDED")).toMatch(/refund address/);
+  });
+});
+
+describe("checkoutFor", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("is off until the mainnet router is set", () => {
+    vi.stubEnv("NEAR_CHECKOUT_ROUTER", "");
+    expect(checkoutFor("izie17.tg")).toBe(false);
+  });
+
+  it("offers mainnet accounts only, never a testnet one", () => {
+    vi.stubEnv("NEAR_CHECKOUT_ROUTER", "splits.izie17.tg");
+    expect(checkoutFor("izie17.tg")).toBe(true);
+    expect(checkoutFor("kingizie.testnet")).toBe(false);
   });
 });

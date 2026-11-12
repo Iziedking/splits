@@ -24,6 +24,9 @@ export const CHECKOUT = {
 
 export const checkoutEnabled = () => CHECKOUT.router !== "";
 
+/** Checkout pays mainnet accounts only; a testnet account has no split there to pay. */
+export const checkoutFor = (account: string) => checkoutEnabled() && !account.endsWith(".testnet");
+
 /** Smallest and largest checkout, in USDC units. Small enough to try, capped while it is new. */
 export const CHECKOUT_MIN = 10n * CENT; // 0.10
 export const CHECKOUT_MAX = 100_000n * CENT; // 1,000.00
