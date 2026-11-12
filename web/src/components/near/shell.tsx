@@ -141,7 +141,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {accountId ? (
             <>
               <p className="text-xs text-white/70">Connected</p>
-              <a href={accountUrl(accountId)} target="_blank" rel="noreferrer" className="mt-0.5 block font-mono text-[0.8125rem] break-all text-white underline-offset-4 hover:underline">
+              <a href={accountUrl(accountId)} target="_blank" rel="noreferrer" className="mt-0.5 block font-mono text-micro break-all text-white underline-offset-4 hover:underline">
                 {accountId}
               </a>
               <button
@@ -208,7 +208,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 aria-current={current(href) ? "page" : undefined}
                 className={cn(
-                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-[0.6875rem] font-medium text-muted-foreground transition-colors",
+                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg text-xs font-medium text-muted-foreground transition-colors",
                   current(href) && "text-primary-text",
                 )}
               >

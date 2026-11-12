@@ -41,8 +41,8 @@ export function PayrollFlow() {
               Upload a CSV
             </h2>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Three columns: <span className="font-mono text-[0.8125rem]">account</span>, <span className="font-mono text-[0.8125rem]">amount</span> and{" "}
-              <span className="font-mono text-[0.8125rem]">purpose</span>. A header row is optional, and the columns can be in any order when it has one.
+              Three columns: <span className="font-mono text-micro">account</span>, <span className="font-mono text-micro">amount</span> and{" "}
+              <span className="font-mono text-micro">purpose</span>. A header row is optional, and the columns can be in any order when it has one.
             </p>
           </div>
           <button

@@ -236,7 +236,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
             </p>
             <h2 className="display-face mt-1 text-3xl font-bold">{group.config.name}</h2>
             {group.config.purpose && <p className="mt-1 text-white/80">{group.config.purpose}</p>}
-            <a href={accountUrl(dao)} target="_blank" rel="noreferrer" className="mt-3 inline-block font-mono text-[0.8125rem] break-all text-white/85 underline-offset-4 hover:underline">
+            <a href={accountUrl(dao)} target="_blank" rel="noreferrer" className="mt-3 inline-block font-mono text-micro break-all text-white/85 underline-offset-4 hover:underline">
               {dao}
             </a>
           </div>
@@ -246,7 +246,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
             </p>
             <ul className="mt-2 space-y-1">
               {group.council.map((m) => (
-                <li key={m} className="flex items-center gap-2 font-mono text-[0.8125rem]">
+                <li key={m} className="flex items-center gap-2 font-mono text-micro">
                   <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-white/70" />
                   {m}
                   {m === accountId && <span className="font-sans text-xs text-white/70">(you)</span>}
@@ -350,7 +350,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
                 <li key={p.id} className="surface rounded-2xl p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm text-muted-foreground">
-                      Proposal {p.id} by <span className="font-mono text-[0.8125rem] text-foreground">{p.proposer}</span>
+                      Proposal {p.id} by <span className="font-mono text-micro text-foreground">{p.proposer}</span>
                     </p>
                     <Status status={p.status} />
                   </div>

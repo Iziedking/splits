@@ -13,7 +13,7 @@ export default function NearLanding() {
     <div className="space-y-24 sm:space-y-32">
       <section className="grid items-center gap-10 lg:min-h-[calc(100dvh-12rem)] lg:grid-cols-[1fr_1.05fr] lg:gap-14">
         <div className="enter max-w-xl">
-          <h1 className="display-face text-[2.5rem] leading-[1.08] font-bold sm:text-6xl">Get paid once. It lands divided.</h1>
+          <h1 className="display-face text-display leading-[1.08] font-bold sm:text-6xl">Get paid once. It lands divided.</h1>
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             Auto-split your income into tax, savings and spending. Save the rule once, and every {NEAR.tokenSymbol} payment sent to your NEAR account divides itself on chain the moment it
             arrives, with a purpose and a receipt on every part.
@@ -124,7 +124,7 @@ export default function NearLanding() {
         </dl>
       </section>
 
-      <section id="proof" aria-labelledby="proof-title" className="scroll-mt-24 overflow-hidden rounded-[1.75rem] bg-[#0a1a22] px-6 py-10 text-white sm:px-12 sm:py-14">
+      <section id="proof" aria-labelledby="proof-title" className="scroll-mt-24 overflow-hidden rounded-[1.75rem] bg-night px-6 py-10 text-white sm:px-12 sm:py-14">
         <div className="grid gap-10 lg:grid-cols-[1fr_1.2fr] lg:items-center">
           <div>
             <h2 id="proof-title" className="display-face text-3xl font-bold">
@@ -135,7 +135,7 @@ export default function NearLanding() {
               link for every step.
             </p>
           </div>
-          <pre className="overflow-x-auto rounded-xl bg-white/6 p-5 font-mono text-[0.8125rem] leading-7 text-white/90 ring-1 ring-white/10">
+          <pre className="overflow-x-auto rounded-xl bg-white/6 p-5 font-mono text-micro leading-7 text-white/90 ring-1 ring-white/10">
             <code>
               <span className="text-white/45"># contract tests: unit and sandbox</span>
               {"\n"}bash near/proof/contract-tests.sh{"\n\n"}
@@ -178,9 +178,9 @@ function ReceiptPreview() {
           <dl className="mt-6 space-y-3 text-sm">
             {[
               ["For", <span key="f" className="flex items-center gap-2"><PurposeDot index={1} />Savings</span>],
-              ["To", <span key="t" className="font-mono text-[0.8125rem]">savings.ada.testnet</span>],
-              ["From", <span key="p" className="font-mono text-[0.8125rem]">payroll.acme.testnet</span>],
-              ["Divided by", <span key="d"><span className="font-mono text-[0.8125rem]">ada.testnet</span>&apos;s saved split</span>],
+              ["To", <span key="t" className="font-mono text-micro">savings.ada.testnet</span>],
+              ["From", <span key="p" className="font-mono text-micro">payroll.acme.testnet</span>],
+              ["Divided by", <span key="d"><span className="font-mono text-micro">ada.testnet</span>&apos;s saved split</span>],
             ].map(([label, value]) => (
               <div key={label as string} className="flex justify-between gap-4 border-b border-foreground/8 pb-3">
                 <dt className="text-muted-foreground">{label}</dt>
@@ -220,7 +220,7 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 function Fact({ term, children }: { term: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="grid gap-1 py-5 sm:grid-cols-[13rem_1fr] sm:gap-6">
-      <dt className="truncate font-mono text-[0.8125rem] text-primary-text">{term}</dt>
+      <dt className="truncate font-mono text-micro text-primary-text">{term}</dt>
       <dd className="text-sm leading-relaxed text-muted-foreground">{children}</dd>
     </div>
   );

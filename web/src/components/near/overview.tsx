@@ -44,7 +44,7 @@ export function Overview() {
         <p className="mt-2 text-muted-foreground">
           {accountId ? (
             <>
-              Signed in as <span className="font-mono text-[0.9375rem] text-foreground">{accountId}</span> on NEAR {NEAR.network}
+              Signed in as <span className="font-mono text-ui text-foreground">{accountId}</span> on NEAR {NEAR.network}
             </>
           ) : (
             "Your split, your pay link and what you can do from here"
@@ -105,7 +105,7 @@ export function Overview() {
             <p className="mt-1 text-sm text-muted-foreground">
               {snap?.split ? "Whoever pays you through it, the money arrives divided." : "It works once you save a split."}
             </p>
-            {payLink && <p className="mt-4 rounded-lg bg-white/70 px-3 py-2.5 font-mono text-[0.8125rem] break-all ring-1 ring-white">{payLink}</p>}
+            {payLink && <p className="mt-4 rounded-lg bg-white/70 px-3 py-2.5 font-mono text-micro break-all ring-1 ring-white">{payLink}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 size="sm"

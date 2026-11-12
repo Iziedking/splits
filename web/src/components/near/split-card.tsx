@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  */
 export function AccountName({ id, className }: { id: string; className?: string }) {
   return (
-    <span className={cn("block font-mono text-[0.8125rem] tracking-normal break-all", className)}>
+    <span className={cn("block font-mono text-micro tracking-normal break-all", className)}>
       {id}
     </span>
   );

@@ -70,20 +70,20 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
           <dl className="mt-6 space-y-3 text-sm">
             <Row label="For">{parts[0]!.purpose}</Row>
             <Row label="To">
-              <a className="font-mono text-[0.8125rem] underline underline-offset-4" href={accountUrl(to)} target="_blank" rel="noreferrer">
+              <a className="font-mono text-micro underline underline-offset-4" href={accountUrl(to)} target="_blank" rel="noreferrer">
                 {to}
               </a>
             </Row>
             <Row label="From">
-              <span className="font-mono text-[0.8125rem]">{payment.payer}</span>
+              <span className="font-mono text-micro">{payment.payer}</span>
             </Row>
             {payment.split_owner && (
               <Row label="Divided by">
-                <span className="font-mono text-[0.8125rem]">{payment.split_owner}</span>&apos;s saved split
+                <span className="font-mono text-micro">{payment.split_owner}</span>&apos;s saved split
               </Row>
             )}
             <Row label="Reference">
-              <span className="font-mono text-[0.8125rem]">{payment.ref}</span>
+              <span className="font-mono text-micro">{payment.ref}</span>
             </Row>
           </dl>
           <p className="mt-6 text-xs text-muted-foreground">This receipt shows only your part. The other parts of the payment are not shown here.</p>
