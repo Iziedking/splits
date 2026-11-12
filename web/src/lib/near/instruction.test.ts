@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { guardLines, guardShares, parseInstruction, parseLines, percentToBps } from "./instruction";
+import { fractionPercentsIn, guardLines, guardShares, parseInstruction, parseLines, percentToBps, wordNumbersIn } from "./instruction";
 
 const ME = "ada.testnet";
 
@@ -37,6 +37,17 @@ describe("parseInstruction", () => {
   it("says what is missing instead of guessing", () => {
     const d = parseInstruction("auto-split my income into tax, savings and spending", ME);
     expect(d.shares).toEqual([{ account_id: ME, bps: 10_000, purpose: "spending" }]);
+  });
+});
+
+describe("numbers written in words", () => {
+  it("reads whole numbers", () => {
+    expect([...wordNumbersIn("thirty percent, twenty-five, one hundred, a hundred and five, ten")]).toEqual(["30", "25", "100", "105", "10"]);
+  });
+
+  it("reads exact fractions as percentages", () => {
+    expect([...fractionPercentsIn("a fifth, three quarters, half, two tenths, an eighth")].sort()).toEqual(["12.5", "20", "50", "75"]);
+    expect([...fractionPercentsIn("a third, on the fifth of May")]).toEqual([]);
   });
 });
 
@@ -98,6 +109,56 @@ describe("guardShares: the model can only propose what the person typed", () => 
     });
     expect(d.shares).toEqual([{ account_id: ME, bps: 10_000, purpose: "spending" }]);
     expect(d.notes.join(" ")).toMatch(/isn't a number/);
+  });
+
+  it("accepts a percentage the person wrote in words or as an exact fraction", () => {
+    const words = "put thirty percent aside for tax in tax.ada.testnet, a fifth into savings.ada.testnet, whatever is left goes to mum.testnet";
+    const d = guardShares(words, ME, {
+      parts: [
+        { account: "tax.ada.testnet", percent: "30", purpose: "tax" },
+        { account: "savings.ada.testnet", percent: "20", purpose: "savings" },
+      ],
+      rest: { to_me: false, account: "mum.testnet", purpose: "spending" },
+      notes: [],
+    });
+    expect(d.shares).toEqual([
+      { account_id: "tax.ada.testnet", bps: 3000, purpose: "tax" },
+      { account_id: "savings.ada.testnet", bps: 2000, purpose: "savings" },
+      { account_id: "mum.testnet", bps: 5000, purpose: "spending" },
+    ]);
+    expect(d.notes).toEqual([]);
+  });
+
+  it("still drops a number the person did not write in any form", () => {
+    const d = guardShares("thirty percent to tax.ada.testnet, the rest stays", ME, {
+      parts: [{ account: "tax.ada.testnet", percent: "35", purpose: "tax" }],
+      rest: { to_me: true, purpose: null },
+      notes: [],
+    });
+    expect(d.shares).toEqual([{ account_id: ME, bps: 10_000, purpose: "spending" }]);
+    expect(d.notes.join(" ")).toMatch(/35% for tax.ada.testnet wasn't in what you wrote/);
+  });
+
+  it("does not accept an inexact fraction such as a third", () => {
+    const d = guardShares("a third to tax.ada.testnet", ME, {
+      parts: [{ account: "tax.ada.testnet", percent: "33.33", purpose: "tax" }],
+      rest: { to_me: true, purpose: null },
+      notes: [],
+    });
+    expect(d.shares).toEqual([{ account_id: ME, bps: 10_000, purpose: "spending" }]);
+  });
+
+  it("keeps the rest with the person when the rest account was never typed", () => {
+    const d = guardShares("30% to tax.ada.testnet", ME, {
+      parts: [{ account: "tax.ada.testnet", percent: "30", purpose: "tax" }],
+      rest: { to_me: false, account: "thief.testnet", purpose: null },
+      notes: [],
+    });
+    expect(d.shares).toEqual([
+      { account_id: "tax.ada.testnet", bps: 3000, purpose: "tax" },
+      { account_id: ME, bps: 7000, purpose: "spending" },
+    ]);
+    expect(d.notes.join(" ")).toMatch(/thief.testnet wasn't in what you wrote/);
   });
 
   it("rejects bad percentages", () => {
