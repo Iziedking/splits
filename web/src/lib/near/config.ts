@@ -22,6 +22,8 @@ export const NEAR = {
   faucet: "https://faucet.circle.com",
   /** Where people get testnet NEAR for gas. */
   nearFaucet: "https://near-faucet.io",
+  /** Sputnik DAO v2 factory. Testnet checked 2026-11-12 (5,600 DAOs, contract 3.31); the mainnet name is not checked yet. */
+  daoFactory: process.env.NEXT_PUBLIC_NEAR_DAO_FACTORY || (network === "mainnet" ? "sputnik-dao.near" : "sputnikv2.testnet"),
 } as const;
 
 /** Server side: NEAR pages and APIs exist only where NEAR_ENABLED=1 (the near.mysplits.xyz deploy). */

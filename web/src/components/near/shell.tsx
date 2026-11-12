@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, type LucideIcon } from "lucide-react";
+import { FileSpreadsheet, LayoutGrid, LogOut, PieChart, Send, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -16,6 +16,7 @@ const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon }[
   { href: "/near/split", label: "Auto-split my income", short: "Auto-split", icon: PieChart },
   { href: "/near/send", label: "Pay a split", short: "Pay", icon: Send },
   { href: "/near/payroll", label: "Payroll from a CSV", short: "Payroll", icon: FileSpreadsheet },
+  { href: "/near/group", label: "Group fund", short: "Group", icon: Users },
 ];
 
 function NetworkTag({ tone = "light" }: { tone?: "light" | "dark" }) {
@@ -200,7 +201,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <nav aria-label="App" className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/80 px-2 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] backdrop-blur-md lg:hidden">
-        <ul className="grid grid-cols-4">
+        <ul className="grid grid-cols-5">
           {APP_NAV.map(({ href, short, icon: Icon }) => (
             <li key={href}>
               <Link

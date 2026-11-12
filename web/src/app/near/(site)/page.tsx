@@ -1,4 +1,4 @@
-import { FileSpreadsheet, Link2, MessageSquareText, type LucideIcon } from "lucide-react";
+import { FileSpreadsheet, Link2, MessageSquareText, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ButtonLink } from "@/components/ui/button";
@@ -47,9 +47,12 @@ export default function NearLanding() {
         <h2 id="more-title" className="display-face text-3xl font-bold">
           Built for money that has to be shared
         </h2>
-        <ul className="mt-8 grid gap-4 md:grid-cols-3">
+        <ul className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Feature icon={FileSpreadsheet} title="Payroll from a CSV">
             Upload a list of people, amounts and what each payment is for. Check it, approve once, and get a CSV of what landed that an accountant can open.
+          </Feature>
+          <Feature icon={Users} title="A group fund set by a vote">
+            A flat or a trip decides once, in its Sputnik DAO, how shared money divides. When the vote passes, every payment to the group follows the new rule.
           </Feature>
           <Feature icon={MessageSquareText} title="Say it in plain words">
             &ldquo;Thirty percent to tax, a fifth to savings, the rest is mine.&rdquo; NEAR AI reads it, and Splits only keeps accounts and numbers you actually wrote.

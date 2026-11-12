@@ -29,16 +29,19 @@ const SHOTS = [
     act: async (p) => {
       const rows = ["account,amount,purpose", "tax.kingizie.testnet,0.30,payroll tax", "savings.kingizie.testnet,0.20,pension", "mum.kingizie.testnet,0.50,salary"];
       await p.locator("#payroll-file").setInputFiles({ name: "march-payroll.csv", mimeType: "text/csv", buffer: Buffer.from(rows.join("\n")) });
-      await p.getByRole("button", { name: "Check the list" }).click();
+      await p.getByRole("button", { name: "Check the list", exact: true }).click();
       await p.getByText("Total", { exact: true }).waitFor({ timeout: 20_000 });
     },
   },
+  { name: "group-choose", path: "/near/group" },
+  // A DAO made by near/proof/testnet-proof.mjs: two members, one passed vote, a saved split.
+  { name: "group-view", path: "/near/group?dao=splits-proof-bcb0d8.sputnikv2.testnet", wait: "Votes on the split" },
   { name: "send-empty", path: "/near/send" },
   {
     name: "send-sample-review",
     path: "/near/send?sample=1",
     act: async (p) => {
-      await p.getByRole("button", { name: "Check the list" }).click();
+      await p.getByRole("button", { name: "Check the list", exact: true }).click();
       await p.getByText("Total", { exact: true }).waitFor({ timeout: 20_000 });
     },
   },
@@ -48,7 +51,7 @@ const SHOTS = [
     act: async (p) => {
       await p.getByLabel("Person 1: NEAR account").fill("Ada@gmail.com");
       await p.getByLabel("Person 1: amount").fill("12.345");
-      await p.getByRole("button", { name: "Check the list" }).click();
+      await p.getByRole("button", { name: "Check the list", exact: true }).click();
     },
   },
   {

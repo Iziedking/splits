@@ -18,7 +18,7 @@ You should see `== All contract tests passed`.
 cd near/proof && npm ci && node testnet-proof.mjs
 ```
 
-Needs Node 20 or newer. Takes about two minutes and prints `PASS` or `FAIL` for each check, with a testnet explorer link for every transaction:
+Needs Node 20 or newer. Takes about three minutes and prints `PASS` or `FAIL` for each check, with a testnet explorer link for every transaction:
 
 1. Downloads the code of the live router, `splits.kingizie.testnet`, and checks it against the hash NEAR stores for it.
 2. Creates a fresh account from the public testnet faucet, deploys that exact router code to `router.<account>`, and deploys TEST DOLLAR (a test token with no value) from `splits-test-dollar.testnet` so it can mint its own money. The live router accepts only Circle's testnet USDC, which a script cannot mint.
@@ -27,7 +27,8 @@ Needs Node 20 or newer. Takes about two minutes and prints `PASS` or `FAIL` for 
    - **b.** the same payment again with the same reference: refused (`ref_already_used`), nothing moves;
    - **c.** a part to an account that cannot hold the token comes back to the payer, and the other parts still land;
    - **d.** "auto-split my income into tax, savings and spending": an account saves 30/20/50 once, then a 10.00 payment naming only her divides itself on arrival into 3.00, 2.00 and 5.00;
-   - **e.** a payer who saw an older version of her split is refused (`stale_split_version`) and keeps the money.
+   - **e.** a payer who saw an older version of her split is refused (`stale_split_version`) and keeps the money;
+   - **f.** a group fund: a second faucet account founds a Sputnik DAO (`sputnikv2.testnet` factory) with two council members. One proposes a `set_split` call to the router; after one yes vote the group still has no split, after the second the proposal passes and the DAO's split is saved; a 10.00 payment to the group then divides 4.00 rent, 3.00 bills, 3.00 trip fund, and neither the router nor the DAO keeps any of it.
 
 It ends with `All checks passed.` and exits non-zero if any check fails. Set `NEAR_RPC` to use another testnet RPC.
 

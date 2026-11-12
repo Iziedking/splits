@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Check, Copy, FileSpreadsheet, PieChart, Send, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, Copy, FileSpreadsheet, PieChart, Send, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const ACTIONS: { href: string; title: string; text: string; icon: LucideIcon }[]
   { href: "/near/split", title: "Auto-split my income", text: "Save how payments to you divide into tax, savings and spending", icon: PieChart },
   { href: "/near/send", title: "Pay a split", text: "One payment to several people, a purpose on every part", icon: Send },
   { href: "/near/payroll", title: "Payroll from a CSV", text: "Upload people and amounts, approve once, export what landed", icon: FileSpreadsheet },
+  { href: "/near/group", title: "Group fund", text: "A flat or a trip votes once on how shared money divides", icon: Users },
 ];
 
 export function Overview() {
@@ -135,7 +136,7 @@ export function Overview() {
         <h2 id="do-title" className="text-lg font-semibold">
           What you can do
         </h2>
-        <ul className="mt-4 grid gap-3 md:grid-cols-3">
+        <ul className="mt-4 grid gap-3 md:grid-cols-2">
           {ACTIONS.map(({ href, title, text, icon: Icon }) => (
             <li key={href}>
               <Link
