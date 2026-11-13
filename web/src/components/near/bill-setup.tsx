@@ -6,8 +6,8 @@ import { Segmented } from "@/components/app/segmented";
 import { Button } from "@/components/ui/button";
 import { Field, Notice, inputClass } from "@/components/ui/field";
 import { billPath, billProblems, equalParts, hostShare, newBillId, withTip, type Bill } from "@/lib/near/bill";
-import { NEAR } from "@/lib/near/config";
-import { CENT, formatUnits, normaliseAccount, parseCents, formatDollars } from "@/lib/near/payment";
+import { rememberName } from "@/lib/near/names";
+import { CENT, formatDollars, normaliseAccount, parseCents } from "@/lib/near/payment";
 import { cn } from "@/lib/utils";
 import { Copyable } from "./button-setup";
 import { useNearWallet } from "./wallet";
@@ -39,7 +39,7 @@ const EXAMPLE = {
  * paid gets a link to share; nothing is saved anywhere, the link is the bill.
  */
 export function BillSetup() {
-  const { accountId, signIn } = useNearWallet();
+  const { accountId, kind, signIn } = useNearWallet();
   const [id] = React.useState(() => newBillId());
   const [title, setTitle] = React.useState("");
   const [name, setName] = React.useState("");
@@ -49,6 +49,25 @@ export function BillSetup() {
   const [rows, setRows] = React.useState<Row[]>([{ name: "", account: "", amount: "" }]);
   const [origin, setOrigin] = React.useState("");
   const [shared, setShared] = React.useState(false);
+  // Friends named by email, once Splits has their account: email -> account, or an error to show.
+  const [byEmail, setByEmail] = React.useState<Record<string, { account?: string; error?: string }>>({});
+  const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  const accountOf = (v: string) => (isEmail(v) ? (byEmail[v.trim().toLowerCase()]?.account ?? "") : normaliseAccount(v));
+
+  async function lookUp(value: string) {
+    const email = value.trim().toLowerCase();
+    if (!isEmail(email) || byEmail[email]?.account) return;
+    if (kind !== "email") return setByEmail((m) => ({ ...m, [email]: { error: "Adding a friend by email needs you signed in with your email." } }));
+    try {
+      const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const body = (await res.json().catch(() => ({}))) as { accountId?: string; error?: { message?: string } };
+      if (!res.ok || !body.accountId) throw new Error(body.error?.message ?? "That email could not be set up. Try again.");
+      rememberName(body.accountId, email);
+      setByEmail((m) => ({ ...m, [email]: { account: body.accountId } }));
+    } catch (e) {
+      setByEmail((m) => ({ ...m, [email]: { error: e instanceof Error ? e.message : "That email could not be set up. Try again." } }));
+    }
+  }
 
   React.useEffect(() => setOrigin(window.location.origin), []);
 
@@ -63,9 +82,10 @@ export function BillSetup() {
     host: accountId ?? "",
     hostName: name,
     total,
-    people: rows.map((r) => ({ name: r.name, account: normaliseAccount(r.account), amount: amountOf(r) })),
+    people: rows.map((r) => ({ name: r.name || (isEmail(r.account) ? r.account.trim().split("@")[0]! : ""), account: accountOf(r.account), amount: amountOf(r) })),
   };
-  const problems = [...(cents === null ? ["Enter the bill, like 54 or 54.50."] : []), ...billProblems(bill)];
+  const emailProblems = rows.flatMap((r) => (isEmail(r.account) ? [byEmail[r.account.trim().toLowerCase()]?.error].filter((e): e is string => Boolean(e)) : []));
+  const problems = [...(cents === null ? ["Enter the bill, like 54 or 54.50."] : []), ...emailProblems, ...billProblems(bill)];
   const ready = problems.length === 0;
   const url = ready && origin ? `${origin}${billPath(bill)}` : null;
   const started = Boolean(title || subtotal || rows.some((r) => r.name || r.account));
@@ -107,7 +127,7 @@ export function BillSetup() {
           <Field label="What was it?" placeholder="Dinner at Yellow Chilli" value={title} onChange={(e) => setTitle(e.target.value)} />
           <Field label="Your name" placeholder="Ada" value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <Field className="mt-4" label={`The bill (${NEAR.tokenSymbol})`} inputMode="decimal" placeholder="54.00" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} />
+        <Field className="mt-4" label="The bill ($)" inputMode="decimal" placeholder="54.00" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} />
 
         <div className="mt-4">
           <p className="mb-1.5 text-sm font-medium">Tip</p>
@@ -154,13 +174,15 @@ export function BillSetup() {
                 </div>
                 <div className={cn("mt-2 grid gap-2", mode === "amounts" && "grid-cols-[1fr_7rem]")}>
                   <input
-                    aria-label={`Friend ${i + 1}: NEAR account`}
-                    className={cn(inputClass, "font-mono text-base lg:text-sm")}
-                    placeholder="Their Splits account"
+                    aria-label={`Friend ${i + 1}: email or Splits account`}
+                    className={cn(inputClass, "text-base lg:text-sm")}
+                    placeholder="Their email or Splits account"
                     autoCapitalize="none"
+                    inputMode="email"
                     spellCheck={false}
                     value={r.account}
                     onChange={(e) => update(i, { account: e.target.value })}
+                    onBlur={(e) => void lookUp(e.target.value)}
                   />
                   {mode === "amounts" && (
                     <input

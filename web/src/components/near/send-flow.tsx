@@ -10,7 +10,6 @@ import {
   buildPayTx,
   checkList,
   formatNear,
-  formatUnits,
   nearNeededForGas,
   newRef,
   STORAGE_DEPOSIT,
@@ -19,6 +18,7 @@ import {
   formatDollars,
   type Problem,
 } from "@/lib/near/payment";
+import { rememberName } from "@/lib/near/names";
 import { getAccount, isRegistered, spendable, tokenBalance } from "@/lib/near/rpc";
 import { cn } from "@/lib/utils";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
@@ -33,6 +33,33 @@ export const SAMPLE: Line[] = [
   { account: "savings.kingizie.testnet", amount: "0.20", purpose: "savings" },
   { account: "mum.kingizie.testnet", amount: "0.50", purpose: "upkeep for mum" },
 ];
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Lines that name an email get that person's Splits account, made now if they are new (they find the
+ * money when they sign in with that email). Returns the lines with accounts, or the problems.
+ */
+async function withAccounts(lines: Line[]): Promise<{ lines: Line[]; problems: Problem[] }> {
+  const problems: Problem[] = [];
+  const out = await Promise.all(
+    lines.map(async (l, i) => {
+      const email = l.account.trim();
+      if (!EMAIL.test(email)) return l;
+      try {
+        const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+        const body = (await res.json().catch(() => ({}))) as { accountId?: string; error?: { message?: string } };
+        if (!res.ok || !body.accountId) throw new Error(body.error?.message ?? "That email could not be set up. Try again.");
+        rememberName(body.accountId, email.toLowerCase());
+        return { ...l, account: body.accountId };
+      } catch (e) {
+        problems.push({ line: i + 1, message: e instanceof Error ? e.message : "That email could not be set up. Try again." });
+        return l;
+      }
+    }),
+  );
+  return { lines: out, problems };
+}
 
 type Review = { legs: Leg[]; total: bigint; unregistered: string[]; balance: bigint; nearFree: bigint; blockers: string[] };
 
@@ -68,15 +95,25 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
   async function onReview() {
     setError(null);
     setReview(null);
-    const r = checkList(lines, { me: accountId, mode, pot });
-    setProblems(r.problems);
-    if (r.problems.length) return;
+    const byEmail = lines.map((l, i) => (EMAIL.test(l.account.trim()) ? i : -1)).filter((i) => i >= 0);
+    if (byEmail.length && kind !== "email") {
+      setProblems(byEmail.map((i) => ({ line: i + 1, message: "Paying someone by their email needs you signed in with your email." })));
+      return;
+    }
     setBusy("checking");
     try {
+      const named = byEmail.length ? await withAccounts(lines) : { lines, problems: [] };
+      if (named.problems.length) {
+        setProblems(named.problems);
+        return;
+      }
+      const r = checkList(named.lines, { me: accountId, mode, pot });
+      setProblems(r.problems);
+      if (r.problems.length) return;
       const accounts = await Promise.all(r.legs.map((l) => getAccount(l.account_id)));
       const missing = r.legs.filter((_, i) => !accounts[i]).map((l) => l.account_id);
       if (missing.length) {
-        setProblems(missing.map((m) => ({ line: lines.findIndex((l) => l.account.trim().toLowerCase().replace(/^@/, "") === m) + 1, message: `${m} doesn't exist on NEAR ${NEAR.network}` })));
+        setProblems(missing.map((m) => ({ line: named.lines.findIndex((l) => l.account.trim().toLowerCase().replace(/^@/, "") === m) + 1, message: `There is no Splits account called ${m}. Check it, or pay them by their email.` })));
         return;
       }
       const registered = await Promise.all(r.legs.map((l) => isRegistered(l.account_id)));
@@ -94,7 +131,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
       }
       setReview({ legs: r.legs, total: r.total, unregistered, balance, nearFree, blockers });
     } catch (e) {
-      setError(e instanceof Error ? `Could not check the accounts: ${e.message}` : "Could not check the accounts");
+      setError(e instanceof Error ? `Could not check the list: ${e.message}` : "Could not check the list");
     } finally {
       setBusy(null);
     }
@@ -168,7 +205,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
         </div>
 
         {mode === "equal" && (
-          <Field className="mt-4" label={`Total to share (${NEAR.tokenSymbol})`} inputMode="decimal" placeholder="300" value={pot} onChange={(e) => (setPot(e.target.value), setReview(null))} />
+          <Field className="mt-4" label="Total to share ($)" inputMode="decimal" placeholder="300" value={pot} onChange={(e) => (setPot(e.target.value), setReview(null))} />
         )}
 
         <ol className="mt-4 space-y-3">
@@ -184,7 +221,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
                 )}
               </div>
               <div className={cn("grid gap-2", mode === "each" ? "sm:grid-cols-[1.4fr_0.7fr_1fr]" : "sm:grid-cols-[1.4fr_1fr]")}>
-                <input aria-label={`Person ${i + 1}: NEAR account`} className={inputClass} placeholder="ada.testnet" autoCapitalize="none" spellCheck={false} value={l.account} onChange={(e) => update(i, { account: e.target.value })} />
+                <input aria-label={`Person ${i + 1}: email or Splits account`} className={inputClass} placeholder="ada@example.com" inputMode="email" autoCapitalize="none" spellCheck={false} value={l.account} onChange={(e) => update(i, { account: e.target.value })} />
                 {mode === "each" && (
                   <input aria-label={`Person ${i + 1}: amount`} className={inputClass} placeholder="0.00" inputMode="decimal" value={l.amount} onChange={(e) => update(i, { amount: e.target.value })} />
                 )}
@@ -221,7 +258,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
         </h2>
         {!review ? (
           <>
-            <p className="mt-2 text-sm text-muted-foreground">Check the list to see exactly what each person gets, and whether NEAR knows every account.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Check the list to see exactly what each person gets. Pay anyone by their email: someone new finds the money when they sign in with it.</p>
             <Button className="mt-4 w-full" busy={busy === "checking"} onClick={() => void onReview()}>
               Check the list
             </Button>
@@ -237,14 +274,14 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
                     <AccountName id={l.account_id} className="font-medium" />
                     <p className="text-xs text-muted-foreground">{l.purpose}</p>
                   </div>
-                  <p className="text-sm font-semibold tabular-nums">{formatUnits(BigInt(l.amount))}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatDollars(BigInt(l.amount))}</p>
                 </li>
               ))}
             </ul>
             <div className="mt-2 flex items-baseline justify-between border-t border-foreground/8 pt-3">
               <span className="font-semibold">Total</span>
               <span className="figure text-2xl">
-                {formatUnits(review.total)} <span className="text-sm text-muted-foreground">{NEAR.tokenSymbol}</span>
+                {formatDollars(review.total)}
               </span>
             </div>
             {review.unregistered.length > 0 && (

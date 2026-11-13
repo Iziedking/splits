@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { billLeg, billRef, hostShare, type Bill } from "@/lib/near/bill";
 import { NEAR } from "@/lib/near/config";
-import { buildPayTx, formatNear, formatUnits, nearNeededForGas, formatDollars } from "@/lib/near/payment";
+import { buildPayTx, formatNear, nearNeededForGas, formatDollars } from "@/lib/near/payment";
 import { getAccount, isRefUsed, isRegistered, spendable, tokenBalance } from "@/lib/near/rpc";
 import { cn } from "@/lib/utils";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
@@ -115,14 +115,14 @@ export function TabFlow({ bill }: { bill: Bill }) {
         </div>
 
         <p className="figure mt-6 text-figure-lg tabular-nums">
-          {formatUnits(bill.total)} <span className="text-lg font-semibold text-muted-foreground">{NEAR.tokenSymbol}</span>
+          {formatDollars(bill.total)}
         </p>
         <p className="mt-1 text-sm text-muted-foreground" aria-live="polite">
           {paid === null
             ? "Checking who has paid…"
             : count === bill.people.length
               ? `Everyone has paid. ${bill.hostName} is square.`
-              : `${count} of ${bill.people.length} paid · ${formatUnits(back)} of ${formatUnits(owed)} back to ${bill.hostName}`}
+              : `${count} of ${bill.people.length} paid · ${formatDollars(back)} of ${formatDollars(owed)} back to ${bill.hostName}`}
         </p>
 
         <ul className="mt-5 divide-y divide-white rounded-2xl bg-white/60 ring-1 ring-white">
@@ -144,7 +144,7 @@ export function TabFlow({ bill }: { bill: Bill }) {
                   <AccountName id={p.account} className="text-muted-foreground" />
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold tabular-nums">{formatUnits(p.amount)}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatDollars(p.amount)}</p>
                   <p className={cn("text-xs", done ? "text-success-text" : "text-muted-foreground")}>{paid === null ? " " : done ? "Paid" : "Not yet"}</p>
                 </div>
               </li>

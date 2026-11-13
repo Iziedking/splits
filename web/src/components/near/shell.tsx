@@ -9,6 +9,7 @@ import { Logo } from "@/components/app/logo";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { NEAR } from "@/lib/near/config";
 import { cn } from "@/lib/utils";
+import { Avatar } from "./avatar";
 import { useNearWallet } from "./wallet";
 
 /** The app's sections, in the order people use them. */
@@ -37,7 +38,7 @@ function TestMode({ tone = "light" }: { tone?: "light" | "dark" }) {
 
 /** Sign in, or the signed-in account. Closing the sign-in is a choice, not an error. */
 function useConnect() {
-  const { ready, accountId, email, signIn, signOut } = useNearWallet();
+  const { ready, accountId, email, avatar, signIn, signOut } = useNearWallet();
   const [error, setError] = React.useState<string | null>(null);
   const connect = async () => {
     setError(null);
@@ -49,31 +50,30 @@ function useConnect() {
       setError(message || "Sign-in did not finish. Try again.");
     }
   };
-  return { ready, accountId, name: email ?? accountId, connect, signOut, error };
+  return { ready, accountId, name: email ?? accountId, avatar, connect, signOut, error };
 }
 
 /** The signed-in person as they see themselves: an initial and their email, or a wallet's name. */
-function AccountChip({ id, tone = "light" }: { id: string; tone?: "light" | "dark" }) {
+function AccountChip({ id, src, tone = "light" }: { id: string; src?: string | null; tone?: "light" | "dark" }) {
   return (
-    <span className={cn("inline-flex max-w-full min-w-0 items-center gap-2", tone === "dark" ? "text-white" : "text-foreground")}>
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold uppercase",
-          tone === "dark" ? "bg-white text-primary-fill" : "bg-primary-fill text-white",
-        )}
-      >
-        {id.charAt(0)}
-      </span>
+    <Link
+      href="/near/profile"
+      aria-label={`Your profile, ${id}`}
+      className={cn(
+        "inline-flex max-w-full min-w-0 items-center gap-2 rounded-full pr-2 focus-visible:ring-2 focus-visible:outline-none",
+        tone === "dark" ? "text-white hover:text-white/85 focus-visible:ring-white" : "text-foreground hover:text-foreground/80 focus-visible:ring-primary",
+      )}
+    >
+      <Avatar label={id} src={src} />
       <span className={cn("min-w-0 truncate", id.includes("@") ? "text-sm" : "font-mono text-micro")}>{id}</span>
-    </span>
+    </Link>
   );
 }
 
 function ConnectOrAccount() {
-  const { ready, accountId, name, connect } = useConnect();
+  const { ready, accountId, name, avatar, connect } = useConnect();
   return accountId && name ? (
-    <AccountChip id={name} />
+    <AccountChip id={name} src={avatar} />
   ) : (
     <Button size="sm" busy={!ready} onClick={() => void connect()}>
       Sign in
@@ -163,7 +163,7 @@ export function FlowShell({ children }: { children: React.ReactNode }) {
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { ready, accountId, name, connect, signOut, error } = useConnect();
+  const { ready, accountId, name, avatar, connect, signOut, error } = useConnect();
   const current = (href: string) => path === href || path.startsWith(`${href}/`);
 
   return (
@@ -194,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto rounded-xl bg-white/10 p-3">
           {accountId ? (
             <>
-              <AccountChip id={name ?? accountId} tone="dark" />
+              <AccountChip id={name ?? accountId} src={avatar} tone="dark" />
               <button
                 type="button"
                 onClick={() => void signOut()}
@@ -228,10 +228,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <TestMode />
         <div className="ml-auto flex min-w-0 justify-end">
           {accountId ? (
-            <AccountChip id={name ?? accountId} />
+            <AccountChip id={name ?? accountId} src={avatar} />
           ) : (
             <Button size="sm" busy={!ready} onClick={() => void connect()}>
-              Connect
+              Sign in
             </Button>
           )}
         </div>

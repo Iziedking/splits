@@ -14,7 +14,8 @@ import { AccountName, SplitBar } from "./split-card";
 import { useNearWallet } from "./wallet";
 
 /** The lead example, in the words of the track's own idea. */
-export const LEAD_EXAMPLE = (me: string) => `Auto-split my income: 30% to tax.${me} for tax, 20% to savings.${me} for savings, the rest stays for spending`;
+// "my tax pocket" is read as tax.<your account> (expandPockets), so nobody has to type an address.
+export const LEAD_EXAMPLE = (_me?: string) => "Auto-split my income: 30% to my tax pocket for tax, 20% to my savings pocket for savings, the rest stays for spending";
 
 /** The lead example as a split, shown before anyone connects. Example names, never signed. */
 const EXAMPLE_SHARES: Share[] = [

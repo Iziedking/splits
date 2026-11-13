@@ -4,26 +4,7 @@ import { PurposeDot } from "@/components/app/purpose-dot";
 import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
-/**
- * NEAR mode's signature: an account name is the address, so it is always set in mono, the way the
- * person types it. Names wrap after a dot when they must; 64-character implicit accounts still wrap.
- */
-export function AccountName({ id, className }: { id: string; className?: string }) {
-  return (
-    <span className={cn("block font-mono text-micro tracking-normal [overflow-wrap:anywhere]", className)}>
-      {id.split(".").map((part, i) => (
-        <React.Fragment key={i}>
-          {i > 0 && (
-            <>
-              .<wbr />
-            </>
-          )}
-          {part}
-        </React.Fragment>
-      ))}
-    </span>
-  );
-}
+export { AccountName } from "./account-name";
 
 /** The split as separate rounded bars, one per part, in the purpose colours. Decoration: the rows say it. */
 export function SplitBar({ weights, className }: { weights: number[]; className?: string }) {

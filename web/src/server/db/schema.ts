@@ -551,3 +551,17 @@ export const supportMessages = pgTable(
   },
   (t) => [index("support_messages_chat").on(t.chatId, t.createdAt)],
 );
+
+/**
+ * An email person's NEAR account (server/near/custody.ts), written the first time it is made. It is how
+ * a payment's account turns back into a person to email, and it holds their profile picture.
+ */
+export const nearProfiles = pgTable("near_profiles", {
+  userId: uuid("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  accountId: text("account_id").notNull().unique(),
+  /** A small square picture as a data URL (image/webp, jpeg or png), at most about 60 KB. */
+  avatar: text("avatar"),
+  createdAt: createdAt(),
+});

@@ -20,6 +20,10 @@ function sameHost(req: Request): boolean {
 
 export const isHttps = (req: Request) => (req.headers.get("x-forwarded-proto") ?? new URL(req.url).protocol.replace(":", "")) === "https";
 
+/** This site's own address, for links in emails: https://near.mysplits.xyz. */
+export const siteOrigin = (req: Request) =>
+  `${isHttps(req) ? "https" : "http"}://${req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? new URL(req.url).host}`;
+
 /** A route for email accounts: 404 unless NEAR mode and email accounts are both on. */
 export function emailAccountApi(handler: (a: { req: Request; ctx: Ctx }) => Promise<Response>) {
   return async (req: Request) => {

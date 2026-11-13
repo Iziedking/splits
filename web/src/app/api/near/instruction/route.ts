@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { nearEnabled } from "@/lib/near/config";
+import { expandPockets } from "@/lib/near/instruction";
 import { isAccountId } from "@/lib/near/payment";
 import { allowRead, readInstruction } from "@/server/near/ai";
 
@@ -12,5 +13,5 @@ export async function POST(req: Request) {
   if (!allowRead(visitor)) return Response.json({ error: "Too many requests. Try again in a while." }, { status: 429 });
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "Send the instruction and your NEAR account" }, { status: 400 });
-  return Response.json(await readInstruction(parsed.data.text, parsed.data.me));
+  return Response.json(await readInstruction(expandPockets(parsed.data.text, parsed.data.me), parsed.data.me));
 }

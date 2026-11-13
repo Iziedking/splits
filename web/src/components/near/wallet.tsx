@@ -27,6 +27,9 @@ type WalletState = {
   testMoneyTaken: boolean;
   /** Mark the test money as taken after the server sent it. */
   tookTestMoney: () => void;
+  /** An email account's profile picture, as a data URL, or null for the round initials. */
+  avatar: string | null;
+  setAvatar: (src: string | null) => void;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
   /** Ask the wallet to sign and send one transaction. Returns its hash once the wallet sent it. */
@@ -60,6 +63,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
   const [emailUser, setEmailUser] = React.useState<{ accountId: string; email: string } | null>(null);
   const [emailOn, setEmailOn] = React.useState(false);
   const [testMoneyTaken, setTestMoneyTaken] = React.useState(false);
+  const [avatar, setAvatar] = React.useState<string | null>(null);
   const [sheet, setSheet] = React.useState(false);
   const waiting = React.useRef<{ resolve: () => void } | null>(null);
   const accountId = emailUser?.accountId ?? walletAccount;
@@ -70,13 +74,14 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
     fetch("/api/near/me")
       .then(async (r) => {
         if (!r.ok) return;
-        const me = (await r.json()) as { accountId: string | null; email?: string; testMoneyTaken?: boolean; relayer?: string };
+        const me = (await r.json()) as { accountId: string | null; email?: string; testMoneyTaken?: boolean; avatar?: string | null; relayer?: string };
         if (!live) return;
         setEmailOn(true);
         if (me.relayer) setRelayer(me.relayer);
         if (me.accountId && me.email) {
           setEmailUser({ accountId: me.accountId, email: me.email });
           setTestMoneyTaken(Boolean(me.testMoneyTaken));
+          setAvatar(me.avatar ?? null);
         }
       })
       .catch(() => {});
@@ -119,6 +124,8 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
       email: emailUser?.email ?? null,
       testMoneyTaken,
       tookTestMoney: () => setTestMoneyTaken(true),
+      avatar: emailUser ? avatar : null,
+      setAvatar,
       async signIn() {
         // Without email accounts on this server (local runs without keys), go straight to wallets.
         if (!emailOn) return connectWallet();
@@ -130,6 +137,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
           await fetch("/api/near/auth/logout", { method: "POST" }).catch(() => {});
           setEmailUser(null);
           setTestMoneyTaken(false);
+          setAvatar(null);
           return;
         }
         const c = await getConnector();
@@ -156,7 +164,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
         return hash;
       },
     }),
-    [ready, accountId, emailUser, walletAccount, emailOn, testMoneyTaken, connectWallet],
+    [ready, accountId, emailUser, walletAccount, emailOn, testMoneyTaken, avatar, connectWallet],
   );
 
   return (
@@ -171,7 +179,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
             setTestMoneyTaken(false);
             void fetch("/api/near/me")
               .then((r) => r.json())
-              .then((me: { testMoneyTaken?: boolean }) => setTestMoneyTaken(Boolean(me.testMoneyTaken)))
+              .then((me: { testMoneyTaken?: boolean; avatar?: string | null }) => (setTestMoneyTaken(Boolean(me.testMoneyTaken)), setAvatar(me.avatar ?? null)))
               .catch(() => {});
             closeSheet();
           }}
@@ -183,6 +191,11 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
       )}
     </WalletContext.Provider>
   );
+}
+
+/** The wallet when the page has one, or null (pages outside the app, like a shared receipt). */
+export function useMaybeNearWallet(): WalletState | null {
+  return React.useContext(WalletContext);
 }
 
 export function useNearWallet(): WalletState {

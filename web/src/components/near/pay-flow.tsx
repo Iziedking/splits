@@ -81,7 +81,7 @@ export function PayFlow({ owner, checkout = false }: { owner: string; checkout?:
           <>
             <p className="mt-2 text-sm text-muted-foreground">Whatever you pay divides automatically like this:</p>
             <SharesList shares={split.shares} example={units ?? 100_000_000n} />
-            <Field className="mt-5" label={`Amount (${NEAR.tokenSymbol})`} inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} error={amount && cents === null ? "Enter an amount like 25 or 12.50" : null} />
+            <Field className="mt-5" label="Amount ($)" inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} error={amount && cents === null ? "Enter an amount like 25 or 12.50" : null} />
             {accountId ? (
               <Button className="mt-4 w-full" busy={busy} disabled={units === null || units < CENT} onClick={() => void onPay()}>
                 {units === null ? "Pay" : `Pay ${formatDollars(units)}`}

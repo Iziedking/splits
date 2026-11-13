@@ -41,10 +41,12 @@ Then the hosted demo, [near.mysplits.xyz](https://near.mysplits.xyz). All you ne
 
 3. Open the site and choose **Open the app**, then **Sign in**. Enter your email, then the 6-digit code it receives. See Home with "Signed in as" your email and a balance of $0.00. Behind the scenes Splits made you a NEAR account, with a tax and a savings pocket, all able to hold USDC (see "Email accounts" below).
 4. Choose **Add test money**. See your balance become $5.00. Test money has no value.
-5. Choose **Pay people**, then **Fill a sample split**, then **Check the list**. See three parts (0.30 tax, 0.20 savings, 0.50 upkeep) and a total of $1.00. Choose **Pay $1.00**. See "Payment sent" within seconds, one row per person with its purpose, and **View proof** on the receipt. No approval popup and no fee: Splits paid it.
-6. Choose **Auto-split my income**, then **Turn it into a split** (the example "30% to tax, 20% to savings, the rest for spending" is filled in), then **Save this split**. See your split saved; every payment to your pay link now divides into your tax and savings pockets and your spending.
+5. Choose **Pay people**, then **Fill a sample split**, then **Check the list**. See three parts (0.30 tax, 0.20 savings, 0.50 upkeep) and a total of $1.00. Choose **Pay $1.00**. See "Payment sent" within seconds, one row per person with its purpose, and **View proof** on the receipt. No approval popup and no fee: Splits paid it. Then pay someone by their email instead: type a friend's email as the person, an amount and what it's for, and check the list. They are shown by their email; once paid, they get a "You received money" email and find it when they sign in with that address.
+6. Choose **Auto-split my income**, then **Turn it into a split** (the example "30% to my tax pocket, 20% to my savings pocket, the rest stays for spending" is filled in), then **Save this split**. See your split saved, its rows named **Your tax pocket**, **Your savings pocket** and **You** (tap a name for its address); every payment to your pay link now divides into your tax and savings pockets and your spending.
 7. Open the demo shop, [near.mysplits.xyz/near/shop](https://near.mysplits.xyz/near/shop), and choose **Pay with Splits**. See where the $1.00 goes: 0.70 to the farm, 0.20 to the sales tax pot, 0.10 to the staff tip jar. Choose **Pay $1.00**. See each part land with its purpose.
-8. Choose **Split a bill**, then **Fill the dinner example**, add each friend's Splits account and choose **Share the bill**. Open the link signed in as a friend. See every name, their part and "Not yet"; the friend chooses **Pay my part**, and their name turns to Paid, read from the router itself.
+8. Choose **Split a bill**, then **Fill the dinner example**, add each friend's email or Splits account and choose **Share the bill**. Open the link signed in as a friend. See every name, their part and "Not yet"; the friend chooses **Pay my part**, and their name turns to Paid, read from the router itself.
+Your profile is under your email in the sidebar: a round badge with two letters of your email, on a colour of its own, and **Add a picture** to put a photo in its place.
+
 9. Choose **Checkout button**, then **Fill the coffee shop example**. See a live button, the one line of HTML to paste into any page, and the link.
 10. Choose **Payroll**, upload a CSV with the columns `account,amount,purpose`, check it and pay. See the same result screen, and **Download for your records** gives a CSV of what landed.
 11. Open the demo group fund, [`flat-5f4200.sputnikv2.testnet`](https://near.mysplits.xyz/near/group?dao=flat-5f4200.sputnikv2.testnet). See its split, 40% rent, 30% bills and 30% trip fund, and the vote that passed it 2 of 2. Pay it from [its pay link](https://near.mysplits.xyz/near/pay/flat-5f4200.sputnikv2.testnet) and see the payment divide by the voted rule. To vote yourself, choose **Group fund**, start a group with two members, propose a split in plain words, and vote from each member's wallet; the split changes only once more than half have voted yes.
@@ -60,6 +62,8 @@ Signing in with an email is **custodial**. Splits holds the key to every email a
 - **The key.** Each person's key is derived on the server from a secret (`NEAR_KEYS_SECRET`) and their user id, never stored. Whoever holds that secret, today the developer, can sign for every email account.
 - **The fees.** The person's key signs a NEAR meta transaction (NEP-366); the app account relays it and pays the gas. It relays only payments through the splits router, saving a split and voting in a group, with at most 30 a day per account and 2,000 a day in all, and at most 200 new accounts a day (`web/src/server/near/custody.ts`, `web/src/lib/near/relay-rules.ts`).
 - **Test money.** 5 test USDC once per account, at most 100 USDC a day in all, from the app account.
+- **Paying by email.** Naming an email makes that person's account at once (Splits pays for it), at most 10 new people per payer a day, so the money waits for them. After a relayed payment, each email person it paid gets an email from the payer's address saying how much and what for (`web/src/server/near/profile.ts`). The email is sent once the relayer has the transaction; a part the router hands back is not un-sent.
+- **Profile pictures** are stored in the database as a small square image (at most about 60 KB), only for email accounts.
 - **NEAR Auth** (formerly FastAuth) was the first choice, because no single party holds the key there. Its shared testnet sign-in accepts only `localhost` as a return address ("Callback URL mismatch" for near.mysplits.xyz), and our own address needs NEAR's mainnet access approval, so the hosted demo uses the custodial fallback. A wallet sign-in stays non-custodial.
 
 Run it locally: `cd web && npm ci && NEAR_ENABLED=1 NEAR_HOSTS=near.localhost npm run dev`, then open `http://near.localhost:3000`.
@@ -87,7 +91,8 @@ Run it locally: `cd web && npm ci && NEAR_ENABLED=1 NEAR_HOSTS=near.localhost np
 
 - **Non-custodial email sign-in.** Email accounts are held by Splits (above); NEAR Auth could not serve the hosted address on testnet.
 - **Starting a group or proposing a change from an email account.** A new group locks about 6 NEAR and a proposal holds a bond, so both need a NEAR wallet for now. Email accounts can open a group and vote.
-- **Paying a person by their email address.**
+- **Paying by email from a NEAR wallet, or from Payroll and "Describe it".** Paying by email works in Pay people and Split a bill, signed in with an email.
+- **Names for other people's accounts on other devices.** Emails you paid by are remembered on your device; elsewhere their account shows.
 - **Gasless payments for wallet users** (only email accounts are relayed).
 - Payouts to other chains.
 

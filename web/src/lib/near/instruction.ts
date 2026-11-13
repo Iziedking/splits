@@ -26,6 +26,11 @@ export type ProposedShares = {
 
 const ACCOUNT_IN_TEXT = /@?[a-z\d][a-z\d\-_]*(?:\.[a-z\d][a-z\d\-_]*)+/gi;
 
+/** "my tax pocket" and "my savings pocket" are the person's own pockets: tax.<me> and savings.<me>. */
+export function expandPockets(text: string, me: string): string {
+  return text.replace(/my (tax|savings) pocket/gi, (_, p: string) => `${p.toLowerCase()}.${me}`);
+}
+
 /** Every account name the person typed, normalised. */
 export function accountsIn(text: string): Set<string> {
   return new Set([...text.matchAll(ACCOUNT_IN_TEXT)].map((m) => normaliseAccount(m[0])).filter(isAccountId));

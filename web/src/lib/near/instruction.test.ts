@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fractionPercentsIn, guardLines, guardShares, parseInstruction, parseLines, percentToBps, wordNumbersIn } from "./instruction";
+import { expandPockets, fractionPercentsIn, guardLines, guardShares, parseInstruction, parseLines, percentToBps, wordNumbersIn } from "./instruction";
 
 const ME = "ada.testnet";
 
@@ -190,5 +190,23 @@ describe("one-off lists", () => {
     expect(r.lines).toEqual([{ account: "ada.testnet", amount: "", purpose: "rent" }]);
     expect(r.notes.join(" ")).toMatch(/amount for ada.testnet wasn't in what you wrote/);
     expect(r.notes.join(" ")).toMatch(/eve.testnet wasn't a NEAR account in what you wrote/);
+  });
+});
+
+describe("expandPockets", () => {
+  it("reads 'my tax pocket' and 'my savings pocket' as the person's own pockets", () => {
+    const text = expandPockets("Auto-split my income: 30% to my tax pocket for tax, 20% to My Savings Pocket for savings, the rest stays for spending", ME);
+    expect(text).toContain("30% to tax.ada.testnet for tax");
+    expect(text).toContain("20% to savings.ada.testnet for savings");
+    const d = parseInstruction(text, ME);
+    expect(d.shares.map((s) => [s.account_id, s.bps])).toEqual([
+      ["tax.ada.testnet", 3000],
+      ["savings.ada.testnet", 2000],
+      ["ada.testnet", 5000],
+    ]);
+  });
+
+  it("leaves other words alone", () => {
+    expect(expandPockets("10% to mum.testnet for her pocket money", ME)).toBe("10% to mum.testnet for her pocket money");
   });
 });

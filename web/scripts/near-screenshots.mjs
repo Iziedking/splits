@@ -99,6 +99,25 @@ const SHOTS = [
       const t1 = Date.now();
       await p.getByText("Saved on NEAR.").waitFor({ timeout: 120_000 });
       console.log(`email-signin: split saved through the relayer in ${Date.now() - t1}ms`);
+      // Pockets read by name, the address one tap away.
+      await p.getByRole("button", { name: "Your tax pocket" }).first().waitFor({ timeout: 20_000 });
+      await p.screenshot({ path: path.join(OUT, "email-split-names-1280.png"), fullPage: true });
+      // The profile: round initials, room for a picture.
+      await p.goto(BASE + "/near/profile", { waitUntil: "networkidle" });
+      await p.getByRole("button", { name: "Add a picture" }).waitFor({ timeout: 20_000 });
+      await p.screenshot({ path: path.join(OUT, "email-profile-1280.png"), fullPage: true });
+      // Pay someone new by their email: Splits makes their account; the review shows them by email.
+      const friend = `friend+${Date.now()}@example.com`;
+      await p.goto(BASE + "/near/send", { waitUntil: "networkidle" });
+      await p.getByLabel("Person 1: email or Splits account").fill(friend);
+      await p.getByLabel("Person 1: amount").fill("0.10");
+      await p.getByLabel("Person 1: what it's for").fill("coffee");
+      await p.getByRole("button", { name: "Remove" }).nth(1).click();
+      await p.getByRole("button", { name: "Check the list" }).click();
+      const t2 = Date.now();
+      await p.getByRole("button", { name: friend }).waitFor({ timeout: 120_000 });
+      console.log(`email-signin: paid-by-email friend set up and reviewed in ${Date.now() - t2}ms`);
+      await p.screenshot({ path: path.join(OUT, "email-pay-by-email-1280.png"), fullPage: true });
     },
   },
   { name: "bill-setup", path: "/near/bill", act: (p) => p.getByRole("button", { name: "Fill the dinner example" }).click() },
