@@ -80,6 +80,12 @@ async function findOrMake(ctx: Ctx, payer: Payer, email: string): Promise<string
   return accountId;
 }
 
+/** The email behind a Splits email account, for naming the payer on a receipt. */
+export async function emailForAccount(ctx: Ctx, accountId: string): Promise<string | null> {
+  const [row] = await ctx.db.select({ email: users.email }).from(nearProfiles).innerJoin(users, eq(users.id, nearProfiles.userId)).where(eq(nearProfiles.accountId, accountId)).limit(1);
+  return row?.email ?? null;
+}
+
 /** The people a signed-in person paid by email, as account -> email, for showing names. */
 export async function contactsOf(ctx: Ctx, userId: string): Promise<Record<string, string>> {
   const rows = await ctx.db.select({ accountId: nearContacts.accountId, email: nearContacts.email }).from(nearContacts).where(eq(nearContacts.ownerId, userId)).limit(500);

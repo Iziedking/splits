@@ -8,8 +8,21 @@ import { AccountName, SplitBar } from "@/components/near/split-card";
 import { purposeFill } from "@/lib/palette";
 import { Notice } from "@/components/ui/field";
 import { NEAR, txUrl } from "@/lib/near/config";
-import { formatUnits, isAccountId, splitsEvents, formatDollars } from "@/lib/near/payment";
+import { formatDollars, isAccountId, splitsEvents } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
+import { getCtx } from "@/server/context";
+import { custodyEnabled } from "@/server/near/custody";
+import { emailForAccount } from "@/server/near/profile";
+
+/** The payer as people know them: the email of a Splits email account, else the account itself. */
+async function payerName(account: string): Promise<string> {
+  if (!custodyEnabled()) return account;
+  try {
+    return (await emailForAccount(await getCtx(), account)) ?? account;
+  } catch {
+    return account;
+  }
+}
 
 export const metadata: Metadata = { title: "Receipt", robots: { index: false } };
 
@@ -48,6 +61,7 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
 
   const parts = to ? payment.legs.filter((l) => l.recipient === to) : payment.legs;
   if (to && parts.length === 0) notFound();
+  const from_ = await payerName(payment.payer);
 
   return (
     <article className="surface enter mx-auto max-w-xl overflow-hidden rounded-3xl p-6 sm:p-8">
@@ -72,15 +86,15 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
             {parts[0]!.landed ? "You were paid" : "This part was not delivered"}
           </h1>
           <p className="figure mt-4 text-5xl">
-            {formatUnits(BigInt(parts[0]!.amount))} <span className="text-xl text-muted-foreground">{NEAR.tokenSymbol}</span>
+            {formatDollars(BigInt(parts[0]!.amount))}
           </p>
           <dl className="mt-6 space-y-3 text-sm">
             <Row label="For">{parts[0]!.purpose}</Row>
             <Row label="To">
-              <span className="font-mono text-micro">{to}</span>
+              <AccountName id={to} />
             </Row>
             <Row label="From">
-              <span className="font-mono text-micro">{payment.payer}</span>
+              <span className={from_.includes("@") ? "" : "font-mono text-micro"}>{from_}</span>
             </Row>
             {payment.split_owner && (
               <Row label="Divided by">
@@ -93,7 +107,7 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
       ) : (
         <>
           <h1 className="display-face mt-1 text-3xl font-bold">Payment of {formatDollars(BigInt(payment.total))}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">From {payment.payer}{payment.split_owner ? `, divided by ${payment.split_owner}'s saved split` : ""}.</p>
+          <p className="mt-1 text-sm text-muted-foreground">From {from_}{payment.split_owner ? `, divided by ${payment.split_owner}'s saved split` : ""}.</p>
           <ul className="mt-5 divide-y divide-foreground/8">
             {parts.map((l, i) => (
               <li key={l.recipient} className="flex items-center gap-3 py-3">
@@ -102,7 +116,7 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
                   <AccountName id={l.recipient} className="font-medium" />
                   <p className="text-xs text-muted-foreground">{l.purpose}{l.landed ? "" : ", returned to the payer"}</p>
                 </div>
-                <p className="text-sm font-semibold tabular-nums">{formatUnits(BigInt(l.amount))}</p>
+                <p className="text-sm font-semibold tabular-nums">{formatDollars(BigInt(l.amount))}</p>
               </li>
             ))}
           </ul>
@@ -115,6 +129,7 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
           { label: "Transaction", value: <span className="font-mono text-micro">{tx.slice(0, 6)}…{tx.slice(-6)}</span> },
         ]}
         proofUrl={txUrl(tx)}
+        proofLabel="View proof"
       />
       <div className="mt-4 print:hidden">
         <PrintButton />
