@@ -2,6 +2,8 @@ import { FileSpreadsheet, Link2, ShoppingBag, Users, type LucideIcon } from "luc
 import Link from "next/link";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { ButtonLink } from "@/components/ui/button";
+import { LiveDemoButton, LiveDemoPanel, LiveDemoProvider } from "@/components/near/live-demo";
+import { RecentStrip } from "@/components/near/recent-strip";
 import { LandingPanel } from "@/components/near/split-card";
 import { NEAR } from "@/lib/near/config";
 import { purposeFill } from "@/lib/palette";
@@ -11,6 +13,7 @@ const link = "font-medium text-primary-text underline underline-offset-4";
 export default function NearLanding() {
   return (
     <div className="space-y-24 sm:space-y-32">
+      <LiveDemoProvider>
       <section className="grid items-center gap-10 lg:min-h-[calc(100dvh-12rem)] lg:grid-cols-[1fr_1.05fr] lg:gap-14">
         <div className="enter max-w-xl">
           <h1 className="display-face text-display leading-[1.08] font-bold sm:text-6xl">Get paid once. It lands divided.</h1>
@@ -19,14 +22,20 @@ export default function NearLanding() {
             for every part.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <ButtonLink href="/near/app">Open the app</ButtonLink>
+            <LiveDemoButton />
+            <ButtonLink href="/near/app" variant="secondary">
+              Open the app
+            </ButtonLink>
             <ButtonLink href="/near/shop" variant="secondary">
               Try the demo shop
             </ButtonLink>
           </div>
+          <p className="mt-3 text-sm text-muted-foreground">No sign-in: a real payment on NEAR testnet, with test money that has no value.</p>
         </div>
-        <LandingPanel />
+        <LiveDemoPanel fallback={<LandingPanel />} />
       </section>
+      <RecentStrip />
+      </LiveDemoProvider>
 
       <section aria-labelledby="receipt-title" className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <ReceiptPreview />

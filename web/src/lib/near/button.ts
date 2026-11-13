@@ -100,6 +100,9 @@ export function decodeButton(code: string): ButtonConfig | null {
   }
 }
 
+/** A plain HTML shop on another domain (near/button-anywhere/index.html), proof the button works on any site. */
+export const ELSEWHERE_SHOP_URL = "https://iziedking.github.io/splits-button-demo/";
+
 export function buyPath(c: ButtonConfig): string {
   return `/near/buy?c=${encodeButton(c)}`;
 }

@@ -210,3 +210,38 @@ export async function sendTestMoney(ctx: Ctx, userId: string): Promise<string> {
     throw e;
   }
 }
+
+// ------------------------------------------------------------------ server-side helpers (live demo)
+
+/**
+ * Signs calls as an account derived from `userId` (or one of its pockets) and relays them, the app
+ * paying the gas. Server use only: it skips the relay rules, so only fixed calls written in code may
+ * reach it, never a request body.
+ */
+export async function relayAs(userId: string, signerId: string, receiverId: string, calls: { methodName: string; args: Record<string, unknown>; gas: bigint; deposit: bigint }[]) {
+  const signer = new Account(signerId, rpc(), new KeyPairSigner(userKeyPair(userId)));
+  const { signedDelegate } = await signer.createSignedMetaTransaction({
+    receiverId,
+    actions: calls.map((c) => actions.functionCall(c.methodName, c.args, c.gas, c.deposit)),
+  });
+  return appAccount().relayMetaTransaction(signedDelegate);
+}
+
+/** Sends USDC from the app account (test money). Returns the transaction hash. */
+export async function appSendUsdc(to: string, units: bigint, memo: string): Promise<string> {
+  await registerAll([to]);
+  const out = await appAccount().signAndSendTransaction({
+    receiverId: NEAR.token,
+    actions: [actions.functionCall("ft_transfer", { receiver_id: to, amount: units.toString(), memo }, 30n * TGAS, 1n)],
+    waitUntil: "FINAL",
+  });
+  return hashOf(out);
+}
+
+export async function usdcBalance(account: string): Promise<bigint> {
+  return BigInt((await viewCall<string>(NEAR.token, "ft_balance_of", { account_id: account })) ?? "0");
+}
+
+export async function savedSplitOf(account: string) {
+  return viewCall<{ version: number; shares: { account_id: string; bps: number; purpose: string }[] }>(NEAR.router, "get_split", { account_id: account });
+}
