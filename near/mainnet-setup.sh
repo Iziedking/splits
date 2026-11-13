@@ -47,7 +47,7 @@ balance_near() {
 call_view() { # contract method args-json -> decoded JSON result
   local args; args=$(printf '%s' "$3" | base64 | tr -d '\n')
   rpc "{\"finality\":\"final\",\"request_type\":\"call_function\",\"account_id\":\"$1\",\"method_name\":\"$2\",\"args_base64\":\"$args\"}" |
-    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(j.result?Buffer.from(j.result.result).toString():"null")})'
+    node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(j.result&&j.result.result?Buffer.from(j.result.result).toString():"null")})'
 }
 registered() { [ "$(call_view "$USDC" storage_balance_of "{\"account_id\":\"$1\"}")" != "null" ]; }
 
