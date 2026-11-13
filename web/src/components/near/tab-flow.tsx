@@ -66,7 +66,7 @@ export function TabFlow({ bill }: { bill: Bill }) {
   }, []);
 
   if (hash && pending) {
-    return <PaymentResult hash={hash} pending={pending} check={check} done={{ href: here, label: "Back to the bill" }} onAgain={() => (setHash(null), setPending(null))} />;
+    return <PaymentResult hash={hash} pending={pending} check={check} done={{ href: here, label: "Back to the bill", onClick: () => (setHash(null), setPending(null)) }} onAgain={() => (setHash(null), setPending(null))} />;
   }
 
   const mine = accountId ? bill.people.findIndex((p) => p.account === accountId) : -1;

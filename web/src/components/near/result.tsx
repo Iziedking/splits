@@ -88,7 +88,7 @@ export function PaymentResult({
   check: Check | null;
   onAgain: () => void;
   /** Where "Done" goes: Home in the app, or back to the shop for a checkout. */
-  done?: { href: string; label: string };
+  done?: { href: string; label: string; onClick?: () => void };
 }) {
   if (!check || check.state === "checking") {
     return (
@@ -263,10 +263,11 @@ export function Details({ hash, csv }: { hash: string; csv?: () => void }) {
 
 const DONE = { href: "/near/app", label: "Done" };
 
-function Actions({ onAgain, again, done }: { onAgain: () => void; again: string; done: { href: string; label: string } }) {
+/** `done.onClick` lets a page whose done link is itself (a bill) leave the result screen. */
+function Actions({ onAgain, again, done }: { onAgain: () => void; again: string; done: { href: string; label: string; onClick?: () => void } }) {
   return (
     <div className="mx-auto grid w-full max-w-xl gap-3 sm:grid-cols-2">
-      <ButtonLink href={done.href} className="w-full">
+      <ButtonLink href={done.href} className="w-full" onClick={done.onClick}>
         {done.label}
       </ButtonLink>
       <Button variant="secondary" className="w-full" onClick={onAgain}>
