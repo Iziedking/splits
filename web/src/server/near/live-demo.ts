@@ -4,7 +4,8 @@
  * Both are email-style accounts the server signs for; the app account relays and pays the gas.
  *
  * Nothing drains: the money circles. When the payer runs low, the person's three accounts send what
- * they received back to it. The app account tops the payer up only the first time (2 test USDC).
+ * they received back to it. The app account keeps the pool at 10 test USDC, so a refill (and its
+ * short wait for a quick second click) comes about once in ten payments.
  * Limits: 3 per visitor per hour, 30 an hour in all, 120 a day in all, one at a time.
  */
 import { newRef, gasFor, splitsEvents, verifyPayment } from "@/lib/near/payment";
@@ -23,7 +24,7 @@ export const LIVE_DEMO = {
   perVisitorPerHour: 3,
   perHour: 30,
   perDay: 120,
-  firstTopUpUnits: 2_000_000n,
+  poolUnits: 10_000_000n, // what the payer holds after a refill
 } as const;
 
 const PAYER = "splits-live-demo-payer";
@@ -57,17 +58,21 @@ async function ensureReady(ctx: Ctx): Promise<number> {
   return readyVersion;
 }
 
-/** Brings the person's test money back to the payer; the first time, the app account seeds it. */
+/** Brings the person's test money back to the payer, and has the app account fill the pool up to `poolUnits`. */
 async function refill(payer: string, person: string) {
   for (const from of [person, `tax.${person}`, `savings.${person}`]) {
     const units = await usdcBalance(from);
     if (units <= 0n) continue;
     await relayAs(PERSON, from, NEAR.token, [{ methodName: "ft_transfer", args: { receiver_id: payer, amount: units.toString(), memo: "Splits live demo: back to the payer" }, gas: 30n * TGAS, deposit: 1n }]);
   }
-  if ((await usdcBalance(payer)) < LIVE_DEMO.amountUnits) {
-    const left = await usdcBalance(appAccountId());
-    if (left < LIVE_DEMO.firstTopUpUnits) throw tooMany("LIVE_DEMO_EMPTY", "The demo has run out of test money for now. Try again later.");
-    await appSendUsdc(payer, LIVE_DEMO.firstTopUpUnits, "Splits live demo (test money, no value)");
+  const have = await usdcBalance(payer);
+  if (have < LIVE_DEMO.poolUnits) {
+    const need = LIVE_DEMO.poolUnits - have;
+    if ((await usdcBalance(appAccountId())) >= need) {
+      await appSendUsdc(payer, need, "Splits live demo (test money, no value)");
+    } else if (have < LIVE_DEMO.amountUnits) {
+      throw tooMany("LIVE_DEMO_EMPTY", "The demo has run out of test money for now. Try again later.");
+    }
   }
 }
 
