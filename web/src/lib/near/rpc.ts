@@ -103,5 +103,17 @@ export type TxOutcome = {
  * cross-contract calls over several blocks, so "final" is the only safe moment to read the result.
  */
 export async function finalTx(hash: string, sender: string, signal?: AbortSignal): Promise<TxOutcome> {
-  return rpc<TxOutcome>("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "FINAL" }, signal);
+  try {
+    return await rpc<TxOutcome>("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: sender, wait_until: "FINAL" }, signal);
+  } catch (e) {
+    // An email account's payment is sent by the app's relayer, so the relayer signed the transaction.
+    if (!relayer || relayer === sender || signal?.aborted) throw e;
+    return rpc<TxOutcome>("EXPERIMENTAL_tx_status", { tx_hash: hash, sender_account_id: relayer, wait_until: "FINAL" }, signal);
+  }
+}
+
+let relayer: string | null = null;
+/** The app account that relays email accounts' transactions, from /api/near/me. */
+export function setRelayer(id: string) {
+  relayer = id || null;
 }

@@ -57,6 +57,11 @@ export function formatUnits(units: bigint): string {
   return `${whole.toLocaleString("en-US")}.${frac}`;
 }
 
+/** Micro-units of USDC as dollars, the way people read money: "$12.50". USDC is a digital dollar. */
+export function formatDollars(units: bigint): string {
+  return `$${formatUnits(units)}`;
+}
+
 export function formatNear(yocto: bigint): string {
   const milli = yocto / 10n ** 21n;
   return `${milli / 1000n}.${(milli % 1000n).toString().padStart(3, "0")}`;

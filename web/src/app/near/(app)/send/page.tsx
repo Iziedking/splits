@@ -10,7 +10,7 @@ export default async function NearSendPage({ searchParams }: Props) {
   const { sample } = await searchParams;
   return (
     <div>
-      <PageHead title="Pay people">One payment from your wallet, divided between several people, with a purpose on every part. You approve once.</PageHead>
+      <PageHead title="Pay people">One payment from your account, divided between several people, with a purpose on every part. You approve once.</PageHead>
       <SendFlow initial={sample === "1" ? SAMPLE : undefined} />
     </div>
   );

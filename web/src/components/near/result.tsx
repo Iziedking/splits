@@ -7,7 +7,7 @@ import { PaymentDetails } from "@/components/app/payment-details";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { NEAR, txUrl } from "@/lib/near/config";
-import { formatUnits, refusalText, splitsEvents, verifyPayment, type Leg, type Verdict } from "@/lib/near/payment";
+import { formatUnits, refusalText, splitsEvents, verifyPayment, type Leg, type Verdict, formatDollars } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
 import { paymentCsv } from "@/lib/near/csv";
 import { cn } from "@/lib/utils";
@@ -147,7 +147,7 @@ export function PaymentResult({
           text={
             landed
               ? `Split between ${people} ${people === 1 ? "person" : "people"}${pending.to ? ` by ${pending.to}'s saved split` : ""}.`
-              : `${formatUnits(v.refunded)} ${NEAR.tokenSymbol} couldn't be delivered and came back to you. The other parts arrived.`
+              : `${formatDollars(v.refunded)} couldn't be delivered and came back to you. The other parts arrived.`
           }
           amount={formatUnits(v.paid)}
         />
@@ -250,7 +250,7 @@ export function Details({ hash, csv }: { hash: string; csv?: () => void }) {
     </button>
   );
   return (
-    <PaymentDetails className="surface mx-auto w-full max-w-xl" rows={[{ label: "Reference", value: reference }]} proofUrl={txUrl(hash)}>
+    <PaymentDetails className="surface mx-auto w-full max-w-xl" rows={[{ label: "Reference", value: reference }]} proofUrl={txUrl(hash)} proofLabel="View proof">
       {csv && (
         <button type="button" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-text underline-offset-4 hover:underline" onClick={csv}>
           <Download className="h-4 w-4" aria-hidden="true" />

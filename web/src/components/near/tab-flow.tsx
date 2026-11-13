@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Notice } from "@/components/ui/field";
 import { billLeg, billRef, hostShare, type Bill } from "@/lib/near/bill";
 import { NEAR } from "@/lib/near/config";
-import { buildPayTx, formatNear, formatUnits, nearNeededForGas } from "@/lib/near/payment";
+import { buildPayTx, formatNear, formatUnits, nearNeededForGas, formatDollars } from "@/lib/near/payment";
 import { getAccount, isRefUsed, isRegistered, spendable, tokenBalance } from "@/lib/near/rpc";
 import { cn } from "@/lib/utils";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
@@ -40,10 +40,10 @@ function usePaid(bill: Bill): boolean[] | null {
 
 /**
  * A shared bill. Everyone sees who has paid and who has not. A friend on the bill connects their
- * wallet and pays their part to the friend who paid, in one approval.
+ * account and pays their part to the friend who paid, in one approval.
  */
 export function TabFlow({ bill }: { bill: Bill }) {
-  const { accountId, signIn, send } = useNearWallet();
+  const { accountId, kind, signIn, send } = useNearWallet();
   const paid = usePaid(bill);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -85,9 +85,9 @@ export function TabFlow({ bill }: { bill: Bill }) {
       const ref = billRef(bill, mine);
       if (await isRefUsed(accountId, ref)) throw new Error("You have already paid your part of this bill.");
       const [balance, me, hostReady] = await Promise.all([tokenBalance(accountId), getAccount(accountId), isRegistered(bill.host)]);
-      if (balance < units) throw new Error(`You have ${formatUnits(balance)} ${NEAR.tokenSymbol}; your part is ${formatUnits(units)}.`);
+      if (balance < units) throw new Error(`You have ${formatDollars(balance)}; your part is ${formatDollars(units)}.`);
       const needed = nearNeededForGas(1);
-      if (!me || spendable(me) < needed) throw new Error(`Your wallet needs about ${formatNear(needed)} NEAR free for fees.`);
+      if (kind !== "email" && (!me || spendable(me) < needed)) throw new Error(`Your wallet needs about ${formatNear(needed)} NEAR free for fees.`);
       const p: Pending = { payer: accountId, ref, legs: [leg], total: leg.amount };
       savePending(p);
       const h = await send(buildPayTx({ token: NEAR.token, router: NEAR.router, total: units, msg: { ref, legs: [leg] }, parts: 1, unregistered: hostReady ? [] : [bill.host] }));
@@ -156,24 +156,24 @@ export function TabFlow({ bill }: { bill: Bill }) {
           {!accountId ? (
             <>
               <Button className="w-full" onClick={() => void signIn()}>
-                Connect your wallet to pay your part
+                Sign in to pay your part
               </Button>
-              <p className="mt-3 text-xs text-muted-foreground">Use the wallet next to your name. Your part goes straight to {bill.hostName}; Splits never holds the money.</p>
+              <p className="mt-3 text-xs text-muted-foreground">Use the account next to your name. Your part goes straight to {bill.hostName}; Splits never holds the money.</p>
             </>
           ) : isHost ? (
             <Notice>This is your bill. Share its link in your group chat; each name turns to Paid as the money reaches you.</Notice>
           ) : mine < 0 ? (
             <Notice>
-              {accountId} is not on this bill. Connect the wallet listed next to your name, or ask {bill.hostName} to add this one.
+              This account is not on this bill. Sign in with the account next to your name, or ask {bill.hostName} to add this one.
             </Notice>
           ) : paid?.[mine] ? (
             <Notice tone="success">You have paid your part. Thank you!</Notice>
           ) : (
             <>
               <Button className="w-full" busy={busy} onClick={() => void onPay()}>
-                Pay my part, {formatUnits(bill.people[mine]!.amount)} {NEAR.tokenSymbol}
+                Pay my part, {formatDollars(bill.people[mine]!.amount)}
               </Button>
-              <p className="mt-3 text-xs text-muted-foreground">You approve once in your wallet. It goes straight to {bill.hostName}.</p>
+              <p className="mt-3 text-xs text-muted-foreground">You approve once. It goes straight to {bill.hostName}.</p>
             </>
           )}
           {error && (

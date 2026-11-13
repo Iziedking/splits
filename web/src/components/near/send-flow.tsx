@@ -16,6 +16,7 @@ import {
   STORAGE_DEPOSIT,
   type Leg,
   type Line,
+  formatDollars,
   type Problem,
 } from "@/lib/near/payment";
 import { getAccount, isRegistered, spendable, tokenBalance } from "@/lib/near/rpc";
@@ -36,7 +37,7 @@ export const SAMPLE: Line[] = [
 type Review = { legs: Leg[]; total: bigint; unregistered: string[]; balance: bigint; nearFree: bigint; blockers: string[] };
 
 export function SendFlow({ initial }: { initial?: Line[] }) {
-  const { accountId, signIn, send } = useNearWallet();
+  const { accountId, kind, signIn, send } = useNearWallet();
   const [mode, setMode] = React.useState<"each" | "equal">("each");
   const [pot, setPot] = React.useState("");
   const [lines, setLines] = React.useState<Line[]>(initial?.length ? initial : [EMPTY, EMPTY]);
@@ -87,9 +88,9 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
         const [b, me] = await Promise.all([tokenBalance(accountId).catch(() => 0n), getAccount(accountId)]);
         balance = b;
         nearFree = me ? spendable(me) : 0n;
-        if (b < r.total) blockers.push(`You have ${formatUnits(b)} ${NEAR.tokenSymbol}. This payment needs ${formatUnits(r.total)}.`);
+        if (b < r.total) blockers.push(`You have ${formatDollars(b)}. This payment needs ${formatDollars(r.total)}.`);
         const nearNeeded = nearNeededForGas(r.legs.length) + STORAGE_DEPOSIT * BigInt(unregistered.length);
-        if (nearFree < nearNeeded) blockers.push(`Your wallet needs about ${formatNear(nearNeeded)} NEAR free for gas and registrations; it has ${formatNear(nearFree)}. Most of the gas comes back after the payment.`);
+        if (kind !== "email" && nearFree < nearNeeded) blockers.push(`Your wallet needs about ${formatNear(nearNeeded)} NEAR free for gas and registrations; it has ${formatNear(nearFree)}. Most of the gas comes back after the payment.`);
       }
       setReview({ legs: r.legs, total: r.total, unregistered, balance, nearFree, blockers });
     } catch (e) {
@@ -120,7 +121,7 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
       setPending(p);
       setHash(h);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The wallet did not send the payment");
+      setError(e instanceof Error ? e.message : "The payment did not go through. Try again.");
     } finally {
       setBusy(null);
     }
@@ -248,28 +249,33 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
             </div>
             {review.unregistered.length > 0 && (
               <p className="mt-3 text-sm text-muted-foreground">
-                {review.unregistered.join(", ")} {review.unregistered.length === 1 ? "hasn't" : "haven't"} held {NEAR.tokenSymbol} before. The same approval registers{" "}
-                {review.unregistered.length === 1 ? "them" : "each of them"} with the token for {formatNear(STORAGE_DEPOSIT)} NEAR each, paid by you.
+                {review.unregistered.length === 1 ? "One person is" : `${review.unregistered.length} people are`} new to Splits money. {kind === "email" ? "Splits sets them up for free." : `The same approval sets them up for ${formatNear(STORAGE_DEPOSIT)} NEAR each.`}
               </p>
             )}
             <p className="mt-3 text-xs text-muted-foreground">
-              You approve once in your wallet. If one part can&apos;t be delivered, it comes back to you and the others still arrive. No fees in test mode.
+              You approve once. If one part can&apos;t be delivered, it comes back to you and the others still arrive. No fees.
             </p>
             {review.blockers.map((b) => (
               <Notice key={b} tone="error" className="mt-3">
                 {b}{" "}
-                <a className="underline" href={b.includes("NEAR free") ? NEAR.nearFaucet : NEAR.faucet} target="_blank" rel="noreferrer">
-                  Get test {b.includes("NEAR free") ? "NEAR" : NEAR.tokenSymbol}
-                </a>
+                {kind === "email" ? (
+                  <a className="underline" href="/near/app">
+                    Add test money
+                  </a>
+                ) : (
+                  <a className="underline" href={b.includes("NEAR free") ? NEAR.nearFaucet : NEAR.faucet} target="_blank" rel="noreferrer">
+                    Get test {b.includes("NEAR free") ? "NEAR" : NEAR.tokenSymbol}
+                  </a>
+                )}
               </Notice>
             ))}
             {accountId ? (
               <Button className="mt-4 w-full" busy={busy === "signing"} disabled={review.blockers.length > 0} onClick={() => void onPay()}>
-                Pay {formatUnits(review.total)} {NEAR.tokenSymbol}
+                Pay {formatDollars(review.total)}
               </Button>
             ) : (
               <Button className="mt-4 w-full" onClick={() => void signIn()}>
-                Connect a NEAR wallet to pay
+                Sign in to pay
               </Button>
             )}
             <Button className="mt-2 w-full" variant="ghost" size="sm" onClick={() => setReview(null)}>

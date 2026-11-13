@@ -24,9 +24,14 @@ export default function NearHowPage() {
             <li>Up to 10 people per payment. The smallest payment is 0.01.</li>
             <li>If one part can&apos;t be delivered, that part comes back to the payer and the others still arrive. The result screen says which.</li>
             <li>If you change your rule while someone is paying you, their payment is returned to them so they can pay again with the new rule.</li>
-            <li>Nothing moves without an approval in the payer&apos;s own wallet.</li>
+            <li>Nothing moves without the payer approving it.</li>
             {NEAR.network === "testnet" && <li>This is test mode: payments use test money with no value.</li>}
           </ul>
+        </Part>
+        <Part title="Signing in with an email">
+          Splits makes you a NEAR account when you first sign in, and pays every fee for it. Splits holds that account&apos;s key and signs only what you approve on screen, so an
+          email account is held for you, like a bank account. If you would rather hold your own key, sign in with a NEAR wallet instead; then nothing moves without your
+          wallet&apos;s approval.
         </Part>
         <Part title="Plain words to a rule">
           &ldquo;Auto-split my income&rdquo; and &ldquo;Describe it&rdquo; turn your words into a rule or a list for you to check. Only accounts, amounts and percentages you typed can appear, and

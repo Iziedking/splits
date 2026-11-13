@@ -8,7 +8,7 @@ import { AccountName, SplitBar } from "@/components/near/split-card";
 import { purposeFill } from "@/lib/palette";
 import { Notice } from "@/components/ui/field";
 import { NEAR, txUrl } from "@/lib/near/config";
-import { formatUnits, isAccountId, splitsEvents } from "@/lib/near/payment";
+import { formatUnits, isAccountId, splitsEvents, formatDollars } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
 
 export const metadata: Metadata = { title: "Receipt", robots: { index: false } };
@@ -92,7 +92,7 @@ export default async function NearReceiptPage({ params, searchParams }: Props) {
         </>
       ) : (
         <>
-          <h1 className="display-face mt-1 text-3xl font-bold">Payment of {formatUnits(BigInt(payment.total))} {NEAR.tokenSymbol}</h1>
+          <h1 className="display-face mt-1 text-3xl font-bold">Payment of {formatDollars(BigInt(payment.total))}</h1>
           <p className="mt-1 text-sm text-muted-foreground">From {payment.payer}{payment.split_owner ? `, divided by ${payment.split_owner}'s saved split` : ""}.</p>
           <ul className="mt-5 divide-y divide-foreground/8">
             {parts.map((l, i) => (

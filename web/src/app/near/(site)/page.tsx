@@ -71,18 +71,14 @@ export default function NearLanding() {
         <h2 id="try-title" className="display-face text-3xl font-bold">
           {NEAR.network === "testnet" ? "Try it in test mode" : "Get started"}
         </h2>
-        <p className="mt-3 text-muted-foreground">Three steps, about five minutes. Test money has no value, so nothing real is at stake.</p>
+        <p className="mt-3 text-muted-foreground">Three steps, about two minutes. Test money has no value, so nothing real is at stake.</p>
         <ol className="surface mt-8 grid rounded-2xl md:grid-cols-3">
-          <Step n={1} title="Get a wallet and test money">
-            Connect a NEAR wallet in test mode. Free test NEAR for fees comes from{" "}
-            <a className={link} href={NEAR.nearFaucet} target="_blank" rel="noreferrer">
-              near-faucet.io
-            </a>
-            , test {NEAR.tokenSymbol} from{" "}
-            <a className={link} href={NEAR.faucet} target="_blank" rel="noreferrer">
-              faucet.circle.com
-            </a>{" "}
-            (choose NEAR Testnet).
+          <Step n={1} title="Sign in and add test money">
+            Sign in with your email; your account is ready in seconds and Splits covers every fee. Then choose{" "}
+            <Link className={link} href="/near/app">
+              Add test money
+            </Link>{" "}
+            on Home. Already have a NEAR wallet? That works too.
           </Step>
           <Step n={2} title="Save your split">
             In{" "}
@@ -104,7 +100,7 @@ export default function NearLanding() {
       <section className="flex flex-col items-start gap-6 rounded-[1.75rem] bg-primary-fill px-6 py-10 text-white sm:flex-row sm:items-center sm:justify-between sm:px-12">
         <div>
           <h2 className="display-face text-2xl font-bold sm:text-3xl">Save your split in two minutes</h2>
-          <p className="mt-2 text-white/80">Connect a wallet, say your rule, approve once.</p>
+          <p className="mt-2 text-white/80">Sign in with your email, say your rule, approve once.</p>
         </div>
         <Link
           href="/near/app"

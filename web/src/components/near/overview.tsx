@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowRight, Check, Copy, FileSpreadsheet, LogOut, PieChart, ReceiptText, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
+import { ArrowRight, Check, Copy, FileSpreadsheet, Gift, LogOut, PieChart, ReceiptText, Send, ShoppingBag, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
+import { Notice } from "@/components/ui/field";
 import { NEAR } from "@/lib/near/config";
-import { formatNear, formatUnits } from "@/lib/near/payment";
+import { formatDollars, formatNear } from "@/lib/near/payment";
 import { getAccount, getSplit, spendable, tokenBalance, type SavedSplit } from "@/lib/near/rpc";
 import { SharesList } from "./split-flow";
 import { useNearWallet } from "./wallet";
@@ -22,9 +23,10 @@ const ACTIONS: { href: string; title: string; text: string; icon: LucideIcon }[]
 ];
 
 export function Overview() {
-  const { ready, accountId, signIn, signOut } = useNearWallet();
+  const { ready, accountId, kind, email, testMoneyTaken, tookTestMoney, signIn, signOut } = useNearWallet();
   const [snap, setSnap] = React.useState<Snapshot | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [refresh, setRefresh] = React.useState(0);
 
   React.useEffect(() => {
     if (!accountId) return setSnap(null);
@@ -35,7 +37,7 @@ export function Overview() {
       getSplit(accountId, ctl.signal).catch(() => null),
     ]).then(([usdc, near, split]) => !ctl.signal.aborted && setSnap({ usdc, near, split }));
     return () => ctl.abort();
-  }, [accountId]);
+  }, [accountId, refresh]);
 
   const payLink = accountId && typeof window !== "undefined" ? `${window.location.origin}/near/pay/${accountId}` : null;
 
@@ -47,7 +49,12 @@ export function Overview() {
           <p className="mt-2 text-muted-foreground">
             {accountId ? (
               <>
-                Signed in as <span className="font-mono text-ui break-all text-foreground">{accountId}</span>
+                Signed in as{" "}
+                {email ? (
+                  <span className="text-foreground">{email}</span>
+                ) : (
+                  <span className="font-mono text-ui break-all text-foreground">{accountId}</span>
+                )}
               </>
             ) : (
               "Your rule, your pay link and what you can do from here"
@@ -70,23 +77,26 @@ export function Overview() {
         <section className="relative overflow-hidden rounded-2xl bg-primary-fill p-6 text-white sm:p-8">
           <div aria-hidden="true" className="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-purpose-1/50 blur-[90px]" />
           <div className="relative max-w-lg">
-            <h2 className="text-xl font-semibold">Connect a NEAR wallet to start</h2>
-            <p className="mt-2 text-white/80">Your rule stays in your own account, and nothing moves without your approval.</p>
+            <h2 className="text-xl font-semibold">Sign in to start</h2>
+            <p className="mt-2 text-white/80">Use your email. Your account is ready in seconds, and Splits covers every fee.</p>
             <button
               type="button"
               disabled={!ready}
               onClick={() => void signIn().catch(() => undefined)}
               className="mt-6 inline-flex min-h-12 items-center rounded-full bg-white px-6 font-semibold text-primary-fill transition-colors hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-fill focus-visible:outline-none disabled:opacity-60"
             >
-              Connect wallet
+              Sign in
             </button>
           </div>
         </section>
       ) : (
-        <section aria-label="Balances" className="grid gap-4 sm:grid-cols-2">
-          <Stat label={`${NEAR.tokenSymbol} balance`} value={snap?.usdc == null ? null : formatUnits(snap.usdc)} unit={NEAR.tokenSymbol} />
-          <Stat label="NEAR for fees" value={snap?.near == null ? null : formatNear(snap.near)} unit="NEAR" />
-        </section>
+        <>
+          <section aria-label="Balance" className={kind === "email" ? "grid gap-4" : "grid gap-4 sm:grid-cols-2"}>
+            <Stat label="Your balance" value={snap?.usdc == null ? null : formatDollars(snap.usdc)} unit="" note={`Held as ${NEAR.tokenSymbol}, a digital dollar.`} />
+            {kind !== "email" && <Stat label="NEAR for fees" value={snap?.near == null ? null : formatNear(snap.near)} unit="NEAR" />}
+          </section>
+          {kind === "email" && !testMoneyTaken && <TestMoney onDone={() => (tookTestMoney(), setRefresh((n) => n + 1))} />}
+        </>
       )}
 
       {accountId && (
@@ -174,13 +184,55 @@ export function Overview() {
   );
 }
 
-function Stat({ label, value, unit }: { label: string; value: string | null; unit: string }) {
+function Stat({ label, value, unit, note }: { label: string; value: string | null; unit: string; note?: string }) {
   return (
     <div className="surface rounded-2xl p-5 sm:p-6">
       <p className="text-sm text-muted-foreground">{label}</p>
       <p className="figure mt-2 text-figure tabular-nums">
-        {value ?? <span className="text-muted-foreground">…</span>} {value && <span className="text-base font-semibold text-muted-foreground">{unit}</span>}
+        {value ?? <span className="text-muted-foreground">…</span>} {value && unit && <span className="text-base font-semibold text-muted-foreground">{unit}</span>}
       </p>
+      {note && <p className="mt-1 text-xs text-muted-foreground">{note}</p>}
     </div>
+  );
+}
+
+/** A new email account has nothing to pay with, so it can take a little test money once. */
+function TestMoney({ onDone }: { onDone: () => void }) {
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  async function add() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/near/test-money", { method: "POST" });
+      const data = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+      if (!res.ok) throw new Error(data.error?.message ?? "That did not work. Try again.");
+      onDone();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That did not work. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section aria-labelledby="test-money-title" className="surface flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:p-6">
+      <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-purpose-4/40 text-foreground">
+        <Gift className="h-5 w-5" strokeWidth={1.75} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h2 id="test-money-title" className="font-semibold">
+          Add $5.00 of test money
+        </h2>
+        <p className="text-sm text-muted-foreground">Test money has no value. It is here so you can try paying people right away.</p>
+        {error && (
+          <Notice tone="error" className="mt-2">
+            {error}
+          </Notice>
+        )}
+      </div>
+      <Button busy={busy} onClick={() => void add()}>
+        Add test money
+      </Button>
+    </section>
   );
 }

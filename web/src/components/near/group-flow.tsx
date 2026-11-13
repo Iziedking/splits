@@ -9,7 +9,7 @@ import { Field, Notice, inputClass } from "@/components/ui/field";
 import { NEAR, accountUrl, txUrl } from "@/lib/near/config";
 import { councilOf, createDaoTx, isDaoName, proposedShares, proposeTx, voteTx, type DaoConfig, type Policy, type Proposal } from "@/lib/near/dao";
 import type { Share } from "@/lib/near/instruction";
-import { formatNear, isAccountId, normaliseAccount } from "@/lib/near/payment";
+import { isAccountId, normaliseAccount } from "@/lib/near/payment";
 import { finalTx, getSplit, view, type SavedSplit } from "@/lib/near/rpc";
 import { cn } from "@/lib/utils";
 import { AccountName } from "./split-card";
@@ -51,7 +51,7 @@ export function GroupFlow() {
 }
 
 function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
-  const { accountId, signIn, send } = useNearWallet();
+  const { accountId, kind, signIn, send } = useNearWallet();
   const [existing, setExisting] = React.useState("");
   const [name, setName] = React.useState("");
   const [purpose, setPurpose] = React.useState("");
@@ -88,7 +88,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
         <h2 id="open-title" className="text-lg font-semibold">
           Open your group
         </h2>
-        <p className="mt-1 text-sm text-muted-foreground">Any Sputnik DAO on NEAR {NEAR.network} works. Its council votes on the split.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Open a group you belong to by its address. Its members vote on how its money divides.</p>
         <form
           className="mt-4 flex flex-col gap-3 sm:flex-row"
           onSubmit={(e) => {
@@ -112,7 +112,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
           Start a group
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Flatmates, a trip, a team: a shared account whose members vote on how its money divides. Starting one costs 6 test NEAR, which stays in the group&apos;s account.
+          Flatmates, a trip, a team: a shared account whose members vote on how its money divides.
         </p>
         <div className="mt-4 space-y-4">
           <Field label="Name" hint={`It becomes ${name || "name"}.${NEAR.daoFactory}`} value={name} onChange={(e) => setName(e.target.value.toLowerCase())} placeholder="flatmates" />
@@ -121,17 +121,19 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
             <label htmlFor="members" className="block text-sm font-medium">
               Members who vote
             </label>
-            <p className="text-xs text-muted-foreground">NEAR accounts, one per line or separated by commas. A change needs more than half of them.</p>
+            <p className="text-xs text-muted-foreground">Their Splits accounts, one per line or separated by commas. A change needs more than half of them.</p>
             <textarea id="members" className={cn(inputClass, "mt-2 min-h-24 py-3 font-mono text-base lg:text-sm")} value={members} onChange={(e) => setMembers(e.target.value)} />
           </div>
         </div>
-        {accountId ? (
+        {kind === "email" ? (
+          <Notice className="mt-5">Starting a group needs a NEAR wallet for now. You can open and vote in any group you belong to.</Notice>
+        ) : accountId ? (
           <Button className="mt-5 w-full" busy={busy} onClick={() => void onCreate()}>
             Start the group
           </Button>
         ) : (
           <Button className="mt-5 w-full" onClick={() => void signIn()}>
-            Connect a NEAR wallet to start a group
+            Sign in to start a group
           </Button>
         )}
         {error && (
@@ -145,7 +147,7 @@ function ChooseGroup({ onOpen }: { onOpen: (dao: string) => void }) {
 }
 
 function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void }) {
-  const { accountId, signIn, send } = useNearWallet();
+  const { accountId, kind, signIn, send } = useNearWallet();
   const [group, setGroup] = React.useState<Group | null | undefined>(undefined);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [text, setText] = React.useState("");
@@ -160,7 +162,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
       setLoadError(null);
     } catch {
       setGroup(null);
-      setLoadError(`${dao} isn't a Sputnik DAO on NEAR ${NEAR.network}, or NEAR didn't answer. Check the account and try again.`);
+      setLoadError(`That group could not be opened. Check its address and try again.`);
     }
   }, [dao]);
 
@@ -200,7 +202,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
       await reload();
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The wallet did not send it");
+      setError(e instanceof Error ? e.message : "That did not go through. Try again.");
       return false;
     } finally {
       setBusy(null);
@@ -295,10 +297,11 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
                 </Notice>
               ))}
               <p className="mt-3 text-xs text-muted-foreground">
-                {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits." : "Read by Splits' rules."} Proposing asks your wallet for the group&apos;s{" "}
-                {formatNear(BigInt(group.policy.proposal_bond))} NEAR deposit, returned once the group decides.
+                {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits." : "Read by Splits' rules."} Proposing holds a small deposit, returned once the group decides.
               </p>
-              {accountId ? (
+              {kind === "email" ? (
+                <Notice className="mt-3">Proposing a change needs a NEAR wallet for now. You can vote on changes other members propose.</Notice>
+              ) : accountId ? (
                 <Button
                   className="mt-3 w-full"
                   busy={busy === "proposing"}
@@ -311,7 +314,7 @@ function GroupView({ dao, onOpen }: { dao: string; onOpen: (dao: string) => void
                 </Button>
               ) : (
                 <Button className="mt-3 w-full" onClick={() => void signIn()}>
-                  Connect a NEAR wallet to propose
+                  Sign in to propose
                 </Button>
               )}
             </div>

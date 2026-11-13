@@ -5,7 +5,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { NEAR } from "@/lib/near/config";
-import { buildPayTx, CENT, formatNear, formatUnits, nearNeededForGas, newRef, parseCents } from "@/lib/near/payment";
+import { buildPayTx, CENT, formatNear, nearNeededForGas, newRef, parseCents, formatDollars } from "@/lib/near/payment";
 import { getAccount, getSplit, isRegistered, spendable, tokenBalance, type SavedSplit } from "@/lib/near/rpc";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
 import { SharesList } from "./split-flow";
@@ -17,7 +17,7 @@ import { useNearWallet } from "./wallet";
  * refuses it and the token returns the money.
  */
 export function PayFlow({ owner, checkout = false }: { owner: string; checkout?: boolean }) {
-  const { accountId, signIn, send } = useNearWallet();
+  const { accountId, kind, signIn, send } = useNearWallet();
   const [split, setSplit] = React.useState<SavedSplit | null | undefined>(undefined);
   const [amount, setAmount] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -51,9 +51,9 @@ export function PayFlow({ owner, checkout = false }: { owner: string; checkout?:
         await Promise.all(split.shares.map(async (s) => ((await isRegistered(s.account_id)) ? null : s.account_id)))
       ).filter((a): a is string => a !== null);
       const [balance, me] = await Promise.all([tokenBalance(accountId), getAccount(accountId)]);
-      if (balance < units) throw new Error(`You have ${formatUnits(balance)} ${NEAR.tokenSymbol}; this payment needs ${formatUnits(units)}.`);
+      if (balance < units) throw new Error(`You have ${formatDollars(balance)}; this payment needs ${formatDollars(units)}.`);
       const needed = nearNeededForGas(split.shares.length);
-      if (!me || spendable(me) < needed) throw new Error(`Your wallet needs about ${formatNear(needed)} NEAR free for gas.`);
+      if (kind !== "email" && (!me || spendable(me) < needed)) throw new Error(`Your wallet needs about ${formatNear(needed)} NEAR free for gas.`);
       const ref = newRef();
       const p: Pending = { payer: accountId, ref, legs: null, to: owner, total: units.toString() };
       savePending(p);
@@ -84,14 +84,14 @@ export function PayFlow({ owner, checkout = false }: { owner: string; checkout?:
             <Field className="mt-5" label={`Amount (${NEAR.tokenSymbol})`} inputMode="decimal" placeholder="25.00" value={amount} onChange={(e) => setAmount(e.target.value)} error={amount && cents === null ? "Enter an amount like 25 or 12.50" : null} />
             {accountId ? (
               <Button className="mt-4 w-full" busy={busy} disabled={units === null || units < CENT} onClick={() => void onPay()}>
-                {units === null ? "Pay" : `Pay ${formatUnits(units)} ${NEAR.tokenSymbol}`}
+                {units === null ? "Pay" : `Pay ${formatDollars(units)}`}
               </Button>
             ) : (
               <Button className="mt-4 w-full" onClick={() => void signIn()}>
-                Connect a NEAR wallet to pay
+                Sign in to pay
               </Button>
             )}
-            <p className="mt-3 text-xs text-muted-foreground">You approve once in your wallet, and the money divides as it arrives.</p>
+            <p className="mt-3 text-xs text-muted-foreground">You approve once, and the money divides as it arrives.</p>
             {checkout && (
               <p className="mt-3 text-sm">
                 <Link className="font-medium text-primary-text underline-offset-4 hover:underline" href={`/near/checkout/${owner}`}>

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Notice, inputClass } from "@/components/ui/field";
 import { billPath, billProblems, equalParts, hostShare, newBillId, withTip, type Bill } from "@/lib/near/bill";
 import { NEAR } from "@/lib/near/config";
-import { CENT, formatUnits, normaliseAccount, parseCents } from "@/lib/near/payment";
+import { CENT, formatUnits, normaliseAccount, parseCents, formatDollars } from "@/lib/near/payment";
 import { cn } from "@/lib/utils";
 import { Copyable } from "./button-setup";
 import { useNearWallet } from "./wallet";
@@ -156,7 +156,7 @@ export function BillSetup() {
                   <input
                     aria-label={`Friend ${i + 1}: NEAR account`}
                     className={cn(inputClass, "font-mono text-base lg:text-sm")}
-                    placeholder="their-wallet.testnet"
+                    placeholder="Their Splits account"
                     autoCapitalize="none"
                     spellCheck={false}
                     value={r.account}
@@ -189,21 +189,21 @@ export function BillSetup() {
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Bill with tip</dt>
               <dd className="font-semibold tabular-nums">
-                {formatUnits(total)} {NEAR.tokenSymbol}
+                {formatDollars(total)}
               </dd>
             </div>
             {mode === "equal" && (
               <div className="flex justify-between gap-3">
                 <dt className="text-muted-foreground">Each friend pays</dt>
                 <dd className="font-semibold tabular-nums">
-                  {formatUnits(equal.each)} {NEAR.tokenSymbol}
+                  {formatDollars(equal.each)}
                 </dd>
               </div>
             )}
             <div className="flex justify-between gap-3">
               <dt className="text-muted-foreground">Your own part</dt>
               <dd className="font-semibold tabular-nums">
-                {formatUnits(hostShare(bill) < 0n ? 0n : hostShare(bill))} {NEAR.tokenSymbol}
+                {formatDollars(hostShare(bill) < 0n ? 0n : hostShare(bill))}
               </dd>
             </div>
           </dl>
@@ -227,14 +227,14 @@ export function BillSetup() {
           </h2>
           {!accountId ? (
             <>
-              <p className="mt-2 text-sm text-muted-foreground">Connect the wallet you want to be paid back to. Your friends pay straight into it.</p>
+              <p className="mt-2 text-sm text-muted-foreground">Sign in to get paid back. Your friends pay straight into your account.</p>
               <Button className="mt-4 w-full" onClick={() => void signIn()}>
-                Connect wallet
+                Sign in
               </Button>
             </>
           ) : url ? (
             <>
-              <p className="mt-1 text-sm text-muted-foreground">Each friend opens it, connects their wallet and pays their part to {accountId}. You see who has paid on the same page.</p>
+              <p className="mt-1 text-sm text-muted-foreground">Each friend opens it, signs in and pays their part straight to you. You see who has paid on the same page.</p>
               <Button className="mt-4 w-full" onClick={() => void share()}>
                 <Share2 className="h-4 w-4" aria-hidden="true" />
                 {shared ? "Copied, paste it in your chat" : "Share the bill"}
@@ -246,7 +246,7 @@ export function BillSetup() {
               </a>
             </>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">Fill in the bill and your friends&rsquo; wallets, and the link to share appears here.</p>
+            <p className="mt-2 text-sm text-muted-foreground">Fill in the bill and your friends&rsquo; accounts, and the link to share appears here.</p>
           )}
         </div>
         <p className="px-2 text-xs text-muted-foreground">The bill travels in its link, so nothing is stored here. Each friend&rsquo;s payment goes straight to you; Splits never holds the money.</p>

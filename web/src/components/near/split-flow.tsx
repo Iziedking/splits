@@ -53,10 +53,10 @@ export function SplitFlow() {
     return (
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="surface h-fit rounded-2xl p-6 sm:p-7">
-          <h2 className="text-lg font-semibold">Connect your NEAR wallet</h2>
-          <p className="mt-2 text-muted-foreground">Your saved split lives on your own account. Connect to see it or set one.</p>
+          <h2 className="text-lg font-semibold">Sign in to set your split</h2>
+          <p className="mt-2 text-muted-foreground">Your split is saved to your own account. Sign in to see it or set one.</p>
           <Button className="mt-5" onClick={() => void signIn()}>
-            Connect NEAR wallet
+            Sign in
           </Button>
         </div>
         <section aria-labelledby="example-title" className="surface rounded-2xl p-6 sm:p-7">
@@ -125,7 +125,7 @@ export function SplitFlow() {
       setDraft(null);
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The wallet did not save the split");
+      setError(e instanceof Error ? e.message : "Your split was not saved. Try again.");
     } finally {
       setBusy(null);
     }
@@ -176,7 +176,7 @@ export function SplitFlow() {
           Say how to split your income
         </h2>
         <label htmlFor="instruction" className="mt-2 block text-sm text-muted-foreground">
-          In plain words: who gets what share, and what it&apos;s for. Name each NEAR account. Whatever you don&apos;t give away stays with you.
+          In plain words: who gets what share, and what it&apos;s for. Name each person&apos;s Splits account. Whatever you don&apos;t give away stays with you.
         </label>
         <textarea id="instruction" className={cn(inputClass, "mt-3 min-h-32 py-3")} value={text} onChange={(e) => (setText(e.target.value), setDraft(null))} />
         {!text.trim() && accountId && (
@@ -203,7 +203,7 @@ export function SplitFlow() {
             ))}
             <p className="mt-3 text-xs text-muted-foreground">
               {draft.by === "near-ai" ? "Read by NEAR AI, then checked by Splits: " : "Read by Splits' rules: "}
-              only accounts and percentages you wrote can appear. Saving asks your wallet to approve it, with a small 0.01 NEAR deposit; whatever isn&apos;t needed comes back.
+              only accounts and percentages you wrote can appear. Saving asks you to approve it once.
             </p>
             <Button className="mt-3 w-full" busy={busy === "signing"} disabled={draft.shares.length === 0} onClick={() => void onSave()}>
               Save this split

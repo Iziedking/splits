@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 export function PaymentDetails({
   rows = [],
   proofUrl,
+  proofLabel = "Proof of payment",
   summary = "Payment details",
   children,
   className,
@@ -20,6 +21,8 @@ export function PaymentDetails({
   children?: React.ReactNode;
   /** The public record of this payment (the block explorer), labelled "Proof of payment". */
   proofUrl?: string | null;
+  /** What the proof link says; NEAR mode keeps it short. */
+  proofLabel?: string;
   summary?: string;
   className?: string;
 }) {
@@ -47,7 +50,7 @@ export function PaymentDetails({
           rel="noreferrer"
           className="mx-4 mb-2 inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-primary-text underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none print:hidden"
         >
-          Proof of payment
+          {proofLabel}
           <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
         </a>
       )}

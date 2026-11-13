@@ -74,6 +74,33 @@ const SHOTS = [
   { name: "shop", path: "/near/shop" },
   { name: "shop-buy", path: "/near/shop", act: async (p) => { await p.getByRole("link", { name: "Pay with Splits" }).click(); await p.getByText("Your payment divides as it arrives").waitFor({ timeout: 20_000 }); } },
   { name: "button-setup", path: "/near/button", act: (p) => p.getByRole("button", { name: "Fill the coffee shop example" }).click() },
+  // End to end, only where email accounts are on (an app account in .env.local): sign in with an
+  // email (the preview shows the code on screen), land on Home with an account made behind the
+  // scenes, then save the example split through the relayer. Wider screens only; it makes accounts.
+  {
+    name: "email-signin",
+    path: "/near/app",
+    only: 1280,
+    act: async (p) => {
+      if ((await p.request.get(BASE + "/api/near/me")).status() === 404) return;
+      await p.getByRole("button", { name: "Sign in", exact: true }).first().click();
+      await p.getByLabel("Email").fill(`judge+${Date.now()}@example.com`);
+      await p.getByRole("button", { name: "Send me a code" }).click();
+      const hint = await p.getByText(/your code is \d{6}/).textContent({ timeout: 20_000 });
+      await p.getByLabel("Code").fill(hint.match(/\d{6}/)[0]);
+      await p.getByRole("dialog").getByRole("button", { name: "Sign in", exact: true }).click();
+      const t0 = Date.now();
+      await p.getByText("Add $5.00 of test money").waitFor({ timeout: 120_000 });
+      console.log(`email-signin: signed in, account made, in ${Date.now() - t0}ms`);
+      await p.screenshot({ path: path.join(OUT, "email-home-1280.png"), fullPage: true });
+      await p.goto(BASE + "/near/split", { waitUntil: "networkidle" });
+      await p.getByRole("button", { name: "Turn it into a split" }).click();
+      await p.getByRole("button", { name: "Save this split" }).click();
+      const t1 = Date.now();
+      await p.getByText("Saved on NEAR.").waitFor({ timeout: 120_000 });
+      console.log(`email-signin: split saved through the relayer in ${Date.now() - t1}ms`);
+    },
+  },
   { name: "bill-setup", path: "/near/bill", act: (p) => p.getByRole("button", { name: "Fill the dinner example" }).click() },
   { name: "bill-tab", path: "/near/tab?b=eyJ2IjoxLCJpIjoiZGVtbzI2MTEiLCJ0IjoiRGlubmVyIGF0IFllbGxvdyBDaGlsbGkiLCJoIjoia2luZ2l6aWUudGVzdG5ldCIsIm4iOiJJc3JhZWwiLCJhIjoiNTkuNDAiLCJwIjpbWyJCbyIsImJvLnNwbGl0cy1mbGF0LW13ZHB0ODJzZGQ0OS50ZXN0bmV0IiwiMTQuODUiXSxbIkNoaSIsInNwbGl0cy1kZW1vLXRpcGphci50ZXN0bmV0IiwiMTQuODUiXSxbIkRheW8iLCJsYW5kbG9yZC5zcGxpdHMtZmxhdC1td2RwdDgyc2RkNDkudGVzdG5ldCIsIjE0Ljg1Il1dfQ", wait: "0 of 3 paid" },
 ];
@@ -84,6 +111,7 @@ const report = [];
 try {
   for (const width of WIDTHS) {
     for (const shot of SHOTS) {
+      if (shot.only && shot.only !== width) continue;
       const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
       // The opening splash shows once per tab session; skip it so each shot shows the screen itself.
       if (!shot.splash) await context.addInitScript(() => sessionStorage.setItem("splits-near-splash", "1"));
