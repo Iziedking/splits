@@ -26,7 +26,7 @@ On 2026-11-12 `izie17.tg` held 0.0198 NEAR, so top it up with about 3 NEAR first
 
 ## The short way
 
-`bash near/mainnet-setup.sh` runs steps 1 to 8 below in order. It checks the balance before spending anything, skips any step already done, and stops at the first error, so running it again is safe. The steps are below in full for reference.
+`bash near/mainnet-setup.sh <account>` runs steps 1 to 8 below in order. To spend less (about 2.05 NEAR instead of 2.8), `bash near/mainnet-setup.sh <account> self <spending-account>` puts the router on `<account>` itself rather than a new `splits.` account; the router cannot pay itself, so the spending part goes to `<spending-account>`. From PowerShell, run it with Git Bash: `& "C:\Program Files\Git\bin\bash.exe" near/mainnet-setup.sh ...`. It checks the balance before spending anything, skips any step already done, and stops at the first error, so running it again is safe. The steps are below in full for reference.
 
 ## Steps
 
