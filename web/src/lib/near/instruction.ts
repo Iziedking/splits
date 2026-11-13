@@ -259,8 +259,9 @@ export function guardLines(input: string, me: string | null, proposed: ProposedL
   const lines: Line[] = [];
   for (const l of proposed.lines.slice(0, MAX_LEGS * 2)) {
     const email = l.who.trim().toLowerCase();
-    const account = typedEmails.has(email) ? email : normaliseAccount(l.who);
-    if (account !== email && (!isAccountId(account) || !typedAccounts.has(account))) {
+    const byEmail = typedEmails.has(email);
+    const account = byEmail ? email : normaliseAccount(l.who);
+    if (!byEmail && (!isAccountId(account) || !typedAccounts.has(account))) {
       notes.push(`${l.who || "A line"} wasn't a NEAR account in what you wrote, so it was left out`);
       continue;
     }

@@ -1,3 +1,4 @@
+import { AVATAR_FILLS } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -5,7 +6,7 @@ import { cn } from "@/lib/utils";
  * (or account) on a colour that is always the same for the same person, so people tell each other
  * apart at a glance. Every colour carries white letters at 4.5:1 or better.
  */
-const COLOURS = ["#0F766E", "#6D28D9", "#C2410C", "#BE185D", "#1D4ED8", "#4D7C0F", "#A16207", "#0E7490", "#9333EA", "#B91C1C"];
+const COLOURS = AVATAR_FILLS;
 
 /** "ada.lovelace@x.com" -> "AL", "lawfuldlaw@gmail.com" -> "LA", "u-3f9c.splits-app.testnet" -> "U3". */
 export function initials(label: string): string {

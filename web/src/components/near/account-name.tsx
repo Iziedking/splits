@@ -35,13 +35,13 @@ export function AccountName({ id, className }: { id: string; className?: string 
   React.useEffect(() => setName(friendlyName(id, me)), [id, me]);
   if (!name) return <Address id={id} className={className} />;
   return (
-    <span className={cn("block", className)}>
+    <span className={cn("block min-w-0", className)}>
       <button
         type="button"
         aria-expanded={open}
         title={open ? "Hide the address" : "Show the address"}
         onClick={() => setOpen((o) => !o)}
-        className="rounded-sm text-left decoration-dotted underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        className="max-w-full rounded-sm text-left [overflow-wrap:anywhere] decoration-dotted underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
       >
         {name}
       </button>

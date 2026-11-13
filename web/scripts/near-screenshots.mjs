@@ -50,7 +50,7 @@ const SHOTS = [
     name: "send-problems",
     path: "/near/send",
     act: async (p) => {
-      await p.getByLabel("Person 1: NEAR account").fill("Ada@gmail.com");
+      await p.getByLabel("Person 1: email or Splits account").fill("Ada@gmail.com");
       await p.getByLabel("Person 1: amount").fill("12.345");
       await p.getByRole("button", { name: "Check the list", exact: true }).click();
     },

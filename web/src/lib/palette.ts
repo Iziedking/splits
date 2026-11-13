@@ -14,6 +14,9 @@ export const WHITE = "#ffffff";
 /** --primary-fill: the "Pay with Splits" button pasted into other sites, where our CSS does not reach. */
 export const PRIMARY_FILL = "#0a7a73";
 
+/** Round initials badges: one colour per person, each carrying white letters at 4.5:1 or better. */
+export const AVATAR_FILLS = ["#0F766E", "#6D28D9", "#C2410C", "#BE185D", "#1D4ED8", "#4D7C0F", "#A16207", "#0E7490", "#9333EA", "#B91C1C"] as const;
+
 export function purposeFill(index: number): string {
   return PURPOSE_FILLS[index % PURPOSE_FILLS.length]!;
 }

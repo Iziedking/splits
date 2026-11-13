@@ -56,7 +56,7 @@ export function CodeBoxes({ value, onChange, onComplete, length = 6, label = "Co
             put(Math.min(i, value.length), e.clipboardData.getData("text"));
           }}
           className={cn(
-            "h-14 w-full min-w-0 rounded-xl border border-foreground/12 bg-white text-center font-mono text-2xl font-semibold text-foreground tabular-nums shadow-sm",
+            "h-14 w-full min-w-0 rounded-xl border border-foreground/12 bg-white text-center font-mono text-2xl font-semibold text-foreground tabular-nums",
             "transition-[border-color,box-shadow] duration-150 focus:border-primary focus:ring-4 focus:ring-primary/15 focus:outline-none",
             value[i] && "border-primary/50",
           )}
