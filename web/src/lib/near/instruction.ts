@@ -28,7 +28,14 @@ const ACCOUNT_IN_TEXT = /@?[a-z\d][a-z\d\-_]*(?:\.[a-z\d][a-z\d\-_]*)+/gi;
 
 /** "my tax pocket" and "my savings pocket" are the person's own pockets: tax.<me> and savings.<me>. */
 export function expandPockets(text: string, me: string): string {
-  return text.replace(/my (tax|savings) pocket/gi, (_, p: string) => `${p.toLowerCase()}.${me}`);
+  return text.replace(/\bmy (tax|savings) pocket\b/gi, (_, p: string) => `${p.toLowerCase()}.${me}`);
+}
+
+const EMAIL_IN_TEXT = /[a-z\d.!#$%&'*+/=?^_`{|}~-]+@[a-z\d](?:[a-z\d-]*[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]*[a-z\d])?)+/gi;
+
+/** Every email the person typed, lower case. People can be paid by email; the app finds their account. */
+export function emailsIn(text: string): Set<string> {
+  return new Set([...text.matchAll(EMAIL_IN_TEXT)].map((m) => m[0].toLowerCase()));
 }
 
 /** Every account name the person typed, normalised. */
@@ -246,12 +253,14 @@ export type ProposedLines = { lines: { who: string; amount: string | null; purpo
  */
 export function guardLines(input: string, me: string | null, proposed: ProposedLines): { lines: Line[]; notes: string[] } {
   const typedAccounts = accountsIn(input);
+  const typedEmails = emailsIn(input);
   const typedNumbers = numbersIn(input);
   const notes = proposed.notes.map((n) => n.slice(0, 200)).slice(0, 20);
   const lines: Line[] = [];
   for (const l of proposed.lines.slice(0, MAX_LEGS * 2)) {
-    const account = normaliseAccount(l.who);
-    if (!isAccountId(account) || !typedAccounts.has(account)) {
+    const email = l.who.trim().toLowerCase();
+    const account = typedEmails.has(email) ? email : normaliseAccount(l.who);
+    if (account !== email && (!isAccountId(account) || !typedAccounts.has(account))) {
       notes.push(`${l.who || "A line"} wasn't a NEAR account in what you wrote, so it was left out`);
       continue;
     }
@@ -275,9 +284,11 @@ export function parseLines(input: string, me: string | null): { lines: Line[]; n
   for (const raw of input.split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
-    const account = [...line.matchAll(ACCOUNT_IN_TEXT)].map((m) => m[0]).find((a) => isAccountId(normaliseAccount(a)));
+    // An email first: its domain would otherwise read as an account name.
+    const email = [...line.matchAll(EMAIL_IN_TEXT)][0]?.[0];
+    const account = email ?? [...line.matchAll(ACCOUNT_IN_TEXT)].map((m) => m[0]).find((a) => isAccountId(normaliseAccount(a)));
     if (!account) {
-      proposed.notes.push(`"${line.slice(0, 60)}" has no NEAR account`);
+      proposed.notes.push(`"${line.slice(0, 60)}" has no email or Splits account`);
       continue;
     }
     const rest = line.replace(account, " ");

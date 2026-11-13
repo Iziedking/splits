@@ -40,14 +40,14 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Lines that name an email get that person's Splits account, made now if they are new (they find the
  * money when they sign in with that email). Returns the lines with accounts, or the problems.
  */
-async function withAccounts(lines: Line[]): Promise<{ lines: Line[]; problems: Problem[] }> {
+async function withAccounts(lines: Line[], payer: string): Promise<{ lines: Line[]; problems: Problem[] }> {
   const problems: Problem[] = [];
   const out = await Promise.all(
     lines.map(async (l, i) => {
       const email = l.account.trim();
       if (!EMAIL.test(email)) return l;
       try {
-        const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+        const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, payer }) });
         const body = (await res.json().catch(() => ({}))) as { accountId?: string; error?: { message?: string } };
         if (!res.ok || !body.accountId) throw new Error(body.error?.message ?? "That email could not be set up. Try again.");
         rememberName(body.accountId, email.toLowerCase());
@@ -96,13 +96,13 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
     setError(null);
     setReview(null);
     const byEmail = lines.map((l, i) => (EMAIL.test(l.account.trim()) ? i : -1)).filter((i) => i >= 0);
-    if (byEmail.length && kind !== "email") {
-      setProblems(byEmail.map((i) => ({ line: i + 1, message: "Paying someone by their email needs you signed in with your email." })));
+    if (byEmail.length && !accountId) {
+      setProblems(byEmail.map((i) => ({ line: i + 1, message: "Sign in to pay someone by their email." })));
       return;
     }
     setBusy("checking");
     try {
-      const named = byEmail.length ? await withAccounts(lines) : { lines, problems: [] };
+      const named = byEmail.length && accountId ? await withAccounts(lines, accountId) : { lines, problems: [] };
       if (named.problems.length) {
         setProblems(named.problems);
         return;
@@ -340,9 +340,9 @@ function Describe({ onFill, me }: { onFill: (lines: Line[], notes: string[]) => 
     <details className="mt-5 rounded-md bg-white/50 p-3 ring-1 ring-white" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="cursor-pointer text-sm font-semibold">Describe it, I split it</summary>
       <label htmlFor="describe" className="mt-3 block text-sm text-muted-foreground">
-        Paste a message or write it out, one person per line: their NEAR account, the amount and what it&apos;s for.
+        Paste a message or write it out, one person per line: their email or Splits account, the amount and what it&apos;s for.
       </label>
-      <textarea id="describe" className={cn(inputClass, "mt-2 min-h-28 py-3")} placeholder={"ada.testnet 50 for rent\nbo.testnet 20 for food"} value={text} onChange={(e) => setText(e.target.value)} />
+      <textarea id="describe" className={cn(inputClass, "mt-2 min-h-28 py-3")} placeholder={"ada@example.com 50 for rent\nbo.testnet 20 for food"} value={text} onChange={(e) => setText(e.target.value)} />
       <Button
         size="sm"
         className="mt-2"

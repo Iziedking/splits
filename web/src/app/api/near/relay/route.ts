@@ -19,6 +19,6 @@ export const POST = emailAccountApi(async ({ req, ctx }) => {
   const tx = await readJson(req, z.object({ receiverId: z.string().max(64), actions: z.array(action).min(1).max(12) }));
   const hash = await relayFor(ctx, user.id, tx);
   const legs = paidLegs(tx, NEAR.router);
-  if (hash && legs.length) await notifyPaid(ctx, user, userAccountId(user.id), legs, siteOrigin(req)).catch(() => 0);
+  if (hash && legs.length) await notifyPaid(ctx, user.email, userAccountId(user.id), legs, siteOrigin(req)).catch(() => 0);
   return json({ hash });
 });

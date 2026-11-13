@@ -3,6 +3,7 @@
 import * as React from "react";
 import { NEAR } from "@/lib/near/config";
 import type { WalletTx } from "@/lib/near/payment";
+import { rememberName } from "@/lib/near/names";
 import { setRelayer } from "@/lib/near/rpc";
 import { SignInSheet } from "./sign-in-sheet";
 
@@ -37,6 +38,19 @@ type WalletState = {
 };
 
 const WalletContext = React.createContext<WalletState | null>(null);
+
+/** Names of the people this email account paid by email, from the server, so they show on any device. */
+function loadContacts() {
+  void fetch("/api/near/contacts")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((b: { contacts?: Record<string, string> } | null) => Object.entries(b?.contacts ?? {}).forEach(([id, email]) => rememberName(id, email)))
+    .catch(() => {});
+}
+
+/** After a wallet payment, ask the server to email anyone it paid by email. The server checks the chain. */
+function tellPaid(hash: string, payer: string) {
+  void fetch("/api/near/notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ hash, payer }) }).catch(() => {});
+}
 
 let connectorPromise: Promise<Connector> | null = null;
 function getConnector(): Promise<Connector> {
@@ -82,6 +96,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
           setEmailUser({ accountId: me.accountId, email: me.email });
           setTestMoneyTaken(Boolean(me.testMoneyTaken));
           setAvatar(me.avatar ?? null);
+          loadContacts();
         }
       })
       .catch(() => {});
@@ -161,6 +176,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
         });
         const hash = hashOf(result);
         if (!hash) throw new Error("The wallet sent the transaction but did not return its hash. Check your wallet's history.");
+        if (walletAccount && tx.receiverId === NEAR.token && emailOn) tellPaid(hash, walletAccount);
         return hash;
       },
     }),
@@ -177,6 +193,7 @@ export function NearWalletProvider({ children }: { children: React.ReactNode }) 
           onSignedIn={(u) => {
             setEmailUser(u);
             setTestMoneyTaken(false);
+            loadContacts();
             void fetch("/api/near/me")
               .then((r) => r.json())
               .then((me: { testMoneyTaken?: boolean; avatar?: string | null }) => (setTestMoneyTaken(Boolean(me.testMoneyTaken)), setAvatar(me.avatar ?? null)))

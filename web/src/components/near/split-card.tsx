@@ -4,7 +4,9 @@ import { PurposeDot } from "@/components/app/purpose-dot";
 import { purposeFill } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
-export { AccountName } from "./account-name";
+import { AccountName } from "./account-name";
+
+export { AccountName };
 
 /** The split as separate rounded bars, one per part, in the purpose colours. Decoration: the rows say it. */
 export function SplitBar({ weights, className }: { weights: number[]; className?: string }) {

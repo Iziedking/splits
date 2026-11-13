@@ -1,11 +1,19 @@
 import { z } from "zod";
+import { isAccountId } from "@/lib/near/payment";
 import { json, readJson } from "@/server/http";
-import { emailAccountApi, requireSessionUser } from "@/server/near/http";
+import { emailAccountApi, sessionUser } from "@/server/near/http";
 import { accountForEmail } from "@/server/near/profile";
 
-/** The Splits account behind an email, made now if the person is new, so they can be paid by email. */
+const body = z.object({ email: z.string().email().max(254), payer: z.string().refine(isAccountId).optional() });
+
+/**
+ * The Splits account behind an email, made now if the person is new, so anyone can be paid by email.
+ * A signed-in person's new contacts are capped per person; a NEAR wallet's, per network address.
+ */
 export const POST = emailAccountApi(async ({ req, ctx }) => {
-  const user = await requireSessionUser(ctx);
-  const { email } = await readJson(req, z.object({ email: z.string().email().max(254) }));
-  return json({ accountId: await accountForEmail(ctx, user, email) });
+  const { email, payer } = await readJson(req, body);
+  const user = await sessionUser(ctx);
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const who = user ? { userId: user.id, email: user.email } : { wallet: payer ?? "", ip };
+  return json({ accountId: await accountForEmail(ctx, who, email) });
 });

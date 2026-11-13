@@ -176,7 +176,7 @@ describe("one-off lists", () => {
       { account: "ada.testnet", amount: "50", purpose: "rent" },
       { account: "bo.testnet", amount: "12.50", purpose: "food" },
     ]);
-    expect(r.notes.join(" ")).toMatch(/has no NEAR account/);
+    expect(r.notes.join(" ")).toMatch(/has no email or Splits account/);
   });
 
   it("drops accounts and amounts the model made up", () => {
@@ -208,5 +208,20 @@ describe("expandPockets", () => {
 
   it("leaves other words alone", () => {
     expect(expandPockets("10% to mum.testnet for her pocket money", ME)).toBe("10% to mum.testnet for her pocket money");
+  });
+});
+
+describe("paying by email in plain words", () => {
+  it("reads an email as the person, not its domain", () => {
+    const r = parseLines("Ada@Example.com 50 for rent\nbo.testnet 20 for food", ME);
+    expect(r.lines).toEqual([
+      { account: "ada@example.com", amount: "50", purpose: "rent" },
+      { account: "bo.testnet", amount: "20", purpose: "food" },
+    ]);
+  });
+
+  it("keeps an email only if the person typed it", () => {
+    const r = guardLines("pay ada 50", ME, { lines: [{ who: "ada@example.com", amount: "50", purpose: null }], notes: [] });
+    expect(r.lines).toEqual([]);
   });
 });

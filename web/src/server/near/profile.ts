@@ -3,13 +3,14 @@
  * telling people by email that they were paid. Accounts are made by custody.ts.
  */
 import { eq, inArray } from "drizzle-orm";
+import { NEAR } from "@/lib/near/config";
 import { formatUnits, isAccountId, type WalletTx } from "@/lib/near/payment";
 import { normaliseEmail } from "../auth/otp";
 import type { Ctx } from "../context";
-import { nearProfiles, users } from "../db/schema";
+import { nearContacts, nearProfiles, users } from "../db/schema";
 import { badRequest, tooMany } from "../errors";
 import { hitRateLimit } from "../services/rateLimits";
-import { ensureUser, type User } from "../services/users";
+import { ensureUser } from "../services/users";
 import { ensureNearAccount } from "./custody";
 
 const DAY = 24 * 60 * 60_000;
@@ -42,12 +43,26 @@ export async function setAvatar(ctx: Ctx, userId: string, dataUrl: string | null
 }
 
 /**
+ * Who is asking to pay by email: a signed-in email person (their contacts are kept, so names show on
+ * every device they use), or a NEAR wallet, capped by where the request comes from.
+ */
+export type Payer = { userId: string; email: string } | { wallet: string; ip: string };
+
+/**
  * The account a payment to `rawEmail` goes to. Someone new gets an account now, so the money waits
  * for them; they find it when they sign in with that email. New people are capped per payer.
  */
-export async function accountForEmail(ctx: Ctx, payer: User, rawEmail: string): Promise<string> {
+export async function accountForEmail(ctx: Ctx, payer: Payer, rawEmail: string): Promise<string> {
   const email = normaliseEmail(rawEmail);
-  if (email === payer.email) throw badRequest("PAY_SELF", "That's your own email.");
+  if ("email" in payer && email === payer.email) throw badRequest("PAY_SELF", "That's your own email.");
+  const accountId = await findOrMake(ctx, payer, email);
+  if ("userId" in payer) {
+    await ctx.db.insert(nearContacts).values({ ownerId: payer.userId, accountId, email }).onConflictDoNothing();
+  }
+  return accountId;
+}
+
+async function findOrMake(ctx: Ctx, payer: Payer, email: string): Promise<string> {
   const [known] = await ctx.db
     .select({ accountId: nearProfiles.accountId })
     .from(nearProfiles)
@@ -55,13 +70,20 @@ export async function accountForEmail(ctx: Ctx, payer: User, rawEmail: string): 
     .where(eq(users.email, email))
     .limit(1);
   if (known) return known.accountId;
-  if (!(await hitRateLimit(ctx, `near:recipients:${payer.id}`, NEW_RECIPIENTS_PER_DAY, DAY))) {
+  const key = "userId" in payer ? `near:recipients:${payer.userId}` : `near:recipients:ip:${payer.ip}`;
+  if (!(await hitRateLimit(ctx, key, NEW_RECIPIENTS_PER_DAY, DAY))) {
     throw tooMany("NEW_RECIPIENTS_CAP", `You can pay up to ${NEW_RECIPIENTS_PER_DAY} new people by email a day. Try again tomorrow.`);
   }
   const person = await ensureUser(ctx, email, "invited");
   const accountId = await ensureNearAccount(ctx, person.id);
   await recordNearAccount(ctx, person.id, accountId);
   return accountId;
+}
+
+/** The people a signed-in person paid by email, as account -> email, for showing names. */
+export async function contactsOf(ctx: Ctx, userId: string): Promise<Record<string, string>> {
+  const rows = await ctx.db.select({ accountId: nearContacts.accountId, email: nearContacts.email }).from(nearContacts).where(eq(nearContacts.ownerId, userId)).limit(500);
+  return Object.fromEntries(rows.map((r) => [r.accountId, r.email]));
 }
 
 type Paid = { account_id: string; amount: string; purpose: string };
@@ -90,7 +112,7 @@ export function paidLegs(tx: WalletTx, router: string): Paid[] {
  * After a payment, email each Splits email person it paid, once per person: who sent it, how much,
  * and what for. The payer's own pockets are not told. Failures never undo the payment.
  */
-export async function notifyPaid(ctx: Ctx, payer: User, payerAccount: string, legs: Paid[], appUrl: string): Promise<number> {
+export async function notifyPaid(ctx: Ctx, from: string, payerAccount: string, legs: Paid[], appUrl: string): Promise<number> {
   const mine = (id: string) => id === payerAccount || id.endsWith(`.${payerAccount}`);
   const theirs = legs.filter((l) => !mine(l.account_id));
   if (!theirs.length) return 0;
@@ -105,11 +127,52 @@ export async function notifyPaid(ctx: Ctx, payer: User, payerAccount: string, le
     const total = parts.reduce((a, l) => a + BigInt(l.amount), 0n);
     const purpose = [...new Set(parts.map((l) => l.purpose).filter(Boolean))].join(", ") || "a payment";
     try {
-      await ctx.email.sendPaymentNotice(r.email, { from: payer.email, amount: formatUnits(total), purpose, appUrl, url: `${appUrl}/near/app` });
+      await ctx.email.sendPaymentNotice(r.email, { from, amount: formatUnits(total), purpose, appUrl, url: `${appUrl}/near/app` });
       sent++;
     } catch {
       // The money landed either way; the person sees it when they sign in.
     }
   }
   return sent;
+}
+
+type TxStatus = {
+  status?: { SuccessValue?: string; Failure?: unknown };
+  transaction?: { signer_id: string; receiver_id: string; actions: ({ FunctionCall?: { method_name: string; args: string; deposit: string } } | string)[] };
+};
+
+/**
+ * The parts of a router payment a NEAR wallet sent, read back from the chain, or nothing if the
+ * transaction failed, isn't theirs or isn't a payment. Nobody can claim someone else's payment.
+ */
+export async function walletPayment(hash: string, payer: string, fetcher: typeof fetch = fetch): Promise<Paid[]> {
+  const res = await fetcher(NEAR.rpc, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: "splits", method: "EXPERIMENTAL_tx_status", params: { tx_hash: hash, sender_account_id: payer, wait_until: "FINAL" } }),
+  });
+  const out = (await res.json().catch(() => null)) as { result?: TxStatus } | null;
+  const tx = out?.result?.transaction;
+  if (!tx || out?.result?.status?.SuccessValue === undefined || tx.signer_id !== payer || tx.receiver_id !== NEAR.token) return [];
+  const asWalletTx: WalletTx = {
+    receiverId: tx.receiver_id,
+    actions: tx.actions.flatMap((a) => {
+      if (typeof a === "string" || !a.FunctionCall) return [];
+      try {
+        const args = JSON.parse(Buffer.from(a.FunctionCall.args, "base64").toString()) as Record<string, unknown>;
+        return [{ type: "FunctionCall" as const, params: { methodName: a.FunctionCall.method_name, args, gas: "0", deposit: a.FunctionCall.deposit } }];
+      } catch {
+        return [];
+      }
+    }),
+  };
+  return paidLegs(asWalletTx, NEAR.router);
+}
+
+/** Tells the people a wallet payment paid by email, once per transaction. */
+export async function notifyWalletPayment(ctx: Ctx, hash: string, payer: string, appUrl: string, fetcher: typeof fetch = fetch): Promise<number> {
+  const legs = await walletPayment(hash, payer, fetcher);
+  if (!legs.length) return 0;
+  if (!(await hitRateLimit(ctx, `near:notified:${hash}`, 1, 100 * 365 * DAY))) return 0;
+  return notifyPaid(ctx, payer, payer, legs, appUrl);
 }

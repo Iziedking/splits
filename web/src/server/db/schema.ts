@@ -565,3 +565,17 @@ export const nearProfiles = pgTable("near_profiles", {
   avatar: text("avatar"),
   createdAt: createdAt(),
 });
+
+/** The people a signed-in person paid by email, so their names show on every device. */
+export const nearContacts = pgTable(
+  "near_contacts",
+  {
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: text("account_id").notNull(),
+    email: text("email").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.ownerId, t.accountId] })],
+);

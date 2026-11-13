@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sheet } from "@/components/app/sheet";
 import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
+import { CodeBoxes } from "./code-boxes";
 
 async function post<T>(url: string, body: unknown): Promise<T> {
   const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -60,6 +61,12 @@ export function SignInSheet({
 
   async function verify(e: React.FormEvent) {
     e.preventDefault();
+    await verifyCode(code);
+  }
+
+  // The last box filled signs in straight away, the way phone apps do.
+  async function verifyCode(code: string) {
+    if (busy || code.length !== 6) return;
     setBusy(true);
     setError(null);
     try {
@@ -82,16 +89,11 @@ export function SignInSheet({
         </form>
       ) : (
         <form onSubmit={verify} className="space-y-4">
-          <Field
-            label="Code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={6}
-            required
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            hint={hint ?? "It can take a minute. Check your spam folder too."}
-          />
+          <div>
+            <p className="mb-2 text-sm font-medium">Code</p>
+            <CodeBoxes value={code} onChange={(c) => (setCode(c), setError(null))} onComplete={(c) => void verifyCode(c)} />
+            <p className="mt-2 text-sm text-muted-foreground">{hint ?? "It can take a minute. Check your spam folder too."}</p>
+          </div>
           <Button type="submit" className="w-full" busy={busy} disabled={code.length !== 6}>
             Sign in
           </Button>

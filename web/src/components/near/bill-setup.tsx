@@ -39,7 +39,7 @@ const EXAMPLE = {
  * paid gets a link to share; nothing is saved anywhere, the link is the bill.
  */
 export function BillSetup() {
-  const { accountId, kind, signIn } = useNearWallet();
+  const { accountId, signIn } = useNearWallet();
   const [id] = React.useState(() => newBillId());
   const [title, setTitle] = React.useState("");
   const [name, setName] = React.useState("");
@@ -57,9 +57,9 @@ export function BillSetup() {
   async function lookUp(value: string) {
     const email = value.trim().toLowerCase();
     if (!isEmail(email) || byEmail[email]?.account) return;
-    if (kind !== "email") return setByEmail((m) => ({ ...m, [email]: { error: "Adding a friend by email needs you signed in with your email." } }));
+    if (!accountId) return setByEmail((m) => ({ ...m, [email]: { error: "Sign in to add a friend by email." } }));
     try {
-      const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const res = await fetch("/api/near/recipient", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, payer: accountId }) });
       const body = (await res.json().catch(() => ({}))) as { accountId?: string; error?: { message?: string } };
       if (!res.ok || !body.accountId) throw new Error(body.error?.message ?? "That email could not be set up. Try again.");
       rememberName(body.accountId, email);

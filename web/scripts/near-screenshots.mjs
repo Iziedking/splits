@@ -87,8 +87,10 @@ const SHOTS = [
       await p.getByLabel("Email").fill(`judge+${Date.now()}@example.com`);
       await p.getByRole("button", { name: "Send me a code" }).click();
       const hint = await p.getByText(/your code is \d{6}/).textContent({ timeout: 20_000 });
-      await p.getByLabel("Code").fill(hint.match(/\d{6}/)[0]);
-      await p.getByRole("dialog").getByRole("button", { name: "Sign in", exact: true }).click();
+      await p.screenshot({ path: path.join(OUT, "email-code-1280.png") });
+      // Six boxes; a pasted or filled code spreads across them and signs in on the last digit.
+      await p.getByLabel("Digit 1 of 6").fill(hint.match(/\d{6}/)[0]);
+      await p.getByLabel("Digit 6 of 6").waitFor();
       const t0 = Date.now();
       await p.getByText("Add $5.00 of test money").waitFor({ timeout: 120_000 });
       console.log(`email-signin: signed in, account made, in ${Date.now() - t0}ms`);
