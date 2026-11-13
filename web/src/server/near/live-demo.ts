@@ -39,9 +39,9 @@ const SPLIT = (person: string) => [
 
 export type LiveDemoResult = { hash: string; total: string; legs: { purpose: string; amount: string; landed: boolean }[] };
 
-let ready = false;
-async function ensureReady(ctx: Ctx) {
-  if (ready) return;
+let readyVersion: number | null = null;
+async function ensureReady(ctx: Ctx): Promise<number> {
+  if (readyVersion !== null) return readyVersion;
   const payer = await ensureNearAccount(ctx, PAYER);
   const person = await ensureNearAccount(ctx, PERSON);
   const want = SPLIT(person);
@@ -51,7 +51,10 @@ async function ensureReady(ctx: Ctx) {
     await relayAs(PERSON, person, NEAR.router, [{ methodName: "set_split", args: { shares: want }, gas: 30n * TGAS, deposit: 10_000_000_000_000_000_000_000n }]);
   }
   if ((await usdcBalance(payer)) < LIVE_DEMO.amountUnits) await refill(payer, person);
-  ready = true;
+  const saved = await savedSplitOf(person);
+  if (!saved) throw badRequest("LIVE_DEMO_NOT_READY", "The demo is not ready yet. Try again in a minute.");
+  readyVersion = saved.version;
+  return readyVersion;
 }
 
 /** Brings the person's test money back to the payer; the first time, the app account seeds it. */
@@ -84,7 +87,10 @@ export async function runLiveDemo(ctx: Ctx, ip: string): Promise<LiveDemoResult>
   await limit(ctx, "near:livedemo:hour", LIVE_DEMO.perHour, HOUR, "The demo is busy this hour. Try again in a little while.");
   await limit(ctx, "near:livedemo:day", LIVE_DEMO.perDay, DAY, "The demo has reached today's limit. Try again tomorrow.");
   try {
-    return await oneAtATime(() => pay(ctx));
+    const result = await oneAtATime(() => pay(ctx));
+    // Get the payer ready for the next visitor now, so nobody waits for the refill.
+    void oneAtATime(topUpIfLow).catch(() => undefined);
+    return result;
   } catch (e) {
     // Nothing was paid, so the visitor keeps this try.
     await refundRateHit(ctx, `near:livedemo:ip:${ip}`, HOUR);
@@ -92,18 +98,21 @@ export async function runLiveDemo(ctx: Ctx, ip: string): Promise<LiveDemoResult>
   }
 }
 
+async function topUpIfLow() {
+  const payer = demoPayer();
+  if ((await usdcBalance(payer)) < LIVE_DEMO.amountUnits) await refill(payer, demoPerson());
+}
+
 async function pay(ctx: Ctx): Promise<LiveDemoResult> {
-  await ensureReady(ctx);
+  const version = await ensureReady(ctx);
   const payer = demoPayer();
   const person = demoPerson();
-  if ((await usdcBalance(payer)) < LIVE_DEMO.amountUnits) await refill(payer, person);
-  const split = await savedSplitOf(person);
-  if (!split) throw badRequest("LIVE_DEMO_NOT_READY", "The demo is not ready yet. Try again in a minute.");
+  await topUpIfLow(); // normally a no-op: the last payment already refilled
   const ref = newRef();
   const out = await relayAs(PAYER, payer, NEAR.token, [
     {
       methodName: "ft_transfer_call",
-      args: { receiver_id: NEAR.router, amount: LIVE_DEMO.amountUnits.toString(), msg: JSON.stringify({ ref, to: person, version: split.version }) },
+      args: { receiver_id: NEAR.router, amount: LIVE_DEMO.amountUnits.toString(), msg: JSON.stringify({ ref, to: person, version }) },
       gas: gasFor(3),
       deposit: 1n,
     },
