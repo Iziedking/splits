@@ -23,9 +23,11 @@ const APP_NAV: { href: string; label: string; short: string; icon: LucideIcon; p
   { href: "/near/button", label: "Checkout button", short: "Button", icon: ShoppingBag, phone: false },
 ];
 
-/** "Test mode" while this runs on testnet, the way payment dashboards say it. Nothing on mainnet. */
+/** "Test mode" while this runs on testnet, the way payment dashboards say it. Nothing on mainnet pages. */
 function TestMode({ tone = "light" }: { tone?: "light" | "dark" }) {
-  if (NEAR.network !== "testnet") return null;
+  const path = usePathname();
+  // Paying from another chain settles on NEAR mainnet with real money, so it never says test.
+  if (NEAR.network !== "testnet" || path?.startsWith("/near/checkout")) return null;
   return (
     <span className={cn("rounded-full px-3 py-1 text-xs font-bold", tone === "light" ? "bg-purpose-4 text-foreground" : "bg-white/15 text-white")}>
       Test mode<span className="sr-only">. Payments use test money with no value.</span>
@@ -33,9 +35,9 @@ function TestMode({ tone = "light" }: { tone?: "light" | "dark" }) {
   );
 }
 
-/** Connect, or the connected account. Closing the wallet picker is a choice, not an error. */
+/** Sign in, or the signed-in account. Closing the sign-in is a choice, not an error. */
 function useConnect() {
-  const { ready, accountId, signIn, signOut } = useNearWallet();
+  const { ready, accountId, email, signIn, signOut } = useNearWallet();
   const [error, setError] = React.useState<string | null>(null);
   const connect = async () => {
     setError(null);
@@ -44,13 +46,13 @@ function useConnect() {
     } catch (e) {
       const message = e instanceof Error ? e.message : "";
       if (/reject|cancel|closed/i.test(message)) return;
-      setError(message || "The wallet did not connect");
+      setError(message || "Sign-in did not finish. Try again.");
     }
   };
-  return { ready, accountId, connect, signOut, error };
+  return { ready, accountId, name: email ?? accountId, connect, signOut, error };
 }
 
-/** The signed-in account as a person sees it: an initial and the name. */
+/** The signed-in person as they see themselves: an initial and their email, or a wallet's name. */
 function AccountChip({ id, tone = "light" }: { id: string; tone?: "light" | "dark" }) {
   return (
     <span className={cn("inline-flex max-w-full min-w-0 items-center gap-2", tone === "dark" ? "text-white" : "text-foreground")}>
@@ -63,18 +65,18 @@ function AccountChip({ id, tone = "light" }: { id: string; tone?: "light" | "dar
       >
         {id.charAt(0)}
       </span>
-      <span className="min-w-0 truncate font-mono text-micro">{id}</span>
+      <span className={cn("min-w-0 truncate", id.includes("@") ? "text-sm" : "font-mono text-micro")}>{id}</span>
     </span>
   );
 }
 
 function ConnectOrAccount() {
-  const { ready, accountId, connect } = useConnect();
-  return accountId ? (
-    <AccountChip id={accountId} />
+  const { ready, accountId, name, connect } = useConnect();
+  return accountId && name ? (
+    <AccountChip id={name} />
   ) : (
     <Button size="sm" busy={!ready} onClick={() => void connect()}>
-      Connect<span className="hidden sm:inline"> wallet</span>
+      Sign in
     </Button>
   );
 }
@@ -161,7 +163,7 @@ export function FlowShell({ children }: { children: React.ReactNode }) {
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { ready, accountId, connect, signOut, error } = useConnect();
+  const { ready, accountId, name, connect, signOut, error } = useConnect();
   const current = (href: string) => path === href || path.startsWith(`${href}/`);
 
   return (
@@ -192,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="mt-auto rounded-xl bg-white/10 p-3">
           {accountId ? (
             <>
-              <AccountChip id={accountId} tone="dark" />
+              <AccountChip id={name ?? accountId} tone="dark" />
               <button
                 type="button"
                 onClick={() => void signOut()}
@@ -204,14 +206,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </>
           ) : (
             <>
-              <p className="text-sm text-white/85">Connect a NEAR wallet to pay people and save your split.</p>
+              <p className="text-sm text-white/85">Sign in with your email to pay people and save your split.</p>
               <button
                 type="button"
                 disabled={!ready}
                 onClick={() => void connect()}
                 className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-primary-fill transition-[background-color,transform] duration-150 hover:bg-white/90 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-primary-fill focus-visible:outline-none active:scale-[0.98] disabled:opacity-60"
               >
-                Connect wallet
+                Sign in
               </button>
             </>
           )}
@@ -226,7 +228,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <TestMode />
         <div className="ml-auto flex min-w-0 justify-end">
           {accountId ? (
-            <AccountChip id={accountId} />
+            <AccountChip id={name ?? accountId} />
           ) : (
             <Button size="sm" busy={!ready} onClick={() => void connect()}>
               Connect
