@@ -52,7 +52,7 @@ describe("what is wrong with a bill", () => {
     expect(text).toMatch(/what the bill was for/);
     expect(text).toMatch(/your name/);
     expect(text).toMatch(/add their name/);
-    expect(text).toMatch(/not a NEAR account/);
+    expect(text).toMatch(/isn't an email or Splits account/);
     expect(text).toMatch(/at least 0.01/);
   });
 

@@ -262,6 +262,11 @@ export function SendFlow({ initial }: { initial?: Line[] }) {
             <Button className="mt-4 w-full" busy={busy === "checking"} onClick={() => void onReview()}>
               Check the list
             </Button>
+            {busy === "checking" && lines.some((l) => EMAIL.test(l.account.trim())) && (
+              <p className="mt-2 text-sm text-muted-foreground" role="status">
+                Setting up an account for anyone new. This can take up to 20 seconds.
+              </p>
+            )}
           </>
         ) : (
           <>

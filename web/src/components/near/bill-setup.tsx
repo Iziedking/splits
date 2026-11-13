@@ -90,6 +90,14 @@ export function BillSetup() {
   const url = ready && origin ? `${origin}${billPath(bill)}` : null;
   const started = Boolean(title || subtotal || rows.some((r) => r.name || r.account));
 
+  React.useEffect(() => {
+    const pending = rows.map((r) => r.account.trim().toLowerCase()).filter((e) => isEmail(e) && !byEmail[e]);
+    if (!pending.length || !accountId) return;
+    const t = setTimeout(() => pending.forEach((e) => void lookUp(e)), 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, accountId]);
+
   const update = (i: number, patch: Partial<Row>) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   async function share() {

@@ -124,7 +124,16 @@ export function SplitFlow() {
       if (!ok) throw new Error("Your rule wasn't saved. Please try again.");
       setSavedTx(hash);
       setDraft(null);
-      await load();
+      // RPC nodes can lag the final transaction by a block or two; read until the new version shows.
+      const before = saved?.version ?? 0;
+      for (let i = 0; i < 8; i++) {
+        const now = await getSplit(accountId!).catch(() => null);
+        if (now && now.version > before) {
+          setSaved(now);
+          break;
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Your split was not saved. Try again.");
     } finally {

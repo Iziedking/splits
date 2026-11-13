@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Notice } from "@/components/ui/field";
 import { legsFor, MAX_BUTTON_UNITS, type ButtonConfig } from "@/lib/near/button";
 import { NEAR } from "@/lib/near/config";
-import { buildPayTx, CENT, formatNear, formatUnits, nearNeededForGas, newRef, parseCents, formatDollars } from "@/lib/near/payment";
+import { buildPayTx, CENT, formatNear, nearNeededForGas, newRef, parseCents, formatDollars } from "@/lib/near/payment";
 import { getAccount, isRegistered, spendable, tokenBalance } from "@/lib/near/rpc";
 import { PaymentResult, returnedHash, savePending, takePending, useVerify, type Pending } from "./result";
 import { SharesList } from "./split-flow";
@@ -89,17 +89,17 @@ export function BuyFlow({ config, back }: { config: ButtonConfig; back: { href: 
 
         {config.amount !== null ? (
           <p className="figure mt-6 text-figure-lg tabular-nums">
-            {formatUnits(config.amount)} <span className="text-lg font-semibold text-muted-foreground">{NEAR.tokenSymbol}</span>
+            {formatDollars(config.amount)}
           </p>
         ) : (
           <Field
             className="mt-6"
-            label={`Amount (${NEAR.tokenSymbol})`}
+            label="Amount ($)"
             inputMode="decimal"
             placeholder="25.00"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            error={amount && typed === null ? "Enter an amount like 25 or 12.50" : tooBig ? `The most for one checkout is ${formatUnits(MAX_BUTTON_UNITS)}` : null}
+            error={amount && typed === null ? "Enter an amount like 25 or 12.50" : tooBig ? `The most for one checkout is ${formatDollars(MAX_BUTTON_UNITS)}` : null}
           />
         )}
 

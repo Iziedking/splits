@@ -7,7 +7,7 @@ import { PaymentDetails } from "@/components/app/payment-details";
 import { PurposeDot } from "@/components/app/purpose-dot";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { NEAR, txUrl } from "@/lib/near/config";
-import { formatUnits, refusalText, splitsEvents, verifyPayment, type Leg, type Verdict, formatDollars } from "@/lib/near/payment";
+import { refusalText, splitsEvents, verifyPayment, type Leg, type Verdict, formatDollars } from "@/lib/near/payment";
 import { finalTx } from "@/lib/near/rpc";
 import { paymentCsv } from "@/lib/near/csv";
 import { cn } from "@/lib/utils";
@@ -149,7 +149,7 @@ export function PaymentResult({
               ? `Split between ${people} ${people === 1 ? "person" : "people"}${pending.to ? ` by ${pending.to}'s saved split` : ""}.`
               : `${formatDollars(v.refunded)} couldn't be delivered and came back to you. The other parts arrived.`
           }
-          amount={formatUnits(v.paid)}
+          amount={formatDollars(v.paid)}
         />
         <SplitBar className="mt-6" weights={v.legs.map((l) => Number(BigInt(l.amount) / 10_000n) || 1)} />
       </Panel>
@@ -166,7 +166,7 @@ export function PaymentResult({
               </p>
             </div>
             <div className="text-right">
-              <p className="font-semibold tabular-nums">{formatUnits(BigInt(l.amount))}</p>
+              <p className="font-semibold tabular-nums">{formatDollars(BigInt(l.amount))}</p>
               {l.landed && (
                 <Link
                   className="text-sm font-medium text-primary-text underline-offset-4 hover:underline"
@@ -222,7 +222,7 @@ function Outcome({ tone, title, text, amount }: { tone: "done" | "wait" | "stop"
       <h2 className="mt-5 text-2xl font-bold">{title}</h2>
       {amount && (
         <p className="figure mt-2 text-figure-lg tabular-nums">
-          {amount} <span className="text-lg font-semibold text-muted-foreground">{NEAR.tokenSymbol}</span>
+          {amount}
         </p>
       )}
       <p className="mt-2 max-w-sm text-muted-foreground">{text}</p>

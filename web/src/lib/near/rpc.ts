@@ -112,7 +112,8 @@ export async function finalTx(hash: string, sender: string, signal?: AbortSignal
   }
 }
 
-let relayer: string | null = null;
+// On the server (a shared receipt) the relayer is the app account itself; browsers learn it from /api/near/me.
+let relayer: string | null = typeof window === "undefined" ? process.env.NEAR_APP_ACCOUNT || null : null;
 /** The app account that relays email accounts' transactions, from /api/near/me. */
 export function setRelayer(id: string) {
   relayer = id || null;

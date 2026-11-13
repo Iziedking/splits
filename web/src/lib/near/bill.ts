@@ -78,7 +78,7 @@ export function billProblems(b: Bill): string[] {
     const who = p.name.trim() || `Friend ${i + 1}`;
     if (!p.name.trim()) out.push(`Friend ${i + 1}: add their name.`);
     else if (p.name.length > MAX_NAME) out.push(`${who}: keep the name under ${MAX_NAME} characters.`);
-    if (!isAccountId(p.account)) out.push(`${who}: "${p.account || "(empty)"}" is not a NEAR account.`);
+    if (!isAccountId(p.account)) out.push(p.account ? `${who}: "${p.account}" isn't an email or Splits account.` : `${who}: add their email or Splits account.`);
     else if (p.account === b.host) out.push(`${who}: that is your own wallet. Leave yourself off the list.`);
     else if (seen.has(p.account)) out.push(`${who}: ${p.account} is on the bill twice.`);
     seen.add(p.account);
